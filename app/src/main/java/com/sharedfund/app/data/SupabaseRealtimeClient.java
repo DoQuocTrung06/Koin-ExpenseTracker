@@ -101,7 +101,7 @@ public class SupabaseRealtimeClient {
     private void startHeartbeat() {
         stopHeartbeat();
         heartbeatTimer = new Timer();
-        heartbeatTimer.scheduleAtFixedRate(new TimerTask() {
+        heartbeatTimer.schedule(new TimerTask() {
             @Override
             public void run() {
                 if (webSocketClient != null && webSocketClient.isOpen()) {
