@@ -1,62 +1,39 @@
 package com.sharedfund.app.model;
 
-import com.google.gson.annotations.SerializedName;
 import java.io.Serializable;
 import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.util.Locale;
 
+/**
+ * Model biểu diễn Giao dịch (Transaction)
+ * Thống nhất theo mục 6.2 tài liệu Giai đoạn 3
+ */
 public class Transaction implements Serializable {
+    public static final String TYPE_INCOME = "Thu";
+    public static final String TYPE_EXPENSE = "Chi";
 
-    @SerializedName("id")
     private String id;
-
-    @SerializedName("room_id")
     private String roomId;
-
-    @SerializedName("user_id")
-    private String userId;
-
-    @SerializedName("user_name")
-    private String userName;
-
-    @SerializedName("amount")
     private double amount;
-
-    @SerializedName("type")
-    private String type;
-
-    @SerializedName("category")
-    private String category;
-
-    @SerializedName("note")
-    private String note;
-
-    @SerializedName("bill_image_url")
-    private String billImageUrl;
-
-    @SerializedName("balance_after")
-    private double balanceAfter;
-
-    @SerializedName("status")
-    private String status;
-
-    @SerializedName("transaction_date")
-    private String transactionDate;
-
-    @SerializedName("created_at")
-    private String createdAt;
+    private String type; // "Thu" hoặc "Chi"
+    private String category; // Ăn uống, Di chuyển, Mua sắm, Thuê phòng, Đóng quỹ,...
+    private String note; // Lời tựa
+    private String createdBy; // ID hoặc tên hiển thị người tạo
+    private String createdAt; // Thời gian tạo
 
     public Transaction() {
-        this.status = "COMPLETED";
     }
 
-    public Transaction(String roomId, String userName, double amount, String type, String category, String note) {
+    public Transaction(String id, String roomId, double amount, String type, String category, String note, String createdBy, String createdAt) {
+        this.id = id;
         this.roomId = roomId;
-        this.userName = userName;
         this.amount = amount;
         this.type = type;
         this.category = category;
         this.note = note;
-        this.status = "COMPLETED";
+        this.createdBy = createdBy;
+        this.createdAt = createdAt;
     }
 
     public String getId() {
@@ -73,22 +50,6 @@ public class Transaction implements Serializable {
 
     public void setRoomId(String roomId) {
         this.roomId = roomId;
-    }
-
-    public String getUserId() {
-        return userId;
-    }
-
-    public void setUserId(String userId) {
-        this.userId = userId;
-    }
-
-    public String getUserName() {
-        return userName;
-    }
-
-    public void setUserName(String userName) {
-        this.userName = userName;
     }
 
     public double getAmount() {
@@ -123,36 +84,12 @@ public class Transaction implements Serializable {
         this.note = note;
     }
 
-    public String getBillImageUrl() {
-        return billImageUrl;
+    public String getCreatedBy() {
+        return createdBy;
     }
 
-    public void setBillImageUrl(String billImageUrl) {
-        this.billImageUrl = billImageUrl;
-    }
-
-    public double getBalanceAfter() {
-        return balanceAfter;
-    }
-
-    public void setBalanceAfter(double balanceAfter) {
-        this.balanceAfter = balanceAfter;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
-    public String getTransactionDate() {
-        return transactionDate;
-    }
-
-    public void setTransactionDate(String transactionDate) {
-        this.transactionDate = transactionDate;
+    public void setCreatedBy(String createdBy) {
+        this.createdBy = createdBy;
     }
 
     public String getCreatedAt() {
@@ -163,21 +100,27 @@ public class Transaction implements Serializable {
         this.createdAt = createdAt;
     }
 
+    public boolean isIncome() {
+        return TYPE_INCOME.equalsIgnoreCase(type) || "INCOME".equalsIgnoreCase(type);
+    }
+
     public boolean isExpense() {
-        return "EXPENSE".equalsIgnoreCase(type);
+        return TYPE_EXPENSE.equalsIgnoreCase(type) || "EXPENSE".equalsIgnoreCase(type);
     }
 
+    /**
+     * Định dạng số tiền có tiền tố (+) hoặc (-) theo loại giao dịch
+     * Sử dụng DecimalFormatSymbols độc lập locale, đảm bảo không bị cắt số tiền dài.
+     */
     public String getFormattedAmount() {
-        DecimalFormat formatter = new DecimalFormat("#,###");
-        if (isExpense()) {
-            return "- " + formatter.format(amount) + " ₫";
+        DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.US);
+        symbols.setGroupingSeparator('.');
+        DecimalFormat formatter = new DecimalFormat("#,##0", symbols);
+        String formatted = formatter.format(amount) + " ₫";
+        if (isIncome()) {
+            return "+" + formatted;
         } else {
-            return "+ " + formatter.format(amount) + " ₫";
+            return "-" + formatted;
         }
-    }
-
-    public String getFormattedBalanceAfter() {
-        DecimalFormat formatter = new DecimalFormat("#,###");
-        return formatter.format(balanceAfter) + " ₫";
     }
 }

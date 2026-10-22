@@ -9,63 +9,63 @@ import com.sharedfund.app.model.Room;
 
 import java.util.List;
 
+/**
+ * ViewModel cho màn hình Trang chủ (HomeFragment)
+ * Quản lý danh sách quỹ, tổng số dư toàn bộ, trạng thái tải và các thao tác Tạo / Tham gia quỹ.
+ */
 public class HomeViewModel extends ViewModel {
-
-    private final RoomRepository roomRepository;
-    private final MutableLiveData<List<Room>> roomsLiveData;
-    private final MutableLiveData<Boolean> isLoadingLiveData;
-    private final MutableLiveData<String> errorMessageLiveData;
+    private final RoomRepository repository;
+    private final MutableLiveData<Boolean> isLoading = new MutableLiveData<>(false);
+    private final MutableLiveData<String> actionMessage = new MutableLiveData<>();
 
     public HomeViewModel() {
-        this.roomRepository = new RoomRepository();
-        this.roomsLiveData = new MutableLiveData<>();
-        this.isLoadingLiveData = new MutableLiveData<>();
-        this.errorMessageLiveData = new MutableLiveData<>();
+        this.repository = RoomRepository.getInstance();
     }
 
-    public LiveData<List<Room>> getRoomsLiveData() {
-        return roomsLiveData;
+    public LiveData<List<Room>> getRooms() {
+        return repository.getRoomsLiveData();
     }
 
-    public LiveData<Boolean> getIsLoadingLiveData() {
-        return isLoadingLiveData;
+    public LiveData<Double> getTotalBalance() {
+        return repository.getTotalBalanceLiveData();
     }
 
-    public LiveData<String> getErrorMessageLiveData() {
-        return errorMessageLiveData;
+    public LiveData<Boolean> getIsLoading() {
+        return isLoading;
     }
 
-    public void loadRooms() {
-        isLoadingLiveData.setValue(true);
-        roomRepository.getAllRooms(new RoomRepository.DataCallback<List<Room>>() {
-            @Override
-            public void onSuccess(List<Room> data) {
-                isLoadingLiveData.postValue(false);
-                roomsLiveData.postValue(data);
-            }
-
-            @Override
-            public void onError(String errorMessage) {
-                isLoadingLiveData.postValue(false);
-                errorMessageLiveData.postValue(errorMessage);
-            }
-        });
+    public LiveData<String> getActionMessage() {
+        return actionMessage;
     }
 
-    public void createNewRoom(String name, String description, String joinCode, String createdBy) {
-        isLoadingLiveData.setValue(true);
-        Room newRoom = new Room(name, description, joinCode, 0.0, createdBy);
-        roomRepository.createRoom(newRoom, new RoomRepository.DataCallback<Room>() {
-            @Override
-            public void onSuccess(Room data) {
-                loadRooms();
-            }
+    public void createRoom(String name, String description) {
+        if (name == null || name.trim().isEmpty()) {
+            actionMessage.setValue("Tên quỹ không được để trống!");
+            return;
+        }
+        isLoading.setValue(true);
+        // Giả lập thao tác bất đồng bộ
+        Room newRoom = repository.createRoom(name.trim(), description != null ? description.trim() : "");
+        isLoading.setValue(false);
+        if (newRoom != null) {
+            actionMessage.setValue("Tạo quỹ \"" + newRoom.getName() + "\" thành công!");
+        } else {
+            actionMessage.setValue("Tạo quỹ thất bại!");
+        }
+    }
 
-            @Override
-            public void onError(String errorMessage) {
-                isLoadingLiveData.postValue(false);
-                errorMessageLiveData.postValue(errorMessage);
-            }
-        });
+    public void joinRoom(String joinCode) {
+        if (joinCode == null || joinCode.trim().isEmpty()) {
+            actionMessage.setValue("Vui lòng nhập mã tham gia!");
+            return;
+        }
+        isLoading.setValue(true);
+        Room room = repository.joinRoomByCode(joinCode.trim());
+        isLoading.setValue(false);
+        if (room != null) {
+            actionMessage.setValue("Đã tham gia quỹ \"" + room.getName() + "\"!");
+        } else {
+            actionMessage.setValue("Không tìm thấy quỹ với mã tham gia này!");
+        }
     }
 }
