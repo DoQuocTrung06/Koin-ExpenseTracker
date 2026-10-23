@@ -46,17 +46,22 @@
             </LinearLayout>
 
             <FrameLayout
+                android:id="@+id/btnUserProfile"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
-                android:background="@drawable/bg_circle_icon">
+                android:background="@drawable/bg_avatar_circle"
+                android:clickable="true"
+                android:focusable="true">
 
-                <ImageView
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
+                <TextView
+                    android:id="@+id/tvUserInitials"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
                     android:layout_gravity="center"
-                    android:contentDescription="User Avatar"
-                    android:src="@drawable/ic_group"
-                    app:tint="@color/primary" />
+                    android:text="U"
+                    android:textColor="@color/white"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
             </FrameLayout>
         </LinearLayout>
 

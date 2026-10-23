@@ -25,6 +25,7 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import com.sharedfund.app.MainActivity;
 import com.sharedfund.app.R;
+import com.sharedfund.app.data.UserSessionManager;
 import com.sharedfund.app.model.Room;
 import com.sharedfund.app.model.Transaction;
 import com.sharedfund.app.ui.transaction.TransactionAdapter;
@@ -34,8 +35,8 @@ import java.util.List;
 
 /**
  * Màn hình Chi tiết quỹ (RoomDetailFragment)
- * Quản lý số dư quỹ, danh sách giao dịch gần nhất, thành viên và các nút chuyển hướng nhanh.
- * Hỗ trợ tự động cập nhật khi dữ liệu thay đổi, tự co giãn số tiền dài, phản hồi nút bấm đầy đủ.
+ * Tích hợp: phân quyền role Admin/Member, click thành viên mở BottomSheet,
+ * nút Nạp tiền VietQR, và tự động cập nhật khi dữ liệu thay đổi.
  */
 public class RoomDetailFragment extends Fragment implements TransactionAdapter.OnTransactionClickListener {
 
@@ -56,7 +57,8 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
     private TextView tvDetailMemberCount;
     private TextView tvDetailMembersList;
     private View btnNavTransactions;
-    private View btnNavAddTransaction;
+    private View btnNavAddTransaction;  // Nút Chi tiền (chỉ Admin)
+    private View btnNavDeposit;         // Nút Nạp tiền (tất cả)
     private View btnNavStatistics;
     private TextView tvSeeAllTransactions;
     private LinearLayout layoutEmptyRecentTx;
@@ -64,6 +66,8 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
     private MaterialCardView cardRecentTransactions;
     private RecyclerView rvRecentTransactions;
     private ProgressBar pbDetailLoading;
+    // Container thành viên (clickable để mở Dialog)
+    private View cardMembersContainer;
 
     public static RoomDetailFragment newInstance(String roomId) {
         RoomDetailFragment fragment = new RoomDetailFragment();
@@ -118,6 +122,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
         tvDetailMembersList = view.findViewById(R.id.tvDetailMembersList);
         btnNavTransactions = view.findViewById(R.id.btnNavTransactions);
         btnNavAddTransaction = view.findViewById(R.id.btnNavAddTransaction);
+        btnNavDeposit = view.findViewById(R.id.btnNavDeposit);
         btnNavStatistics = view.findViewById(R.id.btnNavStatistics);
         tvSeeAllTransactions = view.findViewById(R.id.tvSeeAllTransactions);
         layoutEmptyRecentTx = view.findViewById(R.id.layoutEmptyRecentTx);
@@ -125,6 +130,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
         cardRecentTransactions = view.findViewById(R.id.cardRecentTransactions);
         rvRecentTransactions = view.findViewById(R.id.rvRecentTransactions);
         pbDetailLoading = view.findViewById(R.id.pbDetailLoading);
+        cardMembersContainer = view.findViewById(R.id.cardMembersContainer);
     }
 
     private void setupRecyclerView() {
@@ -157,6 +163,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                         }
                         tvDetailMembersList.setText(sb.toString());
                     }
+                    applyRoleBasedUi(room);
                 }
             }
         });
@@ -206,66 +213,110 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
     }
 
     private void setupClickListeners() {
-        btnBack.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                requireActivity().onBackPressed();
+        btnBack.setOnClickListener(v -> requireActivity().onBackPressed());
+
+        btnDetailCopyCode.setOnClickListener(v -> copyJoinCode());
+
+        // Click vào khu vực thành viên -> mở BottomSheet danh sách
+        if (cardMembersContainer != null) {
+            cardMembersContainer.setOnClickListener(v -> {
+                MembersDialogFragment dialog = MembersDialogFragment.newInstance(roomId);
+                dialog.show(getChildFragmentManager(), "members_dialog");
+            });
+        }
+
+        btnNavTransactions.setOnClickListener(v -> {
+            if (getActivity() instanceof MainActivity) {
+                ((MainActivity) getActivity()).openTransactions(roomId);
             }
         });
 
-        btnDetailCopyCode.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                copyJoinCode();
+        // Chi tiền: chỉ Admin mới thao tác được
+        btnNavAddTransaction.setOnClickListener(v -> {
+            boolean isAdmin = isCurrentUserAdmin();
+            if (!isAdmin) {
+                Toast.makeText(requireContext(),
+                        "Chỉ Trưởng quỹ mới có thể thêm khoản chi!", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (getActivity() instanceof MainActivity) {
+                ((MainActivity) getActivity()).openAddTransaction(roomId);
             }
         });
 
-        btnNavTransactions.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (getActivity() instanceof MainActivity) {
-                    ((MainActivity) getActivity()).openTransactions(roomId);
-                }
-            }
-        });
-
-        btnNavAddTransaction.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (getActivity() instanceof MainActivity) {
-                    ((MainActivity) getActivity()).openAddTransaction(roomId);
-                }
-            }
-        });
+        // Nạp tiền: tất cả thành viên đều có thể nạp
+        if (btnNavDeposit != null) {
+            btnNavDeposit.setOnClickListener(v -> {
+                DepositDialogFragment depositDialog = DepositDialogFragment.newInstance(roomId);
+                depositDialog.setOnDepositCompleteListener(amount -> {
+                    // Refresh data sau khi nạp tiền
+                    if (viewModel != null) viewModel.refresh();
+                });
+                depositDialog.show(getChildFragmentManager(), "deposit_dialog");
+            });
+        }
 
         if (btnEmptyAddTx != null) {
-            btnEmptyAddTx.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    if (getActivity() instanceof MainActivity) {
-                        ((MainActivity) getActivity()).openAddTransaction(roomId);
-                    }
+            btnEmptyAddTx.setOnClickListener(v -> {
+                if (isCurrentUserAdmin() && getActivity() instanceof MainActivity) {
+                    ((MainActivity) getActivity()).openAddTransaction(roomId);
+                } else if (!isCurrentUserAdmin()) {
+                    Toast.makeText(requireContext(),
+                            "Chỉ Trưởng quỹ mới có thể thêm khoản chi!", Toast.LENGTH_SHORT).show();
                 }
             });
         }
 
-        btnNavStatistics.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (getActivity() instanceof MainActivity) {
-                    ((MainActivity) getActivity()).openStatistics(roomId);
-                }
+        btnNavStatistics.setOnClickListener(v -> {
+            if (getActivity() instanceof MainActivity) {
+                ((MainActivity) getActivity()).openStatistics(roomId);
             }
         });
 
-        tvSeeAllTransactions.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (getActivity() instanceof MainActivity) {
-                    ((MainActivity) getActivity()).openTransactions(roomId);
-                }
+        tvSeeAllTransactions.setOnClickListener(v -> {
+            if (getActivity() instanceof MainActivity) {
+                ((MainActivity) getActivity()).openTransactions(roomId);
             }
         });
+    }
+
+    /**
+     * Áp dụng phân quyền giao diện dựa trên vai trò của người dùng hiện tại theo tài liệu:
+     * - Trưởng quỹ (Admin): Mở nút Chi tiền (Rút quỹ), nút Chỉnh sửa quỹ.
+     * - Thành viên (Member): Ẩn nút Chi tiền, chỉ giữ nút Nạp tiền và xem sao kê.
+     */
+    private void applyRoleBasedUi(Room room) {
+        boolean isAdmin = isCurrentUserAdmin();
+        if (btnNavAddTransaction != null) {
+            btnNavAddTransaction.setVisibility(isAdmin ? View.VISIBLE : View.GONE);
+        }
+        if (btnEmptyAddTx != null) {
+            btnEmptyAddTx.setVisibility(isAdmin ? View.VISIBLE : View.GONE);
+        }
+    }
+
+    /**
+     * Kiểm tra người dùng hiện tại có phải Trưởng quỹ của phòng này không.
+     * Dựa trên danh sách members: nếu có ai đó gắn nhãn "Trưởng quỹ", so sánh với tài khoản đang đăng nhập.
+     */
+    private boolean isCurrentUserAdmin() {
+        Room room = viewModel != null ? viewModel.getRoom().getValue() : null;
+        if (room == null || room.getMembers() == null) return false;
+
+        String currentUserName = UserSessionManager.getInstance(requireContext()).getCurrentUserName();
+        for (String member : room.getMembers()) {
+            if (member.contains("Trưởng quỹ")) {
+                // Nếu Trưởng quỹ có chứa chữ "Bạn" hoặc trùng với tên tài khoản hiện tại -> là Admin
+                if (member.toLowerCase().contains("bạn") ||
+                        (currentUserName != null && !currentUserName.isEmpty()
+                                && member.toLowerCase().contains(currentUserName.toLowerCase()))) {
+                    return true;
+                } else {
+                    return false; // Trưởng quỹ là thành viên khác (ví dụ: Quốc Huy) -> User là Member
+                }
+            }
+        }
+        return false;
     }
 
     private void copyJoinCode() {

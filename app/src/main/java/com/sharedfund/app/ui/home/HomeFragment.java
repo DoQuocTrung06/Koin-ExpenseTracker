@@ -59,6 +59,9 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
     private MaterialButton btnRetryRooms;
     private ProgressBar pbLoading;
 
+    private View btnUserProfile;
+    private TextView tvUserInitials;
+
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
@@ -75,7 +78,31 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
         setupClickListeners();
     }
 
+    @Override
+    public void onResume() {
+        super.onResume();
+        updateUserAvatar();
+    }
+
+    private void updateUserAvatar() {
+        if (tvUserInitials != null && getContext() != null) {
+            String name = com.sharedfund.app.data.UserSessionManager.getInstance(requireContext()).getCurrentUserName();
+            if (name != null && !name.trim().isEmpty()) {
+                String[] parts = name.trim().split(" ");
+                if (parts.length >= 2) {
+                    tvUserInitials.setText(("" + parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase());
+                } else {
+                    tvUserInitials.setText(("" + name.charAt(0)).toUpperCase());
+                }
+            } else {
+                tvUserInitials.setText("U");
+            }
+        }
+    }
+
     private void initViews(View view) {
+        btnUserProfile = view.findViewById(R.id.btnUserProfile);
+        tvUserInitials = view.findViewById(R.id.tvUserInitials);
         tvTotalBalance = view.findViewById(R.id.tvTotalBalance);
         tvRoomCountSubtitle = view.findViewById(R.id.tvRoomCountSubtitle);
         tvRoomCountBadge = view.findViewById(R.id.tvRoomCountBadge);
@@ -88,6 +115,8 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
         tvErrorMessage = view.findViewById(R.id.tvErrorMessage);
         btnRetryRooms = view.findViewById(R.id.btnRetryRooms);
         pbLoading = view.findViewById(R.id.pbLoading);
+
+        updateUserAvatar();
     }
 
     private void setupRecyclerView() {
@@ -185,6 +214,17 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
                     // Trigger refresh
                     rvRooms.setVisibility(View.VISIBLE);
                     pbLoading.setVisibility(View.GONE);
+                }
+            });
+        }
+
+        if (btnUserProfile != null) {
+            btnUserProfile.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (getActivity() instanceof MainActivity) {
+                        ((MainActivity) getActivity()).openProfile();
+                    }
                 }
             });
         }

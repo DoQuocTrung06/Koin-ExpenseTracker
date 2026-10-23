@@ -32,6 +32,15 @@ public class RoomMember implements Serializable {
     public RoomMember() {
     }
 
+    public RoomMember(String userId, String displayName, String avatarUrl, double contributedAmount, boolean isAdmin, String joinedAt) {
+        this.userId = userId;
+        this.fullName = displayName;
+        this.avatarUrl = avatarUrl;
+        this.totalContributed = contributedAmount;
+        this.role = isAdmin ? "ADMIN" : "MEMBER";
+        this.joinedAt = joinedAt;
+    }
+
     public RoomMember(String id, String roomId, String userId, String role, double totalContributed, String joinedAt) {
         this.id = id;
         this.roomId = roomId;
@@ -77,12 +86,32 @@ public class RoomMember implements Serializable {
         return "ADMIN".equalsIgnoreCase(this.role);
     }
 
+    public void setAdmin(boolean admin) {
+        this.role = admin ? "ADMIN" : "MEMBER";
+    }
+
     public double getTotalContributed() {
         return totalContributed;
     }
 
     public void setTotalContributed(double totalContributed) {
         this.totalContributed = totalContributed;
+    }
+
+    public double getContributedAmount() {
+        return totalContributed;
+    }
+
+    public void setContributedAmount(double contributedAmount) {
+        this.totalContributed = contributedAmount;
+    }
+
+    public String getDisplayName() {
+        return getFullName();
+    }
+
+    public void setDisplayName(String displayName) {
+        this.fullName = displayName;
     }
 
     public String getFormattedContributed() {
@@ -120,5 +149,16 @@ public class RoomMember implements Serializable {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public String getInitials() {
+        String name = getDisplayName();
+        if (name == null || name.isEmpty()) return "?";
+        String[] parts = name.trim().split(" ");
+        if (parts.length >= 2) {
+            return String.valueOf(parts[0].charAt(0)).toUpperCase()
+                    + String.valueOf(parts[parts.length - 1].charAt(0)).toUpperCase();
+        }
+        return String.valueOf(name.charAt(0)).toUpperCase();
     }
 }

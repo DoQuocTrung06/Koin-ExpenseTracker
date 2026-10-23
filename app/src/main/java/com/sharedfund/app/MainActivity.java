@@ -9,6 +9,7 @@ import androidx.fragment.app.FragmentTransaction;
 
 import com.sharedfund.app.ui.home.HomeFragment;
 import com.sharedfund.app.ui.login.LoginFragment;
+import com.sharedfund.app.ui.profile.ProfileFragment;
 import com.sharedfund.app.ui.room.RoomDetailFragment;
 import com.sharedfund.app.ui.statistics.StatisticsFragment;
 import com.sharedfund.app.ui.transaction.AddTransactionFragment;
@@ -83,5 +84,21 @@ public class MainActivity extends AppCompatActivity {
      */
     public void openStatistics(String roomId) {
         loadFragment(StatisticsFragment.newInstance(roomId), true);
+    }
+
+    /**
+     * Chuyển đến màn hình Thông tin cá nhân
+     */
+    public void openProfile() {
+        loadFragment(new ProfileFragment(), true);
+    }
+
+    /**
+     * Đăng xuất - quay về màn hình đăng nhập và xóa toàn bộ back stack
+     */
+    public void openLogin() {
+        getSupportFragmentManager().popBackStack(null,
+                androidx.fragment.app.FragmentManager.POP_BACK_STACK_INCLUSIVE);
+        loadFragment(new LoginFragment(), false);
     }
 }

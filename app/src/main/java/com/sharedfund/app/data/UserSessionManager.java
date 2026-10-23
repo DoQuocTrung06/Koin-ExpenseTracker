@@ -29,6 +29,10 @@ public class UserSessionManager {
         return instance;
     }
 
+    public void saveSession(String userId, String email, String fullName, String avatarUrl) {
+        saveSession(userId, email, fullName, avatarUrl, "");
+    }
+
     public void saveSession(String userId, String email, String fullName, String avatarUrl, String accessToken) {
         SharedPreferences.Editor editor = preferences.edit();
         editor.putBoolean(KEY_IS_LOGGED_IN, true);
@@ -48,12 +52,24 @@ public class UserSessionManager {
         return preferences.getString(KEY_USER_ID, "");
     }
 
+    public String getCurrentUserId() {
+        return getUserId();
+    }
+
     public String getEmail() {
         return preferences.getString(KEY_EMAIL, "");
     }
 
+    public String getCurrentUserEmail() {
+        return getEmail();
+    }
+
     public String getFullName() {
-        return preferences.getString(KEY_FULL_NAME, "");
+        return preferences.getString(KEY_FULL_NAME, "Người dùng");
+    }
+
+    public String getCurrentUserName() {
+        return getFullName();
     }
 
     public String getAvatarUrl() {
@@ -68,7 +84,11 @@ public class UserSessionManager {
         if (!isLoggedIn()) {
             return null;
         }
-        return new Profile(getUserId(), getFullName(), getAvatarUrl(), getEmail());
+        return new Profile(getUserId(), getEmail(), getFullName(), getAvatarUrl());
+    }
+
+    public Profile getCurrentUser() {
+        return getCurrentProfile();
     }
 
     public void clearSession() {

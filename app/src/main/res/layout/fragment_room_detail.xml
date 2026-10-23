@@ -303,7 +303,53 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Action 3: Thống kê -->
+            <!-- Action 3: Nạp tiền VietQR (cho tất cả thành viên) -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/btnNavDeposit"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="3dp"
+                android:layout_marginEnd="3dp"
+                android:layout_weight="1"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground"
+                app:cardBackgroundColor="@color/accent_income_light"
+                app:cardCornerRadius="14dp"
+                app:cardElevation="2dp"
+                app:rippleColor="@color/accent_income"
+                app:strokeColor="@color/border"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:paddingTop="12dp"
+                    android:paddingBottom="12dp">
+
+                    <ImageView
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:contentDescription="Deposit"
+                        android:src="@drawable/ic_trending_up"
+                        app:tint="@color/accent_income" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:text="Nạp tiền"
+                        android:textColor="@color/accent_income"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Action 4: Thống kê -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/btnNavStatistics"
                 android:layout_width="0dp"
@@ -350,16 +396,21 @@
 
         </LinearLayout>
 
-        <!-- Members Card -->
+        <!-- Members Card (clickable -> mở Dialog thành viên) -->
         <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardMembersContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginStart="16dp"
             android:layout_marginTop="16dp"
             android:layout_marginEnd="16dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
             app:cardBackgroundColor="@color/surface"
             app:cardCornerRadius="16dp"
             app:cardElevation="1dp"
+            app:rippleColor="@color/primary_light"
             app:strokeColor="@color/border"
             app:strokeWidth="1dp">
 
@@ -401,15 +452,35 @@
                         android:textSize="12sp" />
                 </LinearLayout>
 
+            </LinearLayout>
+
+            <!-- Hint: bấm để xem chi tiết -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingBottom="12dp">
+
                 <TextView
-                    android:id="@+id/tvDetailMembersList"
-                    android:layout_width="match_parent"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
+                    android:layout_weight="1"
+                    android:id="@+id/tvDetailMembersList"
                     android:lineSpacingExtra="3dp"
-                    android:text="Bạn (Trưởng quỹ), Tuấn Anh, Bảo Linh, Minh Quân, Thu Hương"
+                    android:text="Bạn (Trưởng quỹ), Tuấn Anh, Bảo Linh..."
                     android:textColor="@color/text_secondary"
                     android:textSize="13sp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Xem chi tiết ›"
+                    android:textColor="@color/primary"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
