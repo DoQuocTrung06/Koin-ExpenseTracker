@@ -92,6 +92,18 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
     public void onResume() {
         super.onResume();
         updateUserAvatar();
+        if (viewModel != null) {
+            Double wallet = viewModel.getUserWalletBalance().getValue();
+            if (wallet != null && tvTotalBalance != null) {
+                DecimalFormat df = new DecimalFormat("#,###");
+                tvTotalBalance.setText(df.format(wallet).replace(',', '.') + " ₫");
+            }
+            Double roomTotal = viewModel.getTotalRoomBalance().getValue();
+            if (roomTotal != null && tvTotalRoomBalanceMini != null) {
+                DecimalFormat df = new DecimalFormat("#,###");
+                tvTotalRoomBalanceMini.setText(df.format(roomTotal).replace(',', '.') + " ₫");
+            }
+        }
     }
 
     private void updateUserAvatar() {
@@ -162,14 +174,26 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
             }
         });
 
-        // Quan sát tổng số dư
-        viewModel.getTotalBalance().observe(getViewLifecycleOwner(), new Observer<Double>() {
+        // 1. Quan sát số dư ví tài khoản cá nhân (hiển thị trên thẻ chính)
+        viewModel.getUserWalletBalance().observe(getViewLifecycleOwner(), new Observer<Double>() {
             @Override
-            public void onChanged(Double balance) {
-                if (balance != null) {
+            public void onChanged(Double walletBalance) {
+                if (walletBalance != null && tvTotalBalance != null) {
                     DecimalFormat df = new DecimalFormat("#,###");
-                    String formatted = df.format(balance).replace(',', '.') + " ₫";
+                    String formatted = df.format(walletBalance).replace(',', '.') + " ₫";
                     tvTotalBalance.setText(formatted);
+                }
+            }
+        });
+
+        // 2. Quan sát tổng số dư các quỹ phòng (hiển thị ở góc phải mini stat)
+        viewModel.getTotalRoomBalance().observe(getViewLifecycleOwner(), new Observer<Double>() {
+            @Override
+            public void onChanged(Double roomTotal) {
+                if (roomTotal != null && tvTotalRoomBalanceMini != null) {
+                    DecimalFormat df = new DecimalFormat("#,###");
+                    String formatted = df.format(roomTotal).replace(',', '.') + " ₫";
+                    tvTotalRoomBalanceMini.setText(formatted);
                 }
             }
         });
@@ -199,6 +223,15 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
                 @Override
                 public void onClick(View v) {
                     DepositDialogFragment depositDialog = DepositDialogFragment.newWalletInstance();
+                    depositDialog.setOnDepositCompleteListener(amount -> {
+                        if (viewModel != null) {
+                            Double wallet = viewModel.getUserWalletBalance().getValue();
+                            if (wallet != null && tvTotalBalance != null) {
+                                DecimalFormat df = new DecimalFormat("#,###");
+                                tvTotalBalance.setText(df.format(wallet).replace(',', '.') + " ₫");
+                            }
+                        }
+                    });
                     depositDialog.show(getChildFragmentManager(), "wallet_deposit");
                 }
             });
