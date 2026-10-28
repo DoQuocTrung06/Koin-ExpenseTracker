@@ -62,6 +62,7 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
     private String roomId;
 
     // Views
+    private TextView tvDepositTitle;
     private TextInputLayout tilDepositAmount;
     private TextInputEditText etDepositAmount;
     private MaterialButton btnQuick20k;
@@ -89,6 +90,14 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
         args.putString(ARG_ROOM_ID, roomId);
         fragment.setArguments(args);
         return fragment;
+    }
+
+    public static DepositDialogFragment newWalletInstance() {
+        return newInstance("WALLET");
+    }
+
+    private boolean isWalletDeposit() {
+        return roomId == null || "WALLET".equals(roomId);
     }
 
     public void setOnDepositCompleteListener(OnDepositCompleteListener listener) {
@@ -140,9 +149,13 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
         setupQuickButtons();
         setupTextWatcher();
         setupClickListeners();
+        if (tvDepositTitle != null) {
+            tvDepositTitle.setText(isWalletDeposit() ? "Nạp tiền vào tài khoản" : "Nạp tiền vào quỹ");
+        }
     }
 
     private void bindViews(View view) {
+        tvDepositTitle = view.findViewById(R.id.tvDepositTitle);
         tilDepositAmount = view.findViewById(R.id.tilDepositAmount);
         etDepositAmount = view.findViewById(R.id.etDepositAmount);
         btnQuick20k = view.findViewById(R.id.btnQuick20k);
@@ -222,15 +235,24 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
         pbDepositLoading.setVisibility(View.VISIBLE);
         btnGenerateQr.setEnabled(false);
 
-        // Lấy thông tin quỹ thực tế
-        Room room = RoomRepository.getInstance().getRoomSync(roomId);
-        String roomCode = (room != null && room.getJoinCode() != null) ? room.getJoinCode() : "SFROOM";
-
         // Sử dụng dữ liệu thật từ PaymentHelper
         String bankName = PaymentHelper.BANK_NAME;
         String accountNumber = PaymentHelper.ACCOUNT_NO;
         String accountName = PaymentHelper.ACCOUNT_NAME;
-        String transferContent = PaymentHelper.getTransferContent(roomCode);
+        String transferContent;
+        String qrUrl;
+
+        if (isWalletDeposit()) {
+            String userId = UserSessionManager.getInstance(requireContext()).getCurrentUserId();
+            if (userId == null || userId.isEmpty()) userId = "USER";
+            transferContent = PaymentHelper.getWalletTransferContent(userId);
+            qrUrl = PaymentHelper.generateWalletQrUrl(userId, amount);
+        } else {
+            Room room = RoomRepository.getInstance().getRoomSync(roomId);
+            String roomCode = (room != null && room.getJoinCode() != null) ? room.getJoinCode() : "SFROOM";
+            transferContent = PaymentHelper.getTransferContent(roomCode);
+            qrUrl = PaymentHelper.generateVietQrUrl(roomCode, amount);
+        }
 
         DecimalFormat df = new DecimalFormat("#,###");
         String formattedAmount = df.format(amount).replace(',', '.') + " ₫";
@@ -258,8 +280,7 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
             }
         });
 
-        // Tạo VietQR URL từ PaymentHelper
-        String qrUrl = PaymentHelper.generateVietQrUrl(roomCode, amount);
+        // Đã tạo qrUrl theo loại nạp tiền
 
         // Tải ảnh VietQR thực tế từ API VietQR qua OkHttp trên background thread
         Executors.newSingleThreadExecutor().execute(() -> {
@@ -405,19 +426,26 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
         }
 
         // TODO: Giai đoạn sau - lắng nghe Realtime webhook xác nhận từ Backend
-        Room room = RoomRepository.getInstance().getRoomSync(roomId);
-        String roomCode = (room != null && room.getJoinCode() != null) ? room.getJoinCode() : "SFROOM";
-        String transferContent = PaymentHelper.getTransferContent(roomCode);
-        String creatorName = UserSessionManager.getInstance(requireContext()).getCurrentUserName();
-        String timeStr = new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(new Date());
-        Transaction tx = new Transaction(
-                "", roomId, amount, Transaction.TYPE_INCOME, "Nạp quỹ",
-                "Nạp VietQR (" + transferContent + ") - " + creatorName, creatorName, timeStr
-        );
-        RoomRepository.getInstance().addTransaction(tx);
+        if (isWalletDeposit()) {
+            RoomRepository.getInstance().depositToUserWallet(amount);
+            if (listener != null) listener.onDepositComplete(amount);
+            Toast.makeText(requireContext(), "Nạp tiền vào tài khoản thành công!", Toast.LENGTH_SHORT).show();
+            dismiss();
+        } else {
+            Room room = RoomRepository.getInstance().getRoomSync(roomId);
+            String roomCode = (room != null && room.getJoinCode() != null) ? room.getJoinCode() : "SFROOM";
+            String transferContent = PaymentHelper.getTransferContent(roomCode);
+            String creatorName = UserSessionManager.getInstance(requireContext()).getCurrentUserName();
+            String timeStr = new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(new Date());
+            Transaction tx = new Transaction(
+                    "", roomId, amount, Transaction.TYPE_INCOME, "Nạp quỹ",
+                    "Nạp VietQR (" + transferContent + ") - " + creatorName, creatorName, timeStr
+            );
+            RoomRepository.getInstance().addTransaction(tx);
 
-        if (listener != null) listener.onDepositComplete(amount);
-        Toast.makeText(requireContext(), "Xác nhận nạp tiền thành công!", Toast.LENGTH_SHORT).show();
-        dismiss();
+            if (listener != null) listener.onDepositComplete(amount);
+            Toast.makeText(requireContext(), "Xác nhận nạp tiền thành công!", Toast.LENGTH_SHORT).show();
+            dismiss();
+        }
     }
 }

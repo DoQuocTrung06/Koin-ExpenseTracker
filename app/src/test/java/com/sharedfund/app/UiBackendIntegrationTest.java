@@ -36,6 +36,7 @@ public class UiBackendIntegrationTest {
     @Before
     public void setUp() {
         repository = RoomRepository.getInstance();
+        repository.setCurrentUser("user-001", "Bạn");
     }
 
     @Test

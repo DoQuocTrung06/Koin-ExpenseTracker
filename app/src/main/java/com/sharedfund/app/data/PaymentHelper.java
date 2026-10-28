@@ -7,7 +7,7 @@ import java.nio.charset.StandardCharsets;
 public class PaymentHelper {
 
     public static final String BANK_ID = "MB";
-    public static final String BANK_NAME = "MBBank (Quân Đội)";
+    public static final String BANK_NAME = "MBBank";
     public static final String ACCOUNT_NO = "0392934291";
     public static final String ACCOUNT_NAME = "DO QUOC TRUNG";
     public static final String TEMPLATE = "compact";
@@ -28,6 +28,29 @@ public class PaymentHelper {
                 + "?amount=" + roundedAmount
                 + "&addInfo=" + encodedContent
                 + "&accountName=" + encodedName;
+    }
+
+    public static String generateWalletQrUrl(String userId, double amount) {
+        String content = getWalletTransferContent(userId);
+        String encodedContent = content;
+        String encodedName = ACCOUNT_NAME;
+
+        try {
+            encodedContent = URLEncoder.encode(content, StandardCharsets.UTF_8.toString());
+            encodedName = URLEncoder.encode(ACCOUNT_NAME, StandardCharsets.UTF_8.toString());
+        } catch (UnsupportedEncodingException ignored) {
+        }
+
+        long roundedAmount = (long) amount;
+        return "https://img.vietqr.io/image/" + BANK_ID + "-" + ACCOUNT_NO + "-" + TEMPLATE + ".png"
+                + "?amount=" + roundedAmount
+                + "&addInfo=" + encodedContent
+                + "&accountName=" + encodedName;
+    }
+
+    public static String getWalletTransferContent(String userId) {
+        String id = (userId != null && !userId.trim().isEmpty()) ? userId.trim().toUpperCase() : "VI";
+        return "SF NAP " + id;
     }
 
     public static String getTransferContent(String joinCode) {

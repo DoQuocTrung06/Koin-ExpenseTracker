@@ -26,8 +26,20 @@ public class HomeViewModel extends ViewModel {
         return repository.getRoomsLiveData();
     }
 
+    public LiveData<Double> getUserWalletBalance() {
+        return repository.getUserWalletLiveData();
+    }
+
+    public LiveData<Double> getTotalRoomBalance() {
+        return repository.getTotalBalanceLiveData();
+    }
+
     public LiveData<Double> getTotalBalance() {
         return repository.getTotalBalanceLiveData();
+    }
+
+    public void depositToWallet(double amount) {
+        repository.depositToUserWallet(amount);
     }
 
     public LiveData<Boolean> getIsLoading() {

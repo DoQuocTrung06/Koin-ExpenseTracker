@@ -27,10 +27,11 @@
                 app:tint="@color/accent_income" />
 
             <TextView
+                android:id="@+id/tvDepositTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="10dp"
-                android:text="Nạp tiền vào quỹ"
+                android:text="Nạp tiền vào tài khoản"
                 android:textColor="@color/text_primary"
                 android:textSize="17sp"
                 android:textStyle="bold" />

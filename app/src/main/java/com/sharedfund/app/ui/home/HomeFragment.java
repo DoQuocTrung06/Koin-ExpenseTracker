@@ -1,6 +1,8 @@
 package com.sharedfund.app.ui.home;
 
-import android.app.AlertDialog;
+import androidx.appcompat.app.AlertDialog;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.sharedfund.app.ui.room.DepositDialogFragment;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
@@ -48,6 +50,8 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
 
     private TextView tvTotalBalance;
     private TextView tvRoomCountSubtitle;
+    private TextView tvTotalRoomBalanceMini;
+    private MaterialButton btnHomeDeposit;
     private TextView tvRoomCountBadge;
     private MaterialButton btnCreateRoom;
     private MaterialButton btnJoinRoom;
@@ -111,6 +115,8 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
         tvUserInitials = view.findViewById(R.id.tvUserInitials);
         tvTotalBalance = view.findViewById(R.id.tvTotalBalance);
         tvRoomCountSubtitle = view.findViewById(R.id.tvRoomCountSubtitle);
+        tvTotalRoomBalanceMini = view.findViewById(R.id.tvTotalRoomBalanceMini);
+        btnHomeDeposit = view.findViewById(R.id.btnHomeDeposit);
         tvRoomCountBadge = view.findViewById(R.id.tvRoomCountBadge);
         btnCreateRoom = view.findViewById(R.id.btnCreateRoom);
         btnJoinRoom = view.findViewById(R.id.btnJoinRoom);
@@ -188,6 +194,16 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
     }
 
     private void setupClickListeners() {
+        if (btnHomeDeposit != null) {
+            btnHomeDeposit.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    DepositDialogFragment depositDialog = DepositDialogFragment.newWalletInstance();
+                    depositDialog.show(getChildFragmentManager(), "wallet_deposit");
+                }
+            });
+        }
+
         btnCreateRoom.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -275,7 +291,7 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
             public void afterTextChanged(Editable s) {}
         });
 
-        final AlertDialog dialog = new AlertDialog.Builder(requireContext())
+        final AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
                 .setView(dialogView)
                 .setPositiveButton(R.string.btn_confirm, null) // Sẽ ghi đè listener để chặn auto-dismiss khi có lỗi
                 .setNegativeButton(R.string.btn_cancel, null)
@@ -320,7 +336,7 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
             public void afterTextChanged(Editable s) {}
         });
 
-        final AlertDialog dialog = new AlertDialog.Builder(requireContext())
+        final AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
                 .setView(dialogView)
                 .setPositiveButton(R.string.btn_confirm, null)
                 .setNegativeButton(R.string.btn_cancel, null)
