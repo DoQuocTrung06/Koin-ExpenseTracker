@@ -133,7 +133,9 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
                     android:hint="Họ và tên"
+                    android:textColorHint="@color/text_secondary"
                     android:visibility="gone"
+                    app:hintTextColor="@color/primary"
                     app:boxCornerRadiusBottomEnd="12dp"
                     app:boxCornerRadiusBottomStart="12dp"
                     app:boxCornerRadiusTopEnd="12dp"
@@ -147,6 +149,7 @@
                         android:layout_height="wrap_content"
                         android:inputType="textPersonName|textCapWords"
                         android:textColor="@color/text_primary"
+                        android:textColorHint="@color/text_secondary"
                         android:textSize="14sp" />
                 </com.google.android.material.textfield.TextInputLayout>
 
@@ -158,6 +161,8 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
                     android:hint="Email"
+                    android:textColorHint="@color/text_secondary"
+                    app:hintTextColor="@color/primary"
                     app:boxCornerRadiusBottomEnd="12dp"
                     app:boxCornerRadiusBottomStart="12dp"
                     app:boxCornerRadiusTopEnd="12dp"
@@ -171,6 +176,7 @@
                         android:layout_height="wrap_content"
                         android:inputType="textEmailAddress"
                         android:textColor="@color/text_primary"
+                        android:textColorHint="@color/text_secondary"
                         android:textSize="14sp" />
                 </com.google.android.material.textfield.TextInputLayout>
 
@@ -182,6 +188,8 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
                     android:hint="Mật khẩu"
+                    android:textColorHint="@color/text_secondary"
+                    app:hintTextColor="@color/primary"
                     app:boxCornerRadiusBottomEnd="12dp"
                     app:boxCornerRadiusBottomStart="12dp"
                     app:boxCornerRadiusTopEnd="12dp"
@@ -196,6 +204,7 @@
                         android:layout_height="wrap_content"
                         android:inputType="textPassword"
                         android:textColor="@color/text_primary"
+                        android:textColorHint="@color/text_secondary"
                         android:textSize="14sp" />
                 </com.google.android.material.textfield.TextInputLayout>
 
@@ -207,7 +216,9 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
                     android:hint="Xác nhận mật khẩu"
+                    android:textColorHint="@color/text_secondary"
                     android:visibility="gone"
+                    app:hintTextColor="@color/primary"
                     app:boxCornerRadiusBottomEnd="12dp"
                     app:boxCornerRadiusBottomStart="12dp"
                     app:boxCornerRadiusTopEnd="12dp"
@@ -222,6 +233,7 @@
                         android:layout_height="wrap_content"
                         android:inputType="textPassword"
                         android:textColor="@color/text_primary"
+                        android:textColorHint="@color/text_secondary"
                         android:textSize="14sp" />
                 </com.google.android.material.textfield.TextInputLayout>
 

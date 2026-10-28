@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 public class PaymentHelper {
 
     public static final String BANK_ID = "MB";
+    public static final String BANK_NAME = "MBBank (Quân Đội)";
     public static final String ACCOUNT_NO = "0392934291";
     public static final String ACCOUNT_NAME = "DO QUOC TRUNG";
     public static final String TEMPLATE = "compact";

@@ -72,6 +72,12 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
+        // Đảm bảo RoomRepository đồng bộ đúng tài khoản đang đăng nhập
+        com.sharedfund.app.data.UserSessionManager session = com.sharedfund.app.data.UserSessionManager.getInstance(requireContext());
+        if (session.isLoggedIn()) {
+            com.sharedfund.app.data.RoomRepository.getInstance().setCurrentUser(session.getUserId(), session.getFullName());
+        }
+
         initViews(view);
         setupRecyclerView();
         setupViewModel();

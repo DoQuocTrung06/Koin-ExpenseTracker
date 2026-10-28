@@ -30,6 +30,11 @@ public class RoomRepository {
     private final List<Room> roomList = new ArrayList<>();
     private final List<Transaction> transactionList = new ArrayList<>();
 
+    // Quản lý thành viên: userId -> danh sách roomId mà user đó đã tham gia/tạo
+    private final Map<String, List<String>> userRoomsMap = new HashMap<>();
+    private String currentUserId = "user-001";
+    private String currentUserName = "Bạn";
+
     // LiveData streams
     private final MutableLiveData<List<Room>> roomsLiveData = new MutableLiveData<>();
     private final MutableLiveData<List<Transaction>> transactionsLiveData = new MutableLiveData<>();
@@ -64,6 +69,10 @@ public class RoomRepository {
         roomList.add(r2);
         roomList.add(r3);
 
+        // Gán 3 quỹ mẫu cho tài khoản demo / test để trải nghiệm
+        userRoomsMap.put("user-001", new ArrayList<>(Arrays.asList("room-1", "room-2", "room-3")));
+        userRoomsMap.put("guest-001", new ArrayList<>(Arrays.asList("room-1", "room-2", "room-3")));
+
         // Mock Transactions cho Quỹ Đà Lạt (room-1)
         transactionList.add(new Transaction("tx-01", "room-1", 1000000, Transaction.TYPE_INCOME, "Đóng quỹ", "Đóng quỹ đợt 1 - Bạn", "Bạn", "12/10/2026 09:30"));
         transactionList.add(new Transaction("tx-02", "room-1", 1000000, Transaction.TYPE_INCOME, "Đóng quỹ", "Đóng quỹ đợt 1 - Tuấn Anh", "Tuấn Anh", "12/10/2026 10:15"));
@@ -90,10 +99,74 @@ public class RoomRepository {
     }
 
     /**
-     * Tính toán lại số dư của từng quỹ và tổng số dư của toàn bộ hệ thống
+     * Chuyển đổi ngữ cảnh người dùng hiện tại
+     */
+    public synchronized void setCurrentUser(String userId, String userName) {
+        if (userId == null || userId.isEmpty()) {
+            this.currentUserId = "user-001";
+            this.currentUserName = "Bạn";
+        } else {
+            this.currentUserId = userId;
+            this.currentUserName = (userName != null && !userName.isEmpty()) ? userName : "Bạn";
+        }
+        if (!userRoomsMap.containsKey(this.currentUserId)) {
+            userRoomsMap.put(this.currentUserId, new ArrayList<>());
+        }
+        recalculateAllBalances();
+        notifyDataChanged();
+    }
+
+    /**
+     * Đăng ký tài khoản mới: người dùng mới bắt đầu với 0 quỹ (không có sẵn quỹ nào)
+     */
+    public synchronized void registerNewUser(String userId, String userName) {
+        this.currentUserId = userId;
+        this.currentUserName = (userName != null && !userName.isEmpty()) ? userName : "Bạn";
+        userRoomsMap.put(this.currentUserId, new ArrayList<>());
+        recalculateAllBalances();
+        notifyDataChanged();
+    }
+
+    public synchronized String getCurrentUserId() {
+        return currentUserId;
+    }
+
+    public synchronized String getCurrentUserName() {
+        return currentUserName;
+    }
+
+    /**
+     * Lấy danh sách các quỹ mà người dùng hiện tại đã tham gia hoặc tạo
+     */
+    public synchronized List<Room> getUserRooms() {
+        List<String> joinedIds = userRoomsMap.get(currentUserId);
+        if (joinedIds == null) {
+            if ("user-001".equals(currentUserId)) {
+                return new ArrayList<>(roomList);
+            }
+            return new ArrayList<>();
+        }
+        List<Room> result = new ArrayList<>();
+        for (String id : joinedIds) {
+            Room r = getRoomSync(id);
+            if (r != null) {
+                result.add(r);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Lấy tất cả các quỹ trên toàn hệ thống (dành cho tra cứu mã mời hoặc admin)
+     */
+    public synchronized List<Room> getAllSystemRooms() {
+        return new ArrayList<>(roomList);
+    }
+
+    /**
+     * Tính toán lại số dư của từng quỹ và tổng số dư của người dùng hiện tại
      */
     public synchronized void recalculateAllBalances() {
-        double allTotal = 0;
         for (Room r : roomList) {
             double income = 0;
             double expense = 0;
@@ -108,13 +181,19 @@ public class RoomRepository {
             }
             double balance = income - expense;
             r.setBalance(balance);
-            allTotal += balance;
         }
-        totalBalanceLiveData.postValue(allTotal);
+
+        // Tổng số dư phản ánh đúng các quỹ mà user hiện tại tham gia
+        double userTotal = 0;
+        List<Room> myRooms = getUserRooms();
+        for (Room r : myRooms) {
+            userTotal += r.getBalance();
+        }
+        totalBalanceLiveData.postValue(userTotal);
     }
 
     public synchronized void notifyDataChanged() {
-        roomsLiveData.postValue(new ArrayList<>(roomList));
+        roomsLiveData.postValue(new ArrayList<>(getUserRooms()));
         transactionsLiveData.postValue(new ArrayList<>(transactionList));
     }
 
@@ -210,10 +289,24 @@ public class RoomRepository {
         String dateStr = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(new Date());
 
         List<String> members = new ArrayList<>();
-        members.add("Bạn (Trưởng quỹ)");
+        String creatorLabel = currentUserName != null && !currentUserName.isEmpty()
+                ? currentUserName + " (Trưởng quỹ)"
+                : "Bạn (Trưởng quỹ)";
+        members.add(creatorLabel);
 
         Room newRoom = new Room(id, name, code, 0, description, 1, members, dateStr);
         roomList.add(0, newRoom);
+
+        // Gán phòng mới tạo vào danh sách của user hiện tại
+        List<String> joined = userRoomsMap.get(currentUserId);
+        if (joined == null) {
+            joined = new ArrayList<>();
+            userRoomsMap.put(currentUserId, joined);
+        }
+        if (!joined.contains(id)) {
+            joined.add(0, id);
+        }
+
         recalculateAllBalances();
         notifyDataChanged();
         return newRoom;
@@ -228,11 +321,26 @@ public class RoomRepository {
         String cleanCode = code.trim().toUpperCase(Locale.ROOT);
         for (Room r : roomList) {
             if (cleanCode.equalsIgnoreCase(r.getJoinCode())) {
-                if (!r.getMembers().contains("Bạn")) {
-                    r.getMembers().add("Bạn");
+                String memberLabel = currentUserName != null && !currentUserName.isEmpty()
+                        ? currentUserName
+                        : "Bạn";
+                if (!r.getMembers().contains(memberLabel)) {
+                    r.getMembers().add(memberLabel);
                     r.setMemberCount(r.getMembers().size());
-                    notifyDataChanged();
                 }
+
+                // Gán phòng vào danh sách của user hiện tại
+                List<String> joined = userRoomsMap.get(currentUserId);
+                if (joined == null) {
+                    joined = new ArrayList<>();
+                    userRoomsMap.put(currentUserId, joined);
+                }
+                if (!joined.contains(r.getId())) {
+                    joined.add(0, r.getId());
+                }
+
+                recalculateAllBalances();
+                notifyDataChanged();
                 return r;
             }
         }

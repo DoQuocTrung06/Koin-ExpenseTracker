@@ -209,4 +209,41 @@ public class UiBackendIntegrationTest {
         // Tổng số thu + chi bằng tổng số giao dịch
         assertEquals(all.size(), incomes.size() + expenses.size());
     }
+
+    @Test
+    public void testNewUserRegistrationStartsEmptyAndCanJoinOrReceiveFunds() {
+        // 1. Giả lập đăng ký tài khoản hoàn toàn mới
+        String newUserId = "user-test-new-" + System.currentTimeMillis();
+        String newUserName = "Nguyễn Văn Test";
+        repository.registerNewUser(newUserId, newUserName);
+
+        HomeViewModel homeViewModel = new HomeViewModel();
+
+        // 2. Kiểm tra tài khoản mới bắt đầu với 0 quỹ và 0 đồng số dư
+        List<Room> newRooms = homeViewModel.getRooms().getValue();
+        assertNotNull(newRooms);
+        assertEquals("New user must have 0 rooms initially", 0, newRooms.size());
+
+        Double newTotalBalance = homeViewModel.getTotalBalance().getValue();
+        assertNotNull(newTotalBalance);
+        assertEquals("New user balance must be 0", 0.0, newTotalBalance, 0.001);
+
+        // 3. Người dùng mới tham gia vào một quỹ có sẵn thông qua mã mời (DALAT6)
+        homeViewModel.joinRoom("DALAT6");
+        List<Room> roomsAfterJoin = homeViewModel.getRooms().getValue();
+        assertNotNull(roomsAfterJoin);
+        assertEquals("Room count must be 1 after joining via invite code", 1, roomsAfterJoin.size());
+        assertEquals("DALAT6", roomsAfterJoin.get(0).getJoinCode());
+        assertTrue("New user name should be in room members",
+                roomsAfterJoin.get(0).getMembers().contains(newUserName));
+
+        // 4. Người dùng mới tự tạo thêm một quỹ riêng
+        homeViewModel.createRoom("Quỹ Tiệc Đầy Tháng", "Quỹ riêng của gia đình");
+        List<Room> roomsAfterCreate = homeViewModel.getRooms().getValue();
+        assertNotNull(roomsAfterCreate);
+        assertEquals("Room count must be 2 after creating a new room", 2, roomsAfterCreate.size());
+
+        // Reset về demo user
+        repository.setCurrentUser("user-001", "Bạn");
+    }
 }
