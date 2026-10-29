@@ -1,6 +1,8 @@
 package com.sharedfund.app.ui.home;
 
-import android.app.AlertDialog;
+import androidx.appcompat.app.AlertDialog;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.sharedfund.app.ui.room.DepositDialogFragment;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
@@ -48,6 +50,8 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
 
     private TextView tvTotalBalance;
     private TextView tvRoomCountSubtitle;
+    private TextView tvTotalRoomBalanceMini;
+    private MaterialButton btnHomeDeposit;
     private TextView tvRoomCountBadge;
     private MaterialButton btnCreateRoom;
     private MaterialButton btnJoinRoom;
@@ -72,6 +76,12 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
+        // Đảm bảo RoomRepository đồng bộ đúng tài khoản đang đăng nhập
+        com.sharedfund.app.data.UserSessionManager session = com.sharedfund.app.data.UserSessionManager.getInstance(requireContext());
+        if (session.isLoggedIn()) {
+            com.sharedfund.app.data.RoomRepository.getInstance().setCurrentUser(session.getUserId(), session.getFullName());
+        }
+
         initViews(view);
         setupRecyclerView();
         setupViewModel();
@@ -82,6 +92,18 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
     public void onResume() {
         super.onResume();
         updateUserAvatar();
+        if (viewModel != null) {
+            Double wallet = viewModel.getUserWalletBalance().getValue();
+            if (wallet != null && tvTotalBalance != null) {
+                DecimalFormat df = new DecimalFormat("#,###");
+                tvTotalBalance.setText(df.format(wallet).replace(',', '.') + " ₫");
+            }
+            Double roomTotal = viewModel.getTotalRoomBalance().getValue();
+            if (roomTotal != null && tvTotalRoomBalanceMini != null) {
+                DecimalFormat df = new DecimalFormat("#,###");
+                tvTotalRoomBalanceMini.setText(df.format(roomTotal).replace(',', '.') + " ₫");
+            }
+        }
     }
 
     private void updateUserAvatar() {
@@ -105,6 +127,8 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
         tvUserInitials = view.findViewById(R.id.tvUserInitials);
         tvTotalBalance = view.findViewById(R.id.tvTotalBalance);
         tvRoomCountSubtitle = view.findViewById(R.id.tvRoomCountSubtitle);
+        tvTotalRoomBalanceMini = view.findViewById(R.id.tvTotalRoomBalanceMini);
+        btnHomeDeposit = view.findViewById(R.id.btnHomeDeposit);
         tvRoomCountBadge = view.findViewById(R.id.tvRoomCountBadge);
         btnCreateRoom = view.findViewById(R.id.btnCreateRoom);
         btnJoinRoom = view.findViewById(R.id.btnJoinRoom);
@@ -150,14 +174,26 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
             }
         });
 
-        // Quan sát tổng số dư
-        viewModel.getTotalBalance().observe(getViewLifecycleOwner(), new Observer<Double>() {
+        // 1. Quan sát số dư ví tài khoản cá nhân (hiển thị trên thẻ chính)
+        viewModel.getUserWalletBalance().observe(getViewLifecycleOwner(), new Observer<Double>() {
             @Override
-            public void onChanged(Double balance) {
-                if (balance != null) {
+            public void onChanged(Double walletBalance) {
+                if (walletBalance != null && tvTotalBalance != null) {
                     DecimalFormat df = new DecimalFormat("#,###");
-                    String formatted = df.format(balance).replace(',', '.') + " ₫";
+                    String formatted = df.format(walletBalance).replace(',', '.') + " ₫";
                     tvTotalBalance.setText(formatted);
+                }
+            }
+        });
+
+        // 2. Quan sát tổng số dư các quỹ phòng (hiển thị ở góc phải mini stat)
+        viewModel.getTotalRoomBalance().observe(getViewLifecycleOwner(), new Observer<Double>() {
+            @Override
+            public void onChanged(Double roomTotal) {
+                if (roomTotal != null && tvTotalRoomBalanceMini != null) {
+                    DecimalFormat df = new DecimalFormat("#,###");
+                    String formatted = df.format(roomTotal).replace(',', '.') + " ₫";
+                    tvTotalRoomBalanceMini.setText(formatted);
                 }
             }
         });
@@ -182,6 +218,25 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
     }
 
     private void setupClickListeners() {
+        if (btnHomeDeposit != null) {
+            btnHomeDeposit.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    DepositDialogFragment depositDialog = DepositDialogFragment.newWalletInstance();
+                    depositDialog.setOnDepositCompleteListener(amount -> {
+                        if (viewModel != null) {
+                            Double wallet = viewModel.getUserWalletBalance().getValue();
+                            if (wallet != null && tvTotalBalance != null) {
+                                DecimalFormat df = new DecimalFormat("#,###");
+                                tvTotalBalance.setText(df.format(wallet).replace(',', '.') + " ₫");
+                            }
+                        }
+                    });
+                    depositDialog.show(getChildFragmentManager(), "wallet_deposit");
+                }
+            });
+        }
+
         btnCreateRoom.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -269,7 +324,7 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
             public void afterTextChanged(Editable s) {}
         });
 
-        final AlertDialog dialog = new AlertDialog.Builder(requireContext())
+        final AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
                 .setView(dialogView)
                 .setPositiveButton(R.string.btn_confirm, null) // Sẽ ghi đè listener để chặn auto-dismiss khi có lỗi
                 .setNegativeButton(R.string.btn_cancel, null)
@@ -314,7 +369,7 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
             public void afterTextChanged(Editable s) {}
         });
 
-        final AlertDialog dialog = new AlertDialog.Builder(requireContext())
+        final AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
                 .setView(dialogView)
                 .setPositiveButton(R.string.btn_confirm, null)
                 .setNegativeButton(R.string.btn_cancel, null)

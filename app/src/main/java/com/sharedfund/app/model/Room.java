@@ -25,6 +25,10 @@ public class Room implements Serializable {
         this.members = new ArrayList<>();
     }
 
+    public Room(String name, String description, String joinCode, double balance, List<String> members) {
+        this(null, name, joinCode, balance, description, members != null ? members.size() : 0, members, null);
+    }
+
     public Room(String id, String name, String joinCode, double balance, String description, int memberCount, List<String> members, String createdAt) {
         this.id = id;
         this.name = name;

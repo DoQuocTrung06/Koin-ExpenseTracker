@@ -244,15 +244,15 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
             }
         });
 
-        // Nạp tiền: tất cả thành viên đều có thể nạp
+        // Đóng quỹ: thành viên đóng tiền từ ví cá nhân vào quỹ
         if (btnNavDeposit != null) {
             btnNavDeposit.setOnClickListener(v -> {
-                DepositDialogFragment depositDialog = DepositDialogFragment.newInstance(roomId);
-                depositDialog.setOnDepositCompleteListener(amount -> {
-                    // Refresh data sau khi nạp tiền
+                ContributeDialogFragment contributeDialog = ContributeDialogFragment.newInstance(roomId);
+                contributeDialog.setOnContributeCompleteListener(amount -> {
+                    // Refresh data sau khi đóng quỹ
                     if (viewModel != null) viewModel.refresh();
                 });
-                depositDialog.show(getChildFragmentManager(), "deposit_dialog");
+                contributeDialog.show(getChildFragmentManager(), "contribute_dialog");
             });
         }
 

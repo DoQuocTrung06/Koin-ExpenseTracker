@@ -25,6 +25,10 @@ public class Transaction implements Serializable {
     public Transaction() {
     }
 
+    public Transaction(String roomId, String createdBy, double amount, String type, String category, String note) {
+        this(null, roomId, amount, type, category, note, createdBy, null);
+    }
+
     public Transaction(String id, String roomId, double amount, String type, String category, String note, String createdBy, String createdAt) {
         this.id = id;
         this.roomId = roomId;

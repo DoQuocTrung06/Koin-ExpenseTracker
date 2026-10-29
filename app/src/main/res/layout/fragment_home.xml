@@ -81,30 +81,64 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/total_balance_title"
-                    android:textColor="#E0E7FF"
-                    android:textSize="13sp" />
-
-                <!-- Auto-sizing balance text to prevent truncation of long amounts -->
-                <TextView
-                    android:id="@+id/tvTotalBalance"
+                <RelativeLayout
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:ellipsize="end"
-                    android:maxLines="1"
-                    android:singleLine="true"
-                    android:text="0 ₫"
-                    android:textColor="@color/white"
-                    android:textSize="32sp"
-                    android:textStyle="bold"
-                    app:autoSizeMaxTextSize="32sp"
-                    app:autoSizeMinTextSize="18sp"
-                    app:autoSizeStepGranularity="1sp"
-                    app:autoSizeTextType="uniform" />
+                    android:layout_height="wrap_content">
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentStart="true"
+                        android:layout_toStartOf="@+id/btnHomeDeposit"
+                        android:layout_marginEnd="12dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tvWalletTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Số dư ví tài khoản"
+                            android:textColor="#E0E7FF"
+                            android:textSize="13sp" />
+
+                        <!-- Auto-sizing balance text to prevent truncation of long amounts -->
+                        <TextView
+                            android:id="@+id/tvTotalBalance"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:ellipsize="end"
+                            android:maxLines="1"
+                            android:singleLine="true"
+                            android:text="0 ₫"
+                            android:textColor="@color/white"
+                            android:textSize="30sp"
+                            android:textStyle="bold"
+                            app:autoSizeMaxTextSize="30sp"
+                            app:autoSizeMinTextSize="16sp"
+                            app:autoSizeStepGranularity="1sp"
+                            app:autoSizeTextType="uniform" />
+                    </LinearLayout>
+
+                    <!-- Nút nạp tiền ví ngay trên card trang chủ -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnHomeDeposit"
+                        style="@style/Widget.Material3.Button"
+                        android:layout_width="wrap_content"
+                        android:layout_height="40dp"
+                        android:layout_alignParentEnd="true"
+                        android:layout_centerVertical="true"
+                        android:backgroundTint="#33FFFFFF"
+                        android:text="Nạp tiền"
+                        android:textColor="@color/white"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        app:cornerRadius="20dp"
+                        app:icon="@drawable/ic_add"
+                        app:iconTint="@color/white"
+                        app:strokeColor="#66FFFFFF"
+                        app:strokeWidth="1dp" />
+                </RelativeLayout>
 
                 <View
                     android:layout_width="match_parent"
@@ -172,13 +206,28 @@
                             android:src="@drawable/ic_wallet"
                             app:tint="@color/accent_income_light" />
 
-                        <TextView
+                        <LinearLayout
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="6dp"
-                            android:text="Dữ liệu đồng bộ"
-                            android:textColor="#E0E7FF"
-                            android:textSize="12sp" />
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Tổng quỹ nhóm"
+                                android:textColor="#E0E7FF"
+                                android:textSize="10sp" />
+
+                            <TextView
+                                android:id="@+id/tvTotalRoomBalanceMini"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="0 ₫"
+                                android:textColor="@color/white"
+                                android:textSize="12sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
                     </LinearLayout>
                 </LinearLayout>
 

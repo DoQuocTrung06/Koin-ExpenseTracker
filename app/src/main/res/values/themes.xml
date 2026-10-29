@@ -1,20 +1,28 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
-    <style name="Base.Theme.SharedFund" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Base.Theme.SharedFund" parent="Theme.Material3.Light.NoActionBar">
         <item name="colorPrimary">@color/primary</item>
         <item name="colorPrimaryDark">@color/primary_dark</item>
         <item name="colorSecondary">@color/accent_income</item>
         <item name="android:statusBarColor">@color/surface</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowBackground">@color/background</item>
+        <item name="colorSurface">@color/surface</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+        <item name="android:textColorHint">@color/text_secondary</item>
+        <item name="editTextColor">@color/text_primary</item>
     </style>
 
     <style name="Theme.SharedFund" parent="Base.Theme.SharedFund" />
 
-    <!-- Style cho Dialog/BottomSheet dùng trong DepositDialogFragment -->
-    <style name="Theme.App.BottomSheet" parent="Theme.Material3.DayNight.BottomSheetDialog">
+    <!-- Style cho Dialog/BottomSheet dùng trong DepositDialogFragment và MembersDialogFragment -->
+    <style name="Theme.App.BottomSheet" parent="Theme.Material3.Light.BottomSheetDialog">
         <item name="colorPrimary">@color/primary</item>
         <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="colorSurface">@color/surface</item>
+        <item name="colorOnSurface">@color/text_primary</item>
     </style>
 
 </resources>

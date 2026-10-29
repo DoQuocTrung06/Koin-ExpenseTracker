@@ -20,6 +20,7 @@ import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 import com.sharedfund.app.MainActivity;
 import com.sharedfund.app.R;
+import com.sharedfund.app.data.RoomRepository;
 import com.sharedfund.app.data.UserSessionManager;
 
 /**
@@ -178,6 +179,7 @@ public class LoginFragment extends Fragment {
             // Đăng nhập khách - lưu phiên tạm
             UserSessionManager.getInstance(requireContext())
                     .saveSession("guest-001", "guest@sharedfund.vn", "Khách", "");
+            RoomRepository.getInstance().setCurrentUser("guest-001", "Khách");
             goToHome();
         });
     }
@@ -218,8 +220,10 @@ public class LoginFragment extends Fragment {
         btnAuthAction.postDelayed(() -> {
             if (!isAdded()) return;
             setLoadingState(false);
+            String name = email.split("@")[0];
             UserSessionManager.getInstance(requireContext())
-                    .saveSession("user-001", email, email.split("@")[0], "");
+                    .saveSession("user-001", email, name, "");
+            RoomRepository.getInstance().setCurrentUser("user-001", name);
             Toast.makeText(requireContext(), "Đăng nhập thành công!", Toast.LENGTH_SHORT).show();
             goToHome();
         }, 800);
@@ -279,8 +283,11 @@ public class LoginFragment extends Fragment {
         btnAuthAction.postDelayed(() -> {
             if (!isAdded()) return;
             setLoadingState(false);
+            String newUserId = "user-" + System.currentTimeMillis();
             UserSessionManager.getInstance(requireContext())
-                    .saveSession("user-" + System.currentTimeMillis(), email, fullName, "");
+                    .saveSession(newUserId, email, fullName, "");
+            // Tài khoản đăng ký mới bắt đầu từ 0 quỹ (không có sẵn quỹ nào)
+            RoomRepository.getInstance().registerNewUser(newUserId, fullName);
             Toast.makeText(requireContext(), "Đăng ký thành công! Chào mừng " + fullName + "!", Toast.LENGTH_SHORT).show();
             goToHome();
         }, 1000);

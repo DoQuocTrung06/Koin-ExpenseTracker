@@ -91,6 +91,18 @@ public class UserSessionManager {
         return getCurrentProfile();
     }
 
+    public double getUserBalance() {
+        String userId = getUserId();
+        String key = "balance_" + (userId.isEmpty() ? "default" : userId);
+        return Double.longBitsToDouble(preferences.getLong(key, Double.doubleToLongBits(500000.0)));
+    }
+
+    public void setUserBalance(double balance) {
+        String userId = getUserId();
+        String key = "balance_" + (userId.isEmpty() ? "default" : userId);
+        preferences.edit().putLong(key, Double.doubleToLongBits(balance)).apply();
+    }
+
     public void clearSession() {
         SharedPreferences.Editor editor = preferences.edit();
         editor.clear();
