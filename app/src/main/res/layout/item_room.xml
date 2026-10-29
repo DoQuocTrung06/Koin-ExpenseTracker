@@ -171,7 +171,7 @@
                     android:id="@+id/tvJoinCode"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="DALAT6"
+                    android:text="—"
                     android:textColor="@color/primary_dark"
                     android:textSize="12sp"
                     android:textStyle="bold" />

@@ -20,6 +20,7 @@ import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 import com.sharedfund.app.MainActivity;
 import com.sharedfund.app.R;
+import com.sharedfund.app.data.AuthRepository;
 import com.sharedfund.app.data.RoomRepository;
 import com.sharedfund.app.data.UserSessionManager;
 
@@ -27,11 +28,12 @@ import com.sharedfund.app.data.UserSessionManager;
  * Màn hình Đăng nhập / Đăng ký (LoginFragment)
  * Hỗ trợ toggle giữa 2 chế độ: Login và Register với validation đầy đủ.
  * Tích hợp UserSessionManager để lưu phiên đăng nhập.
- * Giai đoạn sau: thay mock bằng Supabase Auth API thật (signIn / signUp).
+ * Đăng nhập và đăng ký qua Supabase Auth API.
  */
 public class LoginFragment extends Fragment {
 
     private boolean isLoginMode = true;
+    private AuthRepository authRepository;
 
     // Tab buttons
     private MaterialButton btnTabLogin;
@@ -71,6 +73,7 @@ public class LoginFragment extends Fragment {
         setupTabToggle();
         setupTextWatchers();
         setupClickListeners();
+        authRepository = new AuthRepository(requireContext());
     }
 
     private void bindViews(View view) {
@@ -175,13 +178,8 @@ public class LoginFragment extends Fragment {
             }
         });
 
-        btnSkipLogin.setOnClickListener(v -> {
-            // Đăng nhập khách - lưu phiên tạm
-            UserSessionManager.getInstance(requireContext())
-                    .saveSession("guest-001", "guest@sharedfund.vn", "Khách", "");
-            RoomRepository.getInstance().setCurrentUser("guest-001", "Khách");
-            goToHome();
-        });
+        // Không hỗ trợ đăng nhập khách: mọi dữ liệu phải gắn với user Supabase đã xác thực.
+        btnSkipLogin.setVisibility(View.GONE);
     }
 
     // ==========================================
@@ -212,21 +210,30 @@ public class LoginFragment extends Fragment {
 
         if (hasError) return;
 
-        // Hiển thị loading
         setLoadingState(true);
+        authRepository.signIn(email, pass, new AuthRepository.AuthCallback() {
+            @Override
+            public void onSuccess(com.sharedfund.app.model.Profile profile) {
+                runOnUiThreadIfAttached(() -> {
+                    setLoadingState(false);
+                    if (profile == null || profile.getId() == null || profile.getId().trim().isEmpty()) {
+                        showAuthError("Đăng nhập thành công nhưng không nhận được ID người dùng.");
+                        return;
+                    }
+                    RoomRepository.getInstance().setCurrentUser(profile.getId(), profile.getFullName());
+                    Toast.makeText(requireContext(), "Đăng nhập thành công!", Toast.LENGTH_SHORT).show();
+                    goToHome();
+                });
+            }
 
-        // TODO: Giai đoạn sau - gọi Supabase Auth API signIn(email, pass)
-        // Hiện tại: Mock login thành công
-        btnAuthAction.postDelayed(() -> {
-            if (!isAdded()) return;
-            setLoadingState(false);
-            String name = email.split("@")[0];
-            UserSessionManager.getInstance(requireContext())
-                    .saveSession("user-001", email, name, "");
-            RoomRepository.getInstance().setCurrentUser("user-001", name);
-            Toast.makeText(requireContext(), "Đăng nhập thành công!", Toast.LENGTH_SHORT).show();
-            goToHome();
-        }, 800);
+            @Override
+            public void onError(String errorMessage) {
+                runOnUiThreadIfAttached(() -> {
+                    setLoadingState(false);
+                    showAuthError("Đăng nhập thất bại: " + errorMessage);
+                });
+            }
+        });
     }
 
     // ==========================================
@@ -275,27 +282,63 @@ public class LoginFragment extends Fragment {
 
         if (hasError) return;
 
-        // Hiển thị loading
         setLoadingState(true);
+        UserSessionManager.getInstance(requireContext()).clearSession();
+        authRepository.signUp(email, pass, fullName, new AuthRepository.AuthCallback() {
+            @Override
+            public void onSuccess(com.sharedfund.app.model.Profile profile) {
+                runOnUiThreadIfAttached(() -> {
+                    setLoadingState(false);
+                    if (profile == null || profile.getId() == null || profile.getId().trim().isEmpty()) {
+                        showAuthError("Supabase chưa trả về ID tài khoản. Hãy kiểm tra lại Auth Logs.");
+                        return;
+                    }
 
-        // TODO: Giai đoạn sau - gọi Supabase Auth API signUp(email, pass, fullName)
-        // Hiện tại: Mock register thành công
-        btnAuthAction.postDelayed(() -> {
-            if (!isAdded()) return;
-            setLoadingState(false);
-            String newUserId = "user-" + System.currentTimeMillis();
-            UserSessionManager.getInstance(requireContext())
-                    .saveSession(newUserId, email, fullName, "");
-            // Tài khoản đăng ký mới bắt đầu từ 0 quỹ (không có sẵn quỹ nào)
-            RoomRepository.getInstance().registerNewUser(newUserId, fullName);
-            Toast.makeText(requireContext(), "Đăng ký thành công! Chào mừng " + fullName + "!", Toast.LENGTH_SHORT).show();
-            goToHome();
-        }, 1000);
+                    UserSessionManager sessions = UserSessionManager.getInstance(requireContext());
+                    if (sessions.getAccessToken() == null || sessions.getAccessToken().isEmpty()) {
+                        // Supabase đang yêu cầu xác nhận email trước khi đăng nhập.
+                        sessions.clearSession();
+                        Toast.makeText(requireContext(),
+                                "Tài khoản đã được tạo. Hãy xác nhận email rồi đăng nhập.",
+                                Toast.LENGTH_LONG).show();
+                        switchToMode(true);
+                        return;
+                    }
+
+                    RoomRepository.getInstance().registerNewUser(profile.getId(), profile.getFullName());
+                    Toast.makeText(requireContext(), "Đăng ký thành công! Chào mừng "
+                            + profile.getFullName() + "!", Toast.LENGTH_SHORT).show();
+                    goToHome();
+                });
+            }
+
+            @Override
+            public void onError(String errorMessage) {
+                runOnUiThreadIfAttached(() -> {
+                    setLoadingState(false);
+                    showAuthError("Đăng ký thất bại: " + errorMessage);
+                });
+            }
+        });
     }
 
     // ==========================================
     // HELPER
     // ==========================================
+
+
+    private void runOnUiThreadIfAttached(Runnable action) {
+        if (isAdded() && getActivity() != null) {
+            getActivity().runOnUiThread(() -> {
+                if (isAdded()) action.run();
+            });
+        }
+    }
+
+    private void showAuthError(String message) {
+        if (!isAdded()) return;
+        Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show();
+    }
 
     private void setLoadingState(boolean loading) {
         pbAuthLoading.setVisibility(loading ? View.VISIBLE : View.GONE);

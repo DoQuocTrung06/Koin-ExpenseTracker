@@ -232,7 +232,7 @@
         android:layout_height="48dp"
         android:layout_marginTop="8dp"
         android:backgroundTint="@color/primary"
-        android:text="Tôi đã chuyển khoản"
+            android:text="Kiểm tra thanh toán"
         android:textColor="@color/white"
         android:textSize="14sp"
         android:textStyle="bold"

@@ -36,14 +36,12 @@ import com.google.android.material.textfield.TextInputLayout;
 import com.sharedfund.app.R;
 import com.sharedfund.app.data.PaymentHelper;
 import com.sharedfund.app.data.RoomRepository;
+import com.sharedfund.app.data.TransactionRepository;
 import com.sharedfund.app.data.UserSessionManager;
 import com.sharedfund.app.model.Room;
-import com.sharedfund.app.model.Transaction;
 
 import java.text.DecimalFormat;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Locale;
+import java.time.Instant;
 import java.util.concurrent.Executors;
 
 import okhttp3.OkHttpClient;
@@ -53,13 +51,15 @@ import okhttp3.Response;
 /**
  * DepositDialogFragment - BottomSheet nạp tiền VietQR động
  * Người dùng nhập số tiền -> Nhấn "Tạo mã QR" -> Hiển thị QR thanh toán + hướng dẫn.
- * Giai đoạn sau: Gọi API Backend sinh link VietQR thật và lắng nghe webhook Realtime.
+ * The confirmation action checks the transaction written by the SePay webhook in Supabase.
  */
 public class DepositDialogFragment extends BottomSheetDialogFragment {
 
     private static final String ARG_ROOM_ID = "room_id";
 
     private String roomId;
+    private double pendingAmount;
+    private String qrGeneratedAt;
 
     // Views
     private TextView tvDepositTitle;
@@ -195,6 +195,8 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
                 // Ẩn QR nếu người dùng chỉnh sửa số tiền
                 layoutQrSection.setVisibility(View.GONE);
                 btnDoneDeposit.setVisibility(View.GONE);
+                pendingAmount = 0;
+                qrGeneratedAt = null;
                 btnGenerateQr.setText("Tạo mã QR");
             }
             @Override public void afterTextChanged(Editable s) {}
@@ -231,28 +233,33 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
             return;
         }
 
+        if (isWalletDeposit()) {
+            Toast.makeText(requireContext(), "Schema Supabase hiện không có bảng ví cá nhân.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        pendingAmount = amount;
+        qrGeneratedAt = Instant.now().toString();
+
         // Hiện loading
         pbDepositLoading.setVisibility(View.VISIBLE);
         btnGenerateQr.setEnabled(false);
 
-        // Sử dụng dữ liệu thật từ PaymentHelper
+        // Dùng nội dung chuyển khoản theo mã quỹ để webhook SePay đối soát.
         String bankName = PaymentHelper.BANK_NAME;
         String accountNumber = PaymentHelper.ACCOUNT_NO;
         String accountName = PaymentHelper.ACCOUNT_NAME;
         String transferContent;
         String qrUrl;
 
-        if (isWalletDeposit()) {
-            String userId = UserSessionManager.getInstance(requireContext()).getCurrentUserId();
-            if (userId == null || userId.isEmpty()) userId = "USER";
-            transferContent = PaymentHelper.getWalletTransferContent(userId);
-            qrUrl = PaymentHelper.generateWalletQrUrl(userId, amount);
-        } else {
-            Room room = RoomRepository.getInstance().getRoomSync(roomId);
-            String roomCode = (room != null && room.getJoinCode() != null) ? room.getJoinCode() : "SFROOM";
-            transferContent = PaymentHelper.getTransferContent(roomCode);
-            qrUrl = PaymentHelper.generateVietQrUrl(roomCode, amount);
+        Room room = RoomRepository.getInstance().getRoomSync(roomId);
+        if (room == null || room.getJoinCode() == null) {
+            pbDepositLoading.setVisibility(View.GONE);
+            btnGenerateQr.setEnabled(true);
+            Toast.makeText(requireContext(), "Không tìm thấy mã quỹ từ Supabase.", Toast.LENGTH_LONG).show();
+            return;
         }
+        transferContent = PaymentHelper.getTransferContent(room.getJoinCode());
+        qrUrl = PaymentHelper.generateVietQrUrl(room.getJoinCode(), amount);
 
         DecimalFormat df = new DecimalFormat("#,###");
         String formattedAmount = df.format(amount).replace(',', '.') + " ₫";
@@ -413,39 +420,36 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
     }
 
     private void confirmDeposit() {
-        String amountStr = etDepositAmount.getText() != null
-                ? etDepositAmount.getText().toString().trim() : "0";
-        double amount = 0;
-        try {
-            amount = Double.parseDouble(amountStr);
-        } catch (NumberFormatException ignored) {}
-
-        if (amount < 1000) {
-            tilDepositAmount.setError("Vui lòng nhập số tiền hợp lệ (tối thiểu 1.000 ₫)");
-            return;
-        }
-
-        // TODO: Giai đoạn sau - lắng nghe Realtime webhook xác nhận từ Backend
-        if (isWalletDeposit()) {
-            RoomRepository.getInstance().depositToUserWallet(amount);
-            if (listener != null) listener.onDepositComplete(amount);
-            Toast.makeText(requireContext(), "Nạp tiền vào tài khoản thành công!", Toast.LENGTH_SHORT).show();
-            dismiss();
-        } else {
-            Room room = RoomRepository.getInstance().getRoomSync(roomId);
-            String roomCode = (room != null && room.getJoinCode() != null) ? room.getJoinCode() : "SFROOM";
-            String transferContent = PaymentHelper.getTransferContent(roomCode);
-            String creatorName = UserSessionManager.getInstance(requireContext()).getCurrentUserName();
-            String timeStr = new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(new Date());
-            Transaction tx = new Transaction(
-                    "", roomId, amount, Transaction.TYPE_INCOME, "Nạp quỹ",
-                    "Nạp VietQR (" + transferContent + ") - " + creatorName, creatorName, timeStr
-            );
-            RoomRepository.getInstance().addTransaction(tx);
-
-            if (listener != null) listener.onDepositComplete(amount);
-            Toast.makeText(requireContext(), "Xác nhận nạp tiền thành công!", Toast.LENGTH_SHORT).show();
-            dismiss();
-        }
+        if (roomId == null || pendingAmount <= 0 || qrGeneratedAt == null) return;
+        btnDoneDeposit.setEnabled(false);
+        UserSessionManager session = UserSessionManager.getInstance(requireContext());
+        TransactionRepository transactions = new TransactionRepository();
+        transactions.setAccessToken(session.getAccessToken());
+        transactions.findConfirmedPayment(roomId, pendingAmount, qrGeneratedAt,
+                new TransactionRepository.DataCallback<com.sharedfund.app.model.Transaction>() {
+                    @Override public void onSuccess(com.sharedfund.app.model.Transaction transaction) {
+                        if (!isAdded()) return;
+                        requireActivity().runOnUiThread(() -> {
+                            if (!isAdded()) return;
+                            btnDoneDeposit.setEnabled(true);
+                            if (transaction == null) {
+                                Toast.makeText(requireContext(), "SePay chưa xác nhận khoản chuyển này. Hãy đợi rồi kiểm tra lại.", Toast.LENGTH_LONG).show();
+                                return;
+                            }
+                            RoomRepository.getInstance().onRemoteTransactionReceived(transaction);
+                            if (listener != null) listener.onDepositComplete(pendingAmount);
+                            Toast.makeText(requireContext(), "Đã nhận xác nhận thanh toán từ SePay.", Toast.LENGTH_SHORT).show();
+                            dismiss();
+                        });
+                    }
+                    @Override public void onError(String message) {
+                        if (!isAdded()) return;
+                        requireActivity().runOnUiThread(() -> {
+                            if (!isAdded()) return;
+                            btnDoneDeposit.setEnabled(true);
+                            Toast.makeText(requireContext(), "Không kiểm tra được trạng thái thanh toán: " + message, Toast.LENGTH_LONG).show();
+                        });
+                    }
+                });
     }
 }

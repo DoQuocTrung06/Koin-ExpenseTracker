@@ -6,6 +6,7 @@ import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModel;
 
 import com.sharedfund.app.data.RoomRepository;
+import com.sharedfund.app.data.TransactionRepository;
 import com.sharedfund.app.model.Transaction;
 
 import java.util.ArrayList;
@@ -22,6 +23,7 @@ public class TransactionViewModel extends ViewModel {
     }
 
     private final RoomRepository repository;
+    private final TransactionRepository remoteRepository = new TransactionRepository();
     private String roomId;
     private FilterType currentFilter = FilterType.ALL;
 
@@ -51,7 +53,22 @@ public class TransactionViewModel extends ViewModel {
     public void setRoomId(String roomId) {
         this.roomId = roomId;
         applyFilter(currentFilter);
+        if (roomId != null && !roomId.trim().isEmpty()) {
+            isLoading.setValue(true);
+            remoteRepository.getTransactionsByRoom(roomId, new TransactionRepository.DataCallback<List<Transaction>>() {
+                @Override public void onSuccess(List<Transaction> data) {
+                    if (data != null) for (Transaction tx : data) repository.onRemoteTransactionReceived(tx);
+                    isLoading.postValue(false);
+                }
+                @Override public void onError(String message) {
+                    isLoading.postValue(false);
+                    errorMessage.postValue("Không tải được giao dịch từ Supabase: " + message);
+                }
+            });
+        }
     }
+
+    public void setAccessToken(String token) { remoteRepository.setAccessToken(token); }
 
     public String getRoomId() {
         return roomId;
@@ -147,23 +164,32 @@ public class TransactionViewModel extends ViewModel {
         // Tạo Transaction model
         Transaction tx = new Transaction();
         tx.setRoomId(targetRoomId != null ? targetRoomId : this.roomId);
-        tx.setType(type);
+        tx.setUserId(repository.getCurrentUserId());
+        tx.setType(Transaction.TYPE_INCOME.equalsIgnoreCase(type) || "INCOME".equalsIgnoreCase(type)
+                ? "income" : "expense");
         tx.setAmount(amount);
         tx.setCategory(category.trim());
         tx.setNote(note.trim());
         tx.setCreatedBy(createdBy.trim());
+        tx.setTransactionDate(java.time.LocalDate.now().toString());
+        com.sharedfund.app.model.Room room = repository.getRoomSync(tx.getRoomId());
+        if (room != null) {
+            tx.setBalanceAfter(room.getBalance() + ("income".equals(tx.getType()) ? amount : -amount));
+        }
 
         isLoading.setValue(true);
-        boolean success = repository.addTransaction(tx);
-        isLoading.setValue(false);
-
-        if (success) {
-            addSuccessEvent.setValue(true);
-            return true;
-        } else {
-            errorMessage.setValue("Không thể lưu giao dịch. Vui lòng thử lại!");
-            return false;
-        }
+        remoteRepository.createTransaction(tx, new TransactionRepository.DataCallback<Transaction>() {
+            @Override public void onSuccess(Transaction created) {
+                repository.onRemoteTransactionReceived(created);
+                isLoading.postValue(false);
+                addSuccessEvent.postValue(true);
+            }
+            @Override public void onError(String message) {
+                isLoading.postValue(false);
+                errorMessage.postValue("Không thể lưu giao dịch lên Supabase: " + message);
+            }
+        });
+        return true;
     }
 
     @Override

@@ -64,7 +64,7 @@
                     android:id="@+id/tvDetailJoinCode"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="DALAT6"
+                    android:text="—"
                     android:textColor="@color/primary"
                     android:textSize="12sp"
                     android:textStyle="bold" />
@@ -470,7 +470,7 @@
                     android:layout_weight="1"
                     android:id="@+id/tvDetailMembersList"
                     android:lineSpacingExtra="3dp"
-                    android:text="Bạn (Trưởng quỹ), Tuấn Anh, Bảo Linh..."
+                    android:text="Đang tải thành viên..."
                     android:textColor="@color/text_secondary"
                     android:textSize="13sp" />
 

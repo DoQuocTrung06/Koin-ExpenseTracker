@@ -135,6 +135,12 @@ public class AuthRepository {
     }
 
     private void saveProfileToDatabase(Profile profile, String token, AuthCallback callback) {
+        if (token == null || token.trim().isEmpty()) {
+            // Email confirmation is enabled: Auth user exists, but there is no authenticated
+            // session yet, so the client must not pretend the profile row was persisted.
+            callback.onSuccess(profile);
+            return;
+        }
         RequestBody body = RequestBody.create(gson.toJson(profile), JSON_MEDIA_TYPE);
         Request request = new Request.Builder()
                 .url(SupabaseConfig.REST_URL + "/profiles")
@@ -156,9 +162,15 @@ public class AuthRepository {
 
             @Override
             public void onResponse(Call call, Response response) {
+                if (!response.isSuccessful()) {
+                    String details = "";
+                    try { details = response.body() != null ? response.body().string() : ""; }
+                    catch (IOException ignored) { }
+                    callback.onError("Cannot save profile: " + details);
+                    return;
+                }
                 UserSessionManager.getInstance(context).saveSession(
-                        profile.getId(), profile.getEmail(), profile.getFullName(), profile.getAvatarUrl(), token
-                );
+                        profile.getId(), profile.getEmail(), profile.getFullName(), profile.getAvatarUrl(), token);
                 callback.onSuccess(profile);
             }
         });
@@ -175,16 +187,16 @@ public class AuthRepository {
         httpClient.newCall(request).enqueue(new Callback() {
             @Override
             public void onFailure(Call call, IOException e) {
-                Profile fallback = new Profile(userId, email, email.split("@")[0], "");
-                UserSessionManager.getInstance(context).saveSession(
-                        userId, email, fallback.getFullName(), "", token
-                );
-                callback.onSuccess(fallback);
+                callback.onError("Cannot load profile: " + e.getMessage());
             }
 
             @Override
             public void onResponse(Call call, Response response) throws IOException {
                 String responseBody = response.body() != null ? response.body().string() : "";
+                if (!response.isSuccessful()) {
+                    callback.onError("Cannot load profile (HTTP " + response.code() + "): " + responseBody);
+                    return;
+                }
                 Profile profile = null;
                 try {
                     Profile[] list = gson.fromJson(responseBody, Profile[].class);
@@ -195,7 +207,8 @@ public class AuthRepository {
                 }
 
                 if (profile == null) {
-                    profile = new Profile(userId, email, email.split("@")[0], "");
+                    callback.onError("Profile not found for authenticated user.");
+                    return;
                 }
 
                 UserSessionManager.getInstance(context).saveSession(
