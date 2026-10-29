@@ -86,7 +86,7 @@ public class ProfileFragment extends Fragment {
             tvProfileUserId.setText(userId);
         }
 
-        // Thống kê số quỹ và giao dịch từ Repository (mock data)
+        // Thống kê từ cache dữ liệu đã tải trong phiên hiện tại.
         RoomRepository repo = RoomRepository.getInstance();
         int roomCount = repo.getRoomsLiveData().getValue() != null
                 ? repo.getRoomsLiveData().getValue().size() : 0;

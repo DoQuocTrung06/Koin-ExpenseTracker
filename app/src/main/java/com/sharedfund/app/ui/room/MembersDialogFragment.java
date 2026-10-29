@@ -4,6 +4,7 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Toast;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -15,6 +16,7 @@ import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.sharedfund.app.R;
 import com.sharedfund.app.adapter.MemberAdapter;
 import com.sharedfund.app.data.RoomRepository;
+import com.sharedfund.app.data.UserSessionManager;
 import com.sharedfund.app.model.Room;
 import com.sharedfund.app.model.RoomMember;
 import com.sharedfund.app.model.Transaction;
@@ -72,45 +74,29 @@ public class MembersDialogFragment extends BottomSheetDialogFragment {
         rvMembers.setLayoutManager(new LinearLayoutManager(requireContext()));
         rvMembers.setAdapter(adapter);
 
-        // Load dữ liệu thành viên từ Repository
+        UserSessionManager session = UserSessionManager.getInstance(requireContext());
         RoomRepository repo = RoomRepository.getInstance();
-        Room room = repo.getRoomSync(roomId);
-        if (room == null) return;
-
-        List<Transaction> allTx = repo.getTransactionsForRoom(roomId);
-
-        // Xây dựng danh sách RoomMember từ mock data
-        List<String> memberNames = room.getMembers();
-        List<RoomMember> memberList = new ArrayList<>();
-        double totalIncome = 0;
-
-        for (int i = 0; i < memberNames.size(); i++) {
-            String name = memberNames.get(i);
-            boolean isAdmin = name.contains("Trưởng quỹ");
-            // Tính tổng đóng góp (thu) của từng thành viên
-            double contributed = 0;
-            for (Transaction tx : allTx) {
-                if (tx.isIncome() && tx.getCreatedBy() != null) {
-                    String creator = tx.getCreatedBy();
-                    // So sánh tên xấp xỉ
-                    if (name.contains(creator) || creator.contains(name.split(" ")[0])) {
-                        contributed += tx.getAmount();
-                    }
-                }
+        repo.configureAccessToken(session.getAccessToken());
+        repo.loadRoomMembers(roomId, new RoomRepository.DataCallback<List<RoomMember>>() {
+            @Override public void onSuccess(List<RoomMember> memberList) {
+                if (!isAdded()) return;
+                requireActivity().runOnUiThread(() -> {
+                    if (!isAdded()) return;
+                    double totalContribution = 0;
+                    for (RoomMember member : memberList) totalContribution += member.getTotalContributed();
+                    tvCountHeader.setText(memberList.size() + " người");
+                    DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.US);
+                    symbols.setGroupingSeparator('.');
+                    DecimalFormat df = new DecimalFormat("#,##0", symbols);
+                    tvTotalContribution.setText(df.format(totalContribution) + " ₫");
+                    adapter.setMembers(memberList);
+                });
             }
-            totalIncome += contributed;
-            memberList.add(new RoomMember(
-                    "uid-" + i, name, "", contributed, isAdmin, ""));
-        }
-
-        // Cập nhật header
-        tvCountHeader.setText(memberList.size() + " người");
-
-        DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.US);
-        symbols.setGroupingSeparator('.');
-        DecimalFormat df = new DecimalFormat("#,##0", symbols);
-        tvTotalContribution.setText(df.format(totalIncome) + " ₫");
-
-        adapter.setMembers(memberList);
+            @Override public void onError(String message) {
+                if (!isAdded()) return;
+                requireActivity().runOnUiThread(() -> Toast.makeText(requireContext(),
+                        "Không tải được thành viên từ Supabase: " + message, Toast.LENGTH_LONG).show());
+            }
+        });
     }
 }

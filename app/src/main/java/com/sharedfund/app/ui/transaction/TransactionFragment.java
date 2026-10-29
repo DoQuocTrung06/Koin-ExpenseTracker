@@ -118,6 +118,7 @@ public class TransactionFragment extends Fragment implements TransactionAdapter.
 
     private void setupViewModel() {
         viewModel = new ViewModelProvider(this).get(TransactionViewModel.class);
+        viewModel.setAccessToken(com.sharedfund.app.data.UserSessionManager.getInstance(requireContext()).getAccessToken());
         viewModel.setRoomId(roomId);
 
         // Quan sát danh sách giao dịch đã lọc

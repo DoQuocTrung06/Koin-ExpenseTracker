@@ -1,5 +1,7 @@
 package com.sharedfund.app.model;
 
+import com.google.gson.annotations.SerializedName;
+
 import java.io.Serializable;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
@@ -14,13 +16,26 @@ public class Transaction implements Serializable {
     public static final String TYPE_EXPENSE = "Chi";
 
     private String id;
+    @SerializedName("room_id")
     private String roomId;
     private double amount;
     private String type; // "Thu" hoặc "Chi"
     private String category; // Ăn uống, Di chuyển, Mua sắm, Thuê phòng, Đóng quỹ,...
     private String note; // Lời tựa
+    @SerializedName("user_name")
     private String createdBy; // ID hoặc tên hiển thị người tạo
+    @SerializedName("user_id")
+    private String userId;
+    @SerializedName("created_at")
     private String createdAt; // Thời gian tạo
+    @SerializedName("transaction_date")
+    private String transactionDate;
+    @SerializedName("bill_image_url")
+    private String billImageUrl;
+    @SerializedName("balance_after")
+    private double balanceAfter;
+    @SerializedName("status")
+    private String status;
 
     public Transaction() {
     }
@@ -95,6 +110,17 @@ public class Transaction implements Serializable {
     public void setCreatedBy(String createdBy) {
         this.createdBy = createdBy;
     }
+
+    public String getUserId() { return userId; }
+    public void setUserId(String userId) { this.userId = userId; }
+    public String getTransactionDate() { return transactionDate; }
+    public void setTransactionDate(String transactionDate) { this.transactionDate = transactionDate; }
+    public String getBillImageUrl() { return billImageUrl; }
+    public void setBillImageUrl(String billImageUrl) { this.billImageUrl = billImageUrl; }
+    public double getBalanceAfter() { return balanceAfter; }
+    public void setBalanceAfter(double balanceAfter) { this.balanceAfter = balanceAfter; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 
     public String getCreatedAt() {
         return createdAt;

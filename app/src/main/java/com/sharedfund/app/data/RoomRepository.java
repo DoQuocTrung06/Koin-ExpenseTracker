@@ -3,49 +3,70 @@ package com.sharedfund.app.data;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.reflect.TypeToken;
+
 import com.sharedfund.app.model.Room;
 import com.sharedfund.app.model.Transaction;
+import com.sharedfund.app.model.RoomMember;
+import com.sharedfund.app.model.Category;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
-import java.util.Random;
+import java.util.UUID;
+import java.io.IOException;
+import java.lang.reflect.Type;
+import okhttp3.Call;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 /**
  * Repository cung cấp dữ liệu cho ứng dụng SharedFund.
- * Giai đoạn 3: Sử dụng nguồn dữ liệu mẫu (Mock data) phong phú và chuẩn hóa.
+ * Repository không khởi tạo mock data; dữ liệu thật phải được tải từ Supabase.
  * Điểm kết nối (Integration Point): Sẵn sàng thay thế và tích hợp Supabase REST API & PostgreSQL Realtime.
  * Kiến trúc Reactive: Mọi thay đổi dữ liệu (từ người dùng nội bộ hoặc sự kiện Realtime bên ngoài)
  * sẽ tự động đồng bộ đến tất cả các ViewModel qua LiveData streams.
  */
 public class RoomRepository {
+    private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
+
+    public interface DataCallback<T> {
+        void onSuccess(T value);
+        void onError(String message);
+    }
     private static volatile RoomRepository instance;
 
-    // In-memory data store mô phỏng database
+    // Bộ nhớ đệm cho dữ liệu đã tải từ Supabase
     private final List<Room> roomList = new ArrayList<>();
     private final List<Transaction> transactionList = new ArrayList<>();
 
     // Quản lý thành viên: userId -> danh sách roomId mà user đó đã tham gia/tạo
     private final Map<String, List<String>> userRoomsMap = new HashMap<>();
-    private String currentUserId = "user-001";
+    private String currentUserId = "";
     private String currentUserName = "Bạn";
+    private final OkHttpClient client = new OkHttpClient();
+    private final Gson gson = new Gson();
+    private String token = SupabaseConfig.SUPABASE_ANON_KEY;
 
     // LiveData streams
     private final MutableLiveData<List<Room>> roomsLiveData = new MutableLiveData<>();
     private final MutableLiveData<List<Transaction>> transactionsLiveData = new MutableLiveData<>();
     private final MutableLiveData<Double> totalBalanceLiveData = new MutableLiveData<>();
 
-    // Quản lý số dư ví tài khoản cá nhân: userId -> số tiền
-    private final Map<String, Double> userWalletMap = new HashMap<>();
-    private final MutableLiveData<Double> userWalletLiveData = new MutableLiveData<>(0.0);
-
     private RoomRepository() {
-        initMockData();
+        // Supabase will populate these streams through repository API calls.
+        roomsLiveData.setValue(new ArrayList<>());
+        transactionsLiveData.setValue(new ArrayList<>());
+        totalBalanceLiveData.setValue(0.0);
     }
 
     public static synchronized RoomRepository getInstance() {
@@ -56,75 +77,20 @@ public class RoomRepository {
     }
 
     /**
-     * Khởi tạo dữ liệu mẫu thực tế cho quá trình kiểm thử
-     */
-    private void initMockData() {
-        // Mock Rooms
-        Room r1 = new Room("room-1", "Quỹ Du Lịch Đà Lạt 2026", "DALAT6", 0, "Quỹ gom tiền đi du lịch Đà Lạt mùa hoa dã quỳ của nhóm bạn thân.", 5,
-                new ArrayList<>(Arrays.asList("Bạn (Trưởng quỹ)", "Tuấn Anh", "Bảo Linh", "Minh Quân", "Thu Hương")), "01/10/2026");
-
-        Room r2 = new Room("room-2", "Quỹ Tiền Nhà & Sinh Hoạt Trọ", "TRO102", 0, "Quỹ đóng tiền phòng, điện nước và đồ dùng chung phòng 302.", 3,
-                new ArrayList<>(Arrays.asList("Bạn (Trưởng quỹ)", "Đức Trí", "Hoàng Nam")), "05/10/2026");
-
-        Room r3 = new Room("room-3", "Quỹ Ăn Trưa & Coffee Team Tech", "TECH88", 0, "Chi phí ăn trưa, trà sữa xế chiều cho team công nghệ.", 4,
-                new ArrayList<>(Arrays.asList("Bạn", "Quốc Huy (Trưởng quỹ)", "Mai Phương", "Tiến Dũng")), "10/10/2026");
-
-        roomList.add(r1);
-        roomList.add(r2);
-        roomList.add(r3);
-
-        // Gán 3 quỹ mẫu cho tài khoản demo / test để trải nghiệm
-        userRoomsMap.put("user-001", new ArrayList<>(Arrays.asList("room-1", "room-2", "room-3")));
-        userRoomsMap.put("guest-001", new ArrayList<>(Arrays.asList("room-1", "room-2", "room-3")));
-
-        // Mock Transactions cho Quỹ Đà Lạt (room-1)
-        transactionList.add(new Transaction("tx-01", "room-1", 1000000, Transaction.TYPE_INCOME, "Đóng quỹ", "Đóng quỹ đợt 1 - Bạn", "Bạn", "12/10/2026 09:30"));
-        transactionList.add(new Transaction("tx-02", "room-1", 1000000, Transaction.TYPE_INCOME, "Đóng quỹ", "Đóng quỹ đợt 1 - Tuấn Anh", "Tuấn Anh", "12/10/2026 10:15"));
-        transactionList.add(new Transaction("tx-03", "room-1", 1000000, Transaction.TYPE_INCOME, "Đóng quỹ", "Đóng quỹ đợt 1 - Bảo Linh", "Bảo Linh", "12/10/2026 11:00"));
-        transactionList.add(new Transaction("tx-04", "room-1", 450000, Transaction.TYPE_EXPENSE, "Ăn uống", "Ăn tối lẩu gà lá é quán Tao Ngộ", "Bảo Linh", "13/10/2026 19:45"));
-        transactionList.add(new Transaction("tx-05", "room-1", 1200000, Transaction.TYPE_EXPENSE, "Thuê phòng", "Đặt cọc homestay Thung Lũng Mơ", "Bạn", "14/10/2026 08:30"));
-        transactionList.add(new Transaction("tx-06", "room-1", 320000, Transaction.TYPE_EXPENSE, "Di chuyển", "Thuê 2 xe máy vi vu hồ Tuyền Lâm", "Tuấn Anh", "14/10/2026 14:20"));
-        transactionList.add(new Transaction("tx-07", "room-1", 180000, Transaction.TYPE_EXPENSE, "Ăn uống", "Cà phê ngắm hoàng hôn đồi chè", "Minh Quân", "15/10/2026 16:30"));
-
-        // Mock Transactions cho Quỹ Tiền Nhà (room-2)
-        transactionList.add(new Transaction("tx-08", "room-2", 2500000, Transaction.TYPE_INCOME, "Đóng quỹ", "Tiền trọ tháng 10 - Đức Trí", "Đức Trí", "06/10/2026 18:00"));
-        transactionList.add(new Transaction("tx-09", "room-2", 2500000, Transaction.TYPE_INCOME, "Đóng quỹ", "Tiền trọ tháng 10 - Bạn", "Bạn", "06/10/2026 18:05"));
-        transactionList.add(new Transaction("tx-10", "room-2", 2500000, Transaction.TYPE_INCOME, "Đóng quỹ", "Tiền trọ tháng 10 - Hoàng Nam", "Hoàng Nam", "06/10/2026 19:10"));
-        transactionList.add(new Transaction("tx-11", "room-2", 6000000, Transaction.TYPE_EXPENSE, "Tiền nhà", "Chuyển khoản tiền thuê nhà cho chủ trọ", "Bạn", "07/10/2026 08:00"));
-        transactionList.add(new Transaction("tx-12", "room-2", 650000, Transaction.TYPE_EXPENSE, "Điện nước", "Thanh toán hóa đơn điện lực EVN", "Bạn", "08/10/2026 09:20"));
-
-        // Mock Transactions cho Quỹ Ăn Trưa (room-3)
-        transactionList.add(new Transaction("tx-13", "room-3", 500000, Transaction.TYPE_INCOME, "Đóng quỹ", "Nạp quỹ đầu tuần - Cả nhóm", "Quốc Huy", "16/10/2026 08:30"));
-        transactionList.add(new Transaction("tx-14", "room-3", 220000, Transaction.TYPE_EXPENSE, "Ăn uống", "Cơm tấm sườn bì chả cho 4 người", "Bạn", "16/10/2026 12:15"));
-        transactionList.add(new Transaction("tx-15", "room-3", 110000, Transaction.TYPE_EXPENSE, "Ăn uống", "Trà sữa Phúc Long trưa Thứ 6", "Mai Phương", "16/10/2026 14:00"));
-
-        // Khởi tạo số dư ví mẫu cho tài khoản
-        userWalletMap.put("user-001", 1500000.0);
-        userWalletMap.put("guest-001", 500000.0);
-        userWalletLiveData.postValue(getUserWalletBalance());
-
-        recalculateAllBalances();
-        notifyDataChanged();
-    }
-
-    /**
      * Chuyển đổi ngữ cảnh người dùng hiện tại
      */
     public synchronized void setCurrentUser(String userId, String userName) {
-        if (userId == null || userId.isEmpty()) {
-            this.currentUserId = "user-001";
-            this.currentUserName = "Bạn";
-        } else {
-            this.currentUserId = userId;
-            this.currentUserName = (userName != null && !userName.isEmpty()) ? userName : "Bạn";
+        String nextUserId = userId != null ? userId : "";
+        if (!nextUserId.equals(this.currentUserId)) {
+            roomList.clear();
+            transactionList.clear();
+            userRoomsMap.clear();
         }
+        this.currentUserId = nextUserId;
+        this.currentUserName = (userName != null && !userName.isEmpty()) ? userName : "Người dùng";
         if (!userRoomsMap.containsKey(this.currentUserId)) {
             userRoomsMap.put(this.currentUserId, new ArrayList<>());
         }
-        if (!userWalletMap.containsKey(this.currentUserId)) {
-            userWalletMap.put(this.currentUserId, 500000.0);
-        }
-        userWalletLiveData.postValue(getUserWalletBalance());
         recalculateAllBalances();
         notifyDataChanged();
     }
@@ -136,8 +102,6 @@ public class RoomRepository {
         this.currentUserId = userId;
         this.currentUserName = (userName != null && !userName.isEmpty()) ? userName : "Bạn";
         userRoomsMap.put(this.currentUserId, new ArrayList<>());
-        userWalletMap.put(this.currentUserId, 0.0);
-        userWalletLiveData.postValue(0.0);
         recalculateAllBalances();
         notifyDataChanged();
     }
@@ -150,15 +114,229 @@ public class RoomRepository {
         return currentUserName;
     }
 
+    public synchronized void configureAccessToken(String accessToken) {
+        token = accessToken != null && !accessToken.trim().isEmpty()
+                ? accessToken : SupabaseConfig.SUPABASE_ANON_KEY;
+    }
+    private Request.Builder request(String path) {
+        return new Request.Builder().url(SupabaseConfig.REST_URL + path)
+                .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
+                .addHeader("Authorization", "Bearer " + token);
+    }
+
+    private String error(Response response, String body) {
+        return "HTTP " + response.code() + (body.isEmpty() ? "" : ": " + body);
+    }
+
+    public void loadUserData(String userId, DataCallback<List<Room>> callback) {
+        String path = "/room_members?select=role,rooms(*)&user_id=eq." + userId;
+        client.newCall(request(path).get().build()).enqueue(new okhttp3.Callback() {
+            @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+            @Override public void onResponse(Call call, Response response) throws IOException {
+                String body = response.body() != null ? response.body().string() : "";
+                if (!response.isSuccessful()) { callback.onError(error(response, body)); return; }
+                List<Room> rooms = new ArrayList<>();
+                try {
+                    JsonArray rows = JsonParser.parseString(body).getAsJsonArray();
+                    for (JsonElement rowElement : rows) {
+                        JsonObject row = rowElement.getAsJsonObject();
+                        JsonElement roomValue = row.get("rooms");
+                        if (roomValue == null || roomValue.isJsonNull()) continue;
+                        if (roomValue.isJsonArray()) {
+                            for (JsonElement value : roomValue.getAsJsonArray()) {
+                                Room room = gson.fromJson(value, Room.class);
+                                room.setCurrentUserRole(row.has("role") ? row.get("role").getAsString() : "MEMBER");
+                                rooms.add(room);
+                            }
+                        } else {
+                            Room room = gson.fromJson(roomValue, Room.class);
+                            room.setCurrentUserRole(row.has("role") ? row.get("role").getAsString() : "MEMBER");
+                            rooms.add(room);
+                        }
+                    }
+                } catch (Exception e) { callback.onError("Invalid rooms response: " + e.getMessage()); return; }
+                loadTransactions(rooms, callback);
+            }
+        });
+    }
+
+    private void loadTransactions(List<Room> rooms, DataCallback<List<Room>> callback) {
+        if (rooms.isEmpty()) {
+            replaceRemoteData(rooms, new ArrayList<>());
+            callback.onSuccess(rooms);
+            return;
+        }
+        StringBuilder ids = new StringBuilder();
+        for (Room room : rooms) {
+            if (ids.length() > 0) ids.append(',');
+            ids.append(room.getId());
+        }
+        String path = "/transactions?select=*&room_id=in.(" + ids + ")&order=created_at.desc";
+        client.newCall(request(path).get().build()).enqueue(new okhttp3.Callback() {
+            @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+            @Override public void onResponse(Call call, Response response) throws IOException {
+                String body = response.body() != null ? response.body().string() : "";
+                if (!response.isSuccessful()) { callback.onError(error(response, body)); return; }
+                Type type = new TypeToken<List<Transaction>>() {}.getType();
+                List<Transaction> transactions = gson.fromJson(body, type);
+                loadMembers(rooms, transactions != null ? transactions : new ArrayList<>(), callback);
+            }
+        });
+    }
+
+    public void loadCategories(DataCallback<List<Category>> callback) {
+        client.newCall(request("/categories?select=id,name,type&order=name.asc").get().build())
+                .enqueue(new okhttp3.Callback() {
+                    @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+                    @Override public void onResponse(Call call, Response response) throws IOException {
+                        String body = response.body() != null ? response.body().string() : "";
+                        if (!response.isSuccessful()) { callback.onError(error(response, body)); return; }
+                        try {
+                            Type type = new TypeToken<List<Category>>() {}.getType();
+                            List<Category> categories = gson.fromJson(body, type);
+                            callback.onSuccess(categories != null ? categories : new ArrayList<>());
+                        } catch (Exception e) { callback.onError("Invalid categories response: " + e.getMessage()); }
+                    }
+                });
+    }
+
+    private void loadMembers(List<Room> rooms, List<Transaction> transactions, DataCallback<List<Room>> callback) {
+        StringBuilder ids = new StringBuilder();
+        for (Room room : rooms) {
+            if (ids.length() > 0) ids.append(',');
+            ids.append(room.getId());
+        }
+        String path = "/room_members?select=room_id,role,profiles(full_name)&room_id=in.(" + ids + ")";
+        client.newCall(request(path).get().build()).enqueue(new okhttp3.Callback() {
+            @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+            @Override public void onResponse(Call call, Response response) throws IOException {
+                String body = response.body() != null ? response.body().string() : "";
+                if (!response.isSuccessful()) { callback.onError(error(response, body)); return; }
+                try {
+                    JsonArray members = JsonParser.parseString(body).getAsJsonArray();
+                    for (Room room : rooms) {
+                        List<String> names = new ArrayList<>();
+                        for (JsonElement element : members) {
+                            JsonObject row = element.getAsJsonObject();
+                            if (!room.getId().equals(row.get("room_id").getAsString())) continue;
+                            JsonElement profile = row.get("profiles");
+                            String name = "Thành viên";
+                            if (profile != null && profile.isJsonObject() && profile.getAsJsonObject().has("full_name")) {
+                                name = profile.getAsJsonObject().get("full_name").getAsString();
+                            }
+                            names.add(name);
+                        }
+                        room.setMembers(names);
+                        room.setMemberCount(names.size());
+                    }
+                } catch (Exception e) { callback.onError("Invalid room members response: " + e.getMessage()); return; }
+                replaceRemoteData(rooms, transactions);
+                callback.onSuccess(rooms);
+            }
+        });
+    }
+
+    public void createRoom(String name, String description, String userId, DataCallback<Room> callback) {
+        JsonObject payload = new JsonObject();
+        payload.addProperty("name", name);
+        payload.addProperty("description", description);
+        payload.addProperty("join_code", makeJoinCode());
+        payload.addProperty("created_by", userId);
+        payload.addProperty("balance", 0);
+        payload.addProperty("currency", "VND");
+        payload.addProperty("is_archived", false);
+        RequestBody body = RequestBody.create(gson.toJson(payload), JSON);
+        client.newCall(request("/rooms?select=*").post(body)
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Prefer", "return=representation").build()).enqueue(new okhttp3.Callback() {
+            @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+            @Override public void onResponse(Call call, Response response) throws IOException {
+                String responseBody = response.body() != null ? response.body().string() : "";
+                if (!response.isSuccessful()) { callback.onError(error(response, responseBody)); return; }
+                try {
+                    JsonArray rows = JsonParser.parseString(responseBody).getAsJsonArray();
+                    if (rows.size() == 0) { callback.onError("Supabase returned no room row."); return; }
+                    Room room = gson.fromJson(rows.get(0), Room.class);
+                    addMember(room, userId, "ADMIN", callback);
+                } catch (Exception e) { callback.onError("Invalid room response: " + e.getMessage()); }
+            }
+        });
+    }
+
+    public void joinRoom(String code, String userId, DataCallback<Room> callback) {
+        String safeCode = code.trim().toUpperCase(java.util.Locale.ROOT);
+        String path = "/rooms?select=*&join_code=eq." + safeCode;
+        client.newCall(request(path).get().build()).enqueue(new okhttp3.Callback() {
+            @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+            @Override public void onResponse(Call call, Response response) throws IOException {
+                String body = response.body() != null ? response.body().string() : "";
+                if (!response.isSuccessful()) { callback.onError(error(response, body)); return; }
+                try {
+                    JsonArray rows = JsonParser.parseString(body).getAsJsonArray();
+                    if (rows.size() == 0) { callback.onError("Không tìm thấy quỹ với mã tham gia này."); return; }
+                    addMember(gson.fromJson(rows.get(0), Room.class), userId, "MEMBER", callback);
+                } catch (Exception e) { callback.onError("Invalid room response: " + e.getMessage()); }
+            }
+        });
+    }
+
+    public void loadRoomMembers(String roomId, DataCallback<List<RoomMember>> callback) {
+        String path = "/room_members?select=id,room_id,user_id,role,total_contributed,joined_at,profiles(full_name,email,avatar_url)&room_id=eq." + roomId;
+        client.newCall(request(path).get().build()).enqueue(new okhttp3.Callback() {
+            @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+            @Override public void onResponse(Call call, Response response) throws IOException {
+                String body = response.body() != null ? response.body().string() : "";
+                if (!response.isSuccessful()) { callback.onError(error(response, body)); return; }
+                try {
+                    List<RoomMember> result = new ArrayList<>();
+                    JsonArray rows = JsonParser.parseString(body).getAsJsonArray();
+                    for (JsonElement element : rows) {
+                        JsonObject row = element.getAsJsonObject();
+                        RoomMember member = gson.fromJson(row, RoomMember.class);
+                        JsonElement profile = row.get("profiles");
+                        if (profile != null && profile.isJsonObject()) {
+                            JsonObject p = profile.getAsJsonObject();
+                            if (p.has("full_name")) member.setFullName(p.get("full_name").getAsString());
+                            if (p.has("email")) member.setEmail(p.get("email").getAsString());
+                            if (p.has("avatar_url")) member.setAvatarUrl(p.get("avatar_url").getAsString());
+                        }
+                        result.add(member);
+                    }
+                    callback.onSuccess(result);
+                } catch (Exception e) { callback.onError("Invalid members response: " + e.getMessage()); }
+            }
+        });
+    }
+
+    private void addMember(Room room, String userId, String role, DataCallback<Room> callback) {
+        room.setCurrentUserRole(role);
+        JsonObject row = new JsonObject();
+        row.addProperty("room_id", room.getId());
+        row.addProperty("user_id", userId);
+        row.addProperty("role", role);
+        Request request = request("/room_members?on_conflict=room_id,user_id")
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Prefer", "resolution=ignore-duplicates,return=minimal")
+                .post(RequestBody.create(gson.toJson(row), JSON)).build();
+        client.newCall(request).enqueue(new okhttp3.Callback() {
+            @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+            @Override public void onResponse(Call call, Response response) throws IOException {
+                String body = response.body() != null ? response.body().string() : "";
+                if (!response.isSuccessful()) { callback.onError(error(response, body)); return; }
+                callback.onSuccess(room);
+            }
+        });
+    }
+
+    private String makeJoinCode() {
+        return UUID.randomUUID().toString().replace("-", "").substring(0, 6).toUpperCase(java.util.Locale.ROOT);
+    }
     /**
      * Lấy danh sách các quỹ mà người dùng hiện tại đã tham gia hoặc tạo
      */
     public synchronized List<Room> getUserRooms() {
         List<String> joinedIds = userRoomsMap.get(currentUserId);
         if (joinedIds == null) {
-            if ("user-001".equals(currentUserId)) {
-                return new ArrayList<>(roomList);
-            }
             return new ArrayList<>();
         }
         List<Room> result = new ArrayList<>();
@@ -212,6 +390,24 @@ public class RoomRepository {
         transactionsLiveData.postValue(new ArrayList<>(transactionList));
     }
 
+    /** Replace the in-memory view with rows fetched from Supabase for the active user. */
+    public synchronized void replaceRemoteData(List<Room> rooms, List<Transaction> transactions) {
+        roomList.clear();
+        transactionList.clear();
+        List<String> ids = new ArrayList<>();
+        if (rooms != null) {
+            for (Room room : rooms) {
+                if (room == null || room.getId() == null) continue;
+                roomList.add(room);
+                ids.add(room.getId());
+            }
+        }
+        if (transactions != null) transactionList.addAll(transactions);
+        userRoomsMap.put(currentUserId, ids);
+        recalculateAllBalances();
+        notifyDataChanged();
+    }
+
     // ==========================================
     // GETTERS & QUERY APIS
     // ==========================================
@@ -226,95 +422,6 @@ public class RoomRepository {
 
     public LiveData<Double> getTotalBalanceLiveData() {
         return totalBalanceLiveData;
-    }
-
-    public LiveData<Double> getUserWalletLiveData() {
-        return userWalletLiveData;
-    }
-
-    public synchronized double getUserWalletBalance() {
-        Double balance = userWalletMap.get(currentUserId);
-        return balance != null ? balance : 0.0;
-    }
-
-    public synchronized void depositToUserWallet(double amount) {
-        if (amount <= 0) return;
-        double current = getUserWalletBalance();
-        userWalletMap.put(currentUserId, current + amount);
-        userWalletLiveData.postValue(current + amount);
-    }
-
-    public synchronized boolean deductUserWallet(double amount) {
-        if (amount <= 0) return false;
-        double current = getUserWalletBalance();
-        if (current < amount) return false;
-        userWalletMap.put(currentUserId, current - amount);
-        userWalletLiveData.postValue(current - amount);
-        return true;
-    }
-
-    /**
-     * Đóng tiền vào quỹ từ số dư ví cá nhân
-     */
-    public synchronized boolean contributeToRoom(String roomId, double amount, String note) {
-        if (amount <= 0) return false;
-        Room r = getRoomSync(roomId);
-        if (r == null) return false;
-
-        // Trừ tiền từ ví cá nhân
-        if (!deductUserWallet(amount)) {
-            return false; // Số dư ví không đủ
-        }
-
-        // Tạo giao dịch thu vào quỹ
-        String creator = currentUserName;
-        String timeStr = new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(new Date());
-        String finalNote = (note != null && !note.trim().isEmpty()) ? note.trim() : ("Đóng quỹ từ ví - " + creator);
-        Transaction tx = new Transaction(
-                "tx-" + (transactionList.size() + 1),
-                roomId,
-                amount,
-                Transaction.TYPE_INCOME,
-                "Đóng quỹ",
-                finalNote,
-                creator,
-                timeStr
-        );
-        transactionList.add(0, tx);
-        recalculateAllBalances();
-        notifyDataChanged();
-        return true;
-    }
-
-    /**
-     * Rút tiền từ quỹ về ví tài khoản cá nhân
-     */
-    public synchronized boolean withdrawFromRoomToWallet(String roomId, double amount, String note) {
-        if (amount <= 0) return false;
-        Room r = getRoomSync(roomId);
-        if (r == null || r.getBalance() < amount) return false;
-
-        String creator = currentUserName;
-        String timeStr = new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(new Date());
-        String finalNote = (note != null && !note.trim().isEmpty()) ? note.trim() : ("Rút tiền về ví - " + creator);
-        Transaction tx = new Transaction(
-                "tx-" + (transactionList.size() + 1),
-                roomId,
-                amount,
-                Transaction.TYPE_EXPENSE,
-                "Rút quỹ",
-                finalNote,
-                creator,
-                timeStr
-        );
-        transactionList.add(0, tx);
-
-        // Cộng lại vào ví cá nhân
-        depositToUserWallet(amount);
-
-        recalculateAllBalances();
-        notifyDataChanged();
-        return true;
     }
 
     public synchronized Room getRoomSync(String roomId) {
@@ -380,97 +487,6 @@ public class RoomRepository {
     }
 
     // ==========================================
-    // ACTIONS & MUTATIONS
-    // ==========================================
-
-    /**
-     * Tạo quỹ mới
-     * Giai đoạn sau: INSERT INTO rooms (name, description, join_code, created_at)
-     */
-    public synchronized Room createRoom(String name, String description) {
-        String id = "room-" + (roomList.size() + 1);
-        String code = generateJoinCode();
-        String dateStr = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(new Date());
-
-        List<String> members = new ArrayList<>();
-        String creatorLabel = currentUserName != null && !currentUserName.isEmpty()
-                ? currentUserName + " (Trưởng quỹ)"
-                : "Bạn (Trưởng quỹ)";
-        members.add(creatorLabel);
-
-        Room newRoom = new Room(id, name, code, 0, description, 1, members, dateStr);
-        roomList.add(0, newRoom);
-
-        // Gán phòng mới tạo vào danh sách của user hiện tại
-        List<String> joined = userRoomsMap.get(currentUserId);
-        if (joined == null) {
-            joined = new ArrayList<>();
-            userRoomsMap.put(currentUserId, joined);
-        }
-        if (!joined.contains(id)) {
-            joined.add(0, id);
-        }
-
-        recalculateAllBalances();
-        notifyDataChanged();
-        return newRoom;
-    }
-
-    /**
-     * Tham gia quỹ qua mã code
-     * Giai đoạn sau: INSERT INTO room_members (room_id, user_id)
-     */
-    public synchronized Room joinRoomByCode(String code) {
-        if (code == null) return null;
-        String cleanCode = code.trim().toUpperCase(Locale.ROOT);
-        for (Room r : roomList) {
-            if (cleanCode.equalsIgnoreCase(r.getJoinCode())) {
-                String memberLabel = currentUserName != null && !currentUserName.isEmpty()
-                        ? currentUserName
-                        : "Bạn";
-                if (!r.getMembers().contains(memberLabel)) {
-                    r.getMembers().add(memberLabel);
-                    r.setMemberCount(r.getMembers().size());
-                }
-
-                // Gán phòng vào danh sách của user hiện tại
-                List<String> joined = userRoomsMap.get(currentUserId);
-                if (joined == null) {
-                    joined = new ArrayList<>();
-                    userRoomsMap.put(currentUserId, joined);
-                }
-                if (!joined.contains(r.getId())) {
-                    joined.add(0, r.getId());
-                }
-
-                recalculateAllBalances();
-                notifyDataChanged();
-                return r;
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Thêm giao dịch mới vào quỹ
-     * Giai đoạn sau: INSERT INTO transactions (room_id, amount, type, category, note, created_by, created_at)
-     */
-    public synchronized boolean addTransaction(Transaction tx) {
-        if (tx == null) return false;
-        if (tx.getId() == null || tx.getId().isEmpty()) {
-            tx.setId("tx-" + (transactionList.size() + 1));
-        }
-        if (tx.getCreatedAt() == null || tx.getCreatedAt().isEmpty()) {
-            String timeStr = new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(new Date());
-            tx.setCreatedAt(timeStr);
-        }
-        transactionList.add(0, tx);
-        recalculateAllBalances();
-        notifyDataChanged();
-        return true;
-    }
-
-    // ==========================================
     // REALTIME & SUPABASE / POSTGRESQL INTEGRATION HOOKS
     // ==========================================
 
@@ -516,13 +532,4 @@ public class RoomRepository {
         notifyDataChanged();
     }
 
-    private String generateJoinCode() {
-        String chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-        StringBuilder sb = new StringBuilder();
-        Random r = new Random();
-        for (int i = 0; i < 6; i++) {
-            sb.append(chars.charAt(r.nextInt(chars.length())));
-        }
-        return sb.toString();
-    }
 }

@@ -1,5 +1,7 @@
 package com.sharedfund.app.model;
 
+import com.google.gson.annotations.SerializedName;
+
 import java.io.Serializable;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
@@ -14,12 +16,24 @@ import java.util.Locale;
 public class Room implements Serializable {
     private String id;
     private String name;
+    @SerializedName("join_code")
     private String joinCode;
     private double balance;
     private String description;
+    @SerializedName("member_count")
     private int memberCount;
     private List<String> members;
+    @SerializedName("created_at")
     private String createdAt;
+    @SerializedName("created_by")
+    private String createdBy;
+    @SerializedName("target_amount")
+    private double targetAmount;
+    @SerializedName("currency")
+    private String currency;
+    @SerializedName("is_archived")
+    private boolean archived;
+    private transient String currentUserRole;
 
     public Room() {
         this.members = new ArrayList<>();
@@ -103,6 +117,17 @@ public class Room implements Serializable {
     public void setCreatedAt(String createdAt) {
         this.createdAt = createdAt;
     }
+
+    public String getCreatedBy() { return createdBy; }
+    public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
+    public double getTargetAmount() { return targetAmount; }
+    public void setTargetAmount(double targetAmount) { this.targetAmount = targetAmount; }
+    public String getCurrency() { return currency; }
+    public void setCurrency(String currency) { this.currency = currency; }
+    public boolean isArchived() { return archived; }
+    public void setArchived(boolean archived) { this.archived = archived; }
+    public String getCurrentUserRole() { return currentUserRole; }
+    public void setCurrentUserRole(String currentUserRole) { this.currentUserRole = currentUserRole; }
 
     /**
      * Định dạng số tiền sang định dạng tiền tệ VNĐ chuẩn hóa (ví dụ: 1.500.000 ₫)

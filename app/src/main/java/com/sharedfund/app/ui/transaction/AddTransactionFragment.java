@@ -25,7 +25,13 @@ import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 import com.sharedfund.app.MainActivity;
 import com.sharedfund.app.R;
+import com.sharedfund.app.data.RoomRepository;
+import com.sharedfund.app.data.UserSessionManager;
+import com.sharedfund.app.model.Category;
 import com.sharedfund.app.model.Transaction;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Màn hình Thêm giao dịch (AddTransactionFragment)
@@ -52,8 +58,8 @@ public class AddTransactionFragment extends Fragment {
     private TextInputEditText etCreatedBy;
     private MaterialButton btnSaveTransaction;
 
-    private final String[] expenseCategories = new String[]{"Ăn uống", "Di chuyển", "Mua sắm", "Thuê phòng", "Giải trí", "Tiền điện nước", "Khác"};
-    private final String[] incomeCategories = new String[]{"Đóng quỹ", "Nạp thêm", "Hoàn tiền", "Khác"};
+    private final List<String> expenseCategories = new ArrayList<>();
+    private final List<String> incomeCategories = new ArrayList<>();
 
     public static AddTransactionFragment newInstance(String roomId) {
         AddTransactionFragment fragment = new AddTransactionFragment();
@@ -82,7 +88,7 @@ public class AddTransactionFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
 
         initViews(view);
-        setupSpinner(expenseCategories);
+        setupSpinner(new String[0]);
         setupTextWatchers();
         setupViewModel();
         setupClickListeners();
@@ -158,7 +164,35 @@ public class AddTransactionFragment extends Fragment {
 
     private void setupViewModel() {
         viewModel = new ViewModelProvider(this).get(TransactionViewModel.class);
+        UserSessionManager session = UserSessionManager.getInstance(requireContext());
+        viewModel.setAccessToken(session.getAccessToken());
         viewModel.setRoomId(roomId);
+        RoomRepository.getInstance().configureAccessToken(session.getAccessToken());
+        RoomRepository.getInstance().loadCategories(new RoomRepository.DataCallback<List<Category>>() {
+            @Override public void onSuccess(List<Category> categories) {
+                if (!isAdded()) return;
+                requireActivity().runOnUiThread(() -> {
+                    if (!isAdded()) return;
+                    expenseCategories.clear();
+                    incomeCategories.clear();
+                    for (Category category : categories) {
+                        if (category.getName() == null || category.getType() == null) continue;
+                        if ("expense".equalsIgnoreCase(category.getType()) || "chi".equalsIgnoreCase(category.getType()))
+                            expenseCategories.add(category.getName());
+                        else if ("income".equalsIgnoreCase(category.getType()) || "thu".equalsIgnoreCase(category.getType()))
+                            incomeCategories.add(category.getName());
+                    }
+                    setupSpinner(rbExpense.isChecked()
+                            ? expenseCategories.toArray(new String[0])
+                            : incomeCategories.toArray(new String[0]));
+                });
+            }
+            @Override public void onError(String message) {
+                if (!isAdded()) return;
+                requireActivity().runOnUiThread(() -> Toast.makeText(requireContext(),
+                        "Không tải được danh mục từ Supabase: " + message, Toast.LENGTH_LONG).show());
+            }
+        });
 
         // Lắng nghe lỗi hiển thị
         viewModel.getErrorMessage().observe(getViewLifecycleOwner(), new Observer<String>() {
@@ -220,13 +254,13 @@ public class AddTransactionFragment extends Fragment {
                     rbExpense.setTextColor(ContextCompat.getColor(requireContext(), R.color.accent_expense));
                     rbIncome.setBackgroundResource(R.drawable.bg_card);
                     rbIncome.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary));
-                    setupSpinner(expenseCategories);
+                    setupSpinner(expenseCategories.toArray(new String[0]));
                 } else {
                     rbIncome.setBackgroundResource(R.drawable.bg_income_badge);
                     rbIncome.setTextColor(ContextCompat.getColor(requireContext(), R.color.accent_income));
                     rbExpense.setBackgroundResource(R.drawable.bg_card);
                     rbExpense.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary));
-                    setupSpinner(incomeCategories);
+                    setupSpinner(incomeCategories.toArray(new String[0]));
                 }
             }
         });

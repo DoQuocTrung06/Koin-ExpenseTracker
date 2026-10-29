@@ -247,12 +247,11 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
         // Đóng quỹ: thành viên đóng tiền từ ví cá nhân vào quỹ
         if (btnNavDeposit != null) {
             btnNavDeposit.setOnClickListener(v -> {
-                ContributeDialogFragment contributeDialog = ContributeDialogFragment.newInstance(roomId);
-                contributeDialog.setOnContributeCompleteListener(amount -> {
-                    // Refresh data sau khi đóng quỹ
+                DepositDialogFragment depositDialog = DepositDialogFragment.newInstance(roomId);
+                depositDialog.setOnDepositCompleteListener(amount -> {
                     if (viewModel != null) viewModel.refresh();
                 });
-                contributeDialog.show(getChildFragmentManager(), "contribute_dialog");
+                depositDialog.show(getChildFragmentManager(), "deposit_dialog");
             });
         }
 
@@ -301,7 +300,12 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
      */
     private boolean isCurrentUserAdmin() {
         Room room = viewModel != null ? viewModel.getRoom().getValue() : null;
-        if (room == null || room.getMembers() == null) return false;
+        if (room == null) return false;
+        String role = room.getCurrentUserRole();
+        if (role != null) return "ADMIN".equalsIgnoreCase(role) || "OWNER".equalsIgnoreCase(role);
+        String currentUserId = UserSessionManager.getInstance(requireContext()).getUserId();
+        if (currentUserId.equals(room.getCreatedBy())) return true;
+        if (room.getMembers() == null) return false;
 
         String currentUserName = UserSessionManager.getInstance(requireContext()).getCurrentUserName();
         for (String member : room.getMembers()) {
