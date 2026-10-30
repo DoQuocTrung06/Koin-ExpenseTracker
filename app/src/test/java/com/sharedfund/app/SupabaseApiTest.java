@@ -19,9 +19,6 @@ import org.junit.Test;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Kiểm thử toàn diện logic tầng Dữ liệu, Model, và tích hợp Supabase/Realtime của SharedFund.
- */
 public class SupabaseApiTest {
 
     @Rule
@@ -32,7 +29,6 @@ public class SupabaseApiTest {
         RoomRepository repository = RoomRepository.getInstance();
         assertNotNull("Repository instance should not be null", repository);
 
-        // 1. Tạo phòng/quỹ mới
         String roomName = "Phòng Trọ 524h0132";
         String roomDesc = "Quỹ test kiểm thử tự động";
         Room newRoom = repository.createRoom(roomName, roomDesc);
@@ -42,7 +38,6 @@ public class SupabaseApiTest {
         assertNotNull("Join code must be generated", newRoom.getJoinCode());
         assertEquals("Room name matches input", roomName, newRoom.getName());
 
-        // 2. Tra cứu quỹ theo id và theo mã code
         Room foundRoom = repository.getRoomSync(newRoom.getId());
         assertNotNull("Should find created room by ID", foundRoom);
         assertEquals(roomName, foundRoom.getName());
@@ -51,7 +46,6 @@ public class SupabaseApiTest {
         assertNotNull("Should find room by join code", joinedRoom);
         assertEquals(newRoom.getId(), joinedRoom.getId());
 
-        // 3. Thêm giao dịch Thu và Chi
         Transaction incomeTx = new Transaction(newRoom.getId(), "Bạn", 500000.0,
                 Transaction.TYPE_INCOME, "Đóng quỹ", "Đóng quỹ tháng 10");
         boolean incomeAdded = repository.addTransaction(incomeTx);
@@ -62,7 +56,6 @@ public class SupabaseApiTest {
         boolean expenseAdded = repository.addTransaction(expenseTx);
         assertTrue("Expense transaction should be added successfully", expenseAdded);
 
-        // 4. Kiểm tra tính toán thu, chi và số dư
         double totalIncome = repository.getRoomTotalIncome(newRoom.getId());
         double totalExpense = repository.getRoomTotalExpense(newRoom.getId());
         assertEquals(500000.0, totalIncome, 0.001);
@@ -71,20 +64,17 @@ public class SupabaseApiTest {
         assertEquals(300000.0, newRoom.getBalance(), 0.001);
         assertTrue("Formatted balance should contain 300.000", newRoom.getFormattedBalance().contains("300.000"));
 
-        // 5. Kiểm tra phân loại chi tiêu
         Map<String, Double> categoryMap = repository.getCategoryBreakdown(newRoom.getId());
         assertNotNull(categoryMap);
         assertTrue(categoryMap.containsKey("Ăn uống"));
         assertEquals(200000.0, categoryMap.get("Ăn uống"), 0.001);
 
-        // 6. Kiểm tra danh sách giao dịch của phòng
         List<Transaction> txList = repository.getTransactionsForRoom(newRoom.getId());
         assertTrue(txList.size() >= 2);
     }
 
     @Test
     public void testModelFormattingAndSerialization() {
-        // Kiểm tra format số tiền Transaction
         Transaction txIncome = new Transaction("tx-1", "room-1", 1500000.0, Transaction.TYPE_INCOME,
                 "Đóng quỹ", "Nạp quỹ", "Bạn", "27/10/2026 10:00");
         assertEquals("+1.500.000 ₫", txIncome.getFormattedAmount());
@@ -95,12 +85,10 @@ public class SupabaseApiTest {
         assertEquals("-450.000 ₫", txExpense.getFormattedAmount());
         assertTrue(txExpense.isExpense());
 
-        // Kiểm tra format số dư Room
         Room room = new Room("room-1", "Quỹ Đà Lạt", "DALAT6", 2850000.0,
                 "Du lịch", 5, null, "20/10/2026");
         assertEquals("2.850.000 ₫", room.getFormattedBalance());
 
-        // Kiểm tra serialization / deserialization JSON
         Gson gson = new Gson();
         String json = gson.toJson(txIncome);
         Transaction parsedTx = gson.fromJson(json, Transaction.class);
@@ -113,7 +101,6 @@ public class SupabaseApiTest {
     public void testSupabaseRealtimeIntegrationHooks() {
         RoomRepository repository = RoomRepository.getInstance();
 
-        // Kiểm tra hook nhận giao dịch realtime từ Supabase/PostgreSQL
         Transaction remoteTx = new Transaction("tx-remote-99", "room-1", 88000.0,
                 Transaction.TYPE_EXPENSE, "Ăn uống", "Remote realtime test", "Huy", "27/10/2026 15:30");
         repository.onRemoteTransactionReceived(remoteTx);
@@ -128,7 +115,6 @@ public class SupabaseApiTest {
         }
         assertTrue("Remote realtime transaction should be incorporated into repository", found);
 
-        // Kiểm tra cấu hình Supabase
         assertNotNull(SupabaseConfig.SUPABASE_URL);
         assertNotNull(SupabaseConfig.SUPABASE_ANON_KEY);
         assertNotNull(SupabaseConfig.REST_URL);

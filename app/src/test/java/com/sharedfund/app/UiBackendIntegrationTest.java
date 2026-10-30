@@ -22,10 +22,6 @@ import org.junit.Test;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Kiểm thử tính khớp nối 2 chiều (End-to-End) giữa giao diện (ViewModels/UI Logic)
- * và tầng dữ liệu Backend (RoomRepository, Data Models, Realtime Stream).
- */
 public class UiBackendIntegrationTest {
 
     @Rule
@@ -43,16 +39,13 @@ public class UiBackendIntegrationTest {
     public void testHomeViewModelSyncWithBackend() {
         HomeViewModel homeViewModel = new HomeViewModel();
 
-        // 1. Kiểm tra ViewModel nhận đúng danh sách Room ban đầu từ Repository
         List<Room> initialRooms = homeViewModel.getRooms().getValue();
         assertNotNull("HomeViewModel must receive initial rooms", initialRooms);
         assertTrue("Initial rooms must contain mock rooms", initialRooms.size() >= 3);
 
-        // 2. Kiểm tra tổng số dư hệ thống phản ánh đúng dữ liệu mock
         Double totalBalance = homeViewModel.getTotalBalance().getValue();
         assertNotNull("Total balance must not be null", totalBalance);
 
-        // 3. Thực hiện thao tác tạo quỹ mới trên UI ViewModel
         int countBefore = initialRooms.size();
         homeViewModel.createRoom("Quỹ Hội Đồng Hương", "Gom tiền hội họp bạn bè cuối năm");
 
@@ -64,9 +57,7 @@ public class UiBackendIntegrationTest {
         assertEquals("Quỹ Hội Đồng Hương", created.getName());
         assertNotNull("Join code must be generated", created.getJoinCode());
 
-        // 4. Thực hiện tham gia quỹ bằng mã Join Code
         homeViewModel.joinRoom(created.getJoinCode());
-        // Quỹ mới đã tham gia thành công
         Room found = repository.getRoomSync(created.getId());
         assertNotNull(found);
     }
@@ -76,11 +67,10 @@ public class UiBackendIntegrationTest {
         RoomViewModel roomViewModel = new RoomViewModel();
         TransactionViewModel txViewModel = new TransactionViewModel();
 
-        String roomId = "room-1"; // Quỹ Du Lịch Đà Lạt
+        String roomId = "room-1";
         roomViewModel.setRoomId(roomId);
         txViewModel.setRoomId(roomId);
 
-        // Kiểm tra số dư và thông tin quỹ ban đầu
         Room room = roomViewModel.getRoom().getValue();
         assertNotNull(room);
         assertEquals("Quỹ Du Lịch Đà Lạt 2026", room.getName());
@@ -89,7 +79,6 @@ public class UiBackendIntegrationTest {
         double initialIncome = roomViewModel.getTotalIncome().getValue();
         double initialExpense = roomViewModel.getTotalExpense().getValue();
 
-        // 1. Thêm một khoản thu mới qua TransactionViewModel (mô phỏng form AddTransactionFragment)
         boolean incomeAdded = txViewModel.submitTransaction(
                 roomId,
                 Transaction.TYPE_INCOME,
@@ -100,11 +89,9 @@ public class UiBackendIntegrationTest {
         );
         assertTrue("Transaction income should be valid and submitted", incomeAdded);
 
-        // Kiểm tra tính Reactive: RoomViewModel tự động cập nhật
         roomViewModel.refresh();
         assertEquals(initialIncome + 500000.0, roomViewModel.getTotalIncome().getValue(), 0.001);
 
-        // 2. Thêm một khoản chi mới qua TransactionViewModel
         boolean expenseAdded = txViewModel.submitTransaction(
                 roomId,
                 Transaction.TYPE_EXPENSE,
@@ -118,11 +105,9 @@ public class UiBackendIntegrationTest {
         roomViewModel.refresh();
         assertEquals(initialExpense + 200000.0, roomViewModel.getTotalExpense().getValue(), 0.001);
 
-        // Kiểm tra số dư quỹ đã tính đúng chênh lệch (+500k -200k = +300k)
         double expectedBalance = initialBalance + 300000.0;
         assertEquals(expectedBalance, roomViewModel.getRoom().getValue().getBalance(), 0.001);
 
-        // 3. Kiểm tra danh sách giao dịch gần đây của RoomViewModel
         List<Transaction> recent = roomViewModel.getRecentTransactions().getValue();
         assertNotNull(recent);
         assertTrue(recent.size() > 0);
@@ -133,27 +118,22 @@ public class UiBackendIntegrationTest {
     public void testTransactionValidationErrors() {
         TransactionViewModel txViewModel = new TransactionViewModel();
 
-        // Kiểm tra validation: số tiền trống
         assertFalse(txViewModel.submitTransaction("room-1", Transaction.TYPE_EXPENSE, "", "Ăn uống", "Note", "Bạn"));
 
-        // Kiểm tra validation: số tiền âm hoặc bằng 0
         assertFalse(txViewModel.submitTransaction("room-1", Transaction.TYPE_EXPENSE, "0", "Ăn uống", "Note", "Bạn"));
         assertFalse(txViewModel.submitTransaction("room-1", Transaction.TYPE_EXPENSE, "-50000", "Ăn uống", "Note", "Bạn"));
 
-        // Kiểm tra validation: thiếu ghi chú / nội dung
         assertFalse(txViewModel.submitTransaction("room-1", Transaction.TYPE_EXPENSE, "50000", "Ăn uống", "", "Bạn"));
 
-        // Kiểm tra validation: thiếu danh mục
         assertFalse(txViewModel.submitTransaction("room-1", Transaction.TYPE_EXPENSE, "50000", "", "Note", "Bạn"));
     }
 
     @Test
     public void testStatisticsViewModelSync() {
         StatisticsViewModel statViewModel = new StatisticsViewModel();
-        String roomId = "room-2"; // Quỹ Tiền Nhà
+        String roomId = "room-2";
         statViewModel.setRoomId(roomId);
 
-        // Kiểm tra dữ liệu thống kê
         Double income = statViewModel.getTotalIncome().getValue();
         Double expense = statViewModel.getTotalExpense().getValue();
         Double net = statViewModel.getNetBalance().getValue();
@@ -163,17 +143,14 @@ public class UiBackendIntegrationTest {
         assertNotNull(net);
         assertEquals(income - expense, net, 0.001);
 
-        // Kiểm tra phân loại danh mục
         Map<String, Double> categoryStats = statViewModel.getCategoryStats().getValue();
         assertNotNull(categoryStats);
         assertTrue(categoryStats.containsKey("Tiền nhà") || categoryStats.containsKey("Điện nước"));
 
-        // Kiểm tra danh sách Top 5 khoản chi lớn nhất
         List<Transaction> topExpenses = statViewModel.getTopExpenses().getValue();
         assertNotNull(topExpenses);
         assertTrue(topExpenses.size() <= 5);
 
-        // Kiểm tra sắp xếp giảm dần theo số tiền
         for (int i = 0; i < topExpenses.size() - 1; i++) {
             assertTrue("Top expenses must be sorted descending",
                     topExpenses.get(i).getAmount() >= topExpenses.get(i + 1).getAmount());
@@ -186,12 +163,10 @@ public class UiBackendIntegrationTest {
         String roomId = "room-1";
         txViewModel.setRoomId(roomId);
 
-        // Lọc tất cả
         txViewModel.setFilter(TransactionViewModel.FilterType.ALL);
         List<Transaction> all = txViewModel.getTransactions().getValue();
         assertNotNull(all);
 
-        // Lọc chỉ khoản Thu
         txViewModel.setFilter(TransactionViewModel.FilterType.INCOME);
         List<Transaction> incomes = txViewModel.getTransactions().getValue();
         assertNotNull(incomes);
@@ -199,7 +174,6 @@ public class UiBackendIntegrationTest {
             assertTrue(tx.isIncome());
         }
 
-        // Lọc chỉ khoản Chi
         txViewModel.setFilter(TransactionViewModel.FilterType.EXPENSE);
         List<Transaction> expenses = txViewModel.getTransactions().getValue();
         assertNotNull(expenses);
@@ -207,20 +181,17 @@ public class UiBackendIntegrationTest {
             assertTrue(tx.isExpense());
         }
 
-        // Tổng số thu + chi bằng tổng số giao dịch
         assertEquals(all.size(), incomes.size() + expenses.size());
     }
 
     @Test
     public void testNewUserRegistrationStartsEmptyAndCanJoinOrReceiveFunds() {
-        // 1. Giả lập đăng ký tài khoản hoàn toàn mới
         String newUserId = "user-test-new-" + System.currentTimeMillis();
         String newUserName = "Nguyễn Văn Test";
         repository.registerNewUser(newUserId, newUserName);
 
         HomeViewModel homeViewModel = new HomeViewModel();
 
-        // 2. Kiểm tra tài khoản mới bắt đầu với 0 quỹ và 0 đồng số dư
         List<Room> newRooms = homeViewModel.getRooms().getValue();
         assertNotNull(newRooms);
         assertEquals("New user must have 0 rooms initially", 0, newRooms.size());
@@ -229,7 +200,6 @@ public class UiBackendIntegrationTest {
         assertNotNull(newTotalBalance);
         assertEquals("New user balance must be 0", 0.0, newTotalBalance, 0.001);
 
-        // 3. Người dùng mới tham gia vào một quỹ có sẵn thông qua mã mời (DALAT6)
         homeViewModel.joinRoom("DALAT6");
         List<Room> roomsAfterJoin = homeViewModel.getRooms().getValue();
         assertNotNull(roomsAfterJoin);
@@ -238,13 +208,11 @@ public class UiBackendIntegrationTest {
         assertTrue("New user name should be in room members",
                 roomsAfterJoin.get(0).getMembers().contains(newUserName));
 
-        // 4. Người dùng mới tự tạo thêm một quỹ riêng
         homeViewModel.createRoom("Quỹ Tiệc Đầy Tháng", "Quỹ riêng của gia đình");
         List<Room> roomsAfterCreate = homeViewModel.getRooms().getValue();
         assertNotNull(roomsAfterCreate);
         assertEquals("Room count must be 2 after creating a new room", 2, roomsAfterCreate.size());
 
-        // Reset về demo user
         repository.setCurrentUser("user-001", "Bạn");
     }
 }

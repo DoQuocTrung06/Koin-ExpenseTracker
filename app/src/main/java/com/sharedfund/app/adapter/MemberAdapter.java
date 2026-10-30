@@ -3,6 +3,7 @@ package com.sharedfund.app.adapter;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -10,6 +11,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.sharedfund.app.R;
 import com.sharedfund.app.model.RoomMember;
+import com.sharedfund.app.ui.profile.AvatarImageLoader;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
@@ -51,6 +53,7 @@ public class MemberAdapter extends RecyclerView.Adapter<MemberAdapter.MemberView
     }
 
     static class MemberViewHolder extends RecyclerView.ViewHolder {
+        private final ImageView ivAvatar;
         private final TextView tvInitials;
         private final TextView tvName;
         private final TextView tvBadge;
@@ -61,6 +64,7 @@ public class MemberAdapter extends RecyclerView.Adapter<MemberAdapter.MemberView
 
         MemberViewHolder(@NonNull View itemView) {
             super(itemView);
+            ivAvatar = itemView.findViewById(R.id.ivMemberAvatar);
             tvInitials = itemView.findViewById(R.id.tvMemberInitials);
             tvName = itemView.findViewById(R.id.tvMemberName);
             tvBadge = itemView.findViewById(R.id.tvMemberBadge);
@@ -74,6 +78,10 @@ public class MemberAdapter extends RecyclerView.Adapter<MemberAdapter.MemberView
 
         void bind(RoomMember member, double totalContribution) {
             tvInitials.setText(member.getInitials());
+            tvInitials.setVisibility(View.VISIBLE);
+            if (ivAvatar != null) {
+                AvatarImageLoader.load(ivAvatar, tvInitials, member.getAvatarUrl());
+            }
             tvName.setText(member.getDisplayName());
 
             if (member.isAdmin()) {

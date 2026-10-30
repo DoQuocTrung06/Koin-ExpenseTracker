@@ -53,6 +53,7 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
     private TextView tvHomeAvatarInitials;
     private TextView tvTotalRoomBalanceMini;
     private MaterialButton btnHomeDeposit;
+    private MaterialButton btnHomeWithdraw;
     private TextView tvRoomCountBadge;
     private MaterialButton btnCreateRoom;
     private MaterialButton btnJoinRoom;
@@ -124,6 +125,7 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
         tvRoomCountSubtitle = view.findViewById(R.id.tvRoomCountSubtitle);
         tvTotalRoomBalanceMini = view.findViewById(R.id.tvTotalRoomBalanceMini);
         btnHomeDeposit = view.findViewById(R.id.btnHomeDeposit);
+        btnHomeWithdraw = view.findViewById(R.id.btnHomeWithdraw);
         tvRoomCountBadge = view.findViewById(R.id.tvRoomCountBadge);
         btnCreateRoom = view.findViewById(R.id.btnCreateRoom);
         btnJoinRoom = view.findViewById(R.id.btnJoinRoom);
@@ -244,6 +246,20 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
                 DepositDialogFragment dialog = DepositDialogFragment.newWalletInstance();
                 dialog.setOnDepositCompleteListener(amount -> viewModel.refreshWalletBalance());
                 dialog.show(getChildFragmentManager(), "wallet_deposit_dialog");
+            });
+        }
+
+        if (btnHomeWithdraw != null) {
+            btnHomeWithdraw.setVisibility(View.VISIBLE);
+            btnHomeWithdraw.setOnClickListener(v -> {
+                com.sharedfund.app.ui.room.WithdrawWalletDialogFragment dialog =
+                        com.sharedfund.app.ui.room.WithdrawWalletDialogFragment.newInstance();
+                dialog.setOnWithdrawCompleteListener(() -> {
+                    if (viewModel != null) {
+                        viewModel.refreshWalletBalance();
+                    }
+                });
+                dialog.show(getChildFragmentManager(), "wallet_withdraw_dialog");
             });
         }
 

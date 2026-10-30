@@ -26,6 +26,7 @@ public class HomeViewModel extends ViewModel {
 
         filteredRooms.addSource(repository.getRoomsLiveData(), rooms -> applyRoomFilter());
         filteredRooms.addSource(searchQuery, query -> applyRoomFilter());
+        applyRoomFilter();
     }
 
     private void applyRoomFilter() {
@@ -108,17 +109,31 @@ public class HomeViewModel extends ViewModel {
         });
     }
 
+    private String getEffectiveUserId() {
+        if (currentUserId != null && !currentUserId.isEmpty()) return currentUserId;
+        return repository.getCurrentUserId();
+    }
+
     public void createRoom(String name, String description) {
         if (name == null || name.trim().isEmpty()) {
             actionMessage.setValue("Tên quỹ không được để trống!");
             return;
         }
-        if (currentUserId.isEmpty()) {
-            actionMessage.setValue("Vui lòng đăng nhập");
+        String effectiveUserId = getEffectiveUserId();
+        if (effectiveUserId.isEmpty() || effectiveUserId.startsWith("user-")) {
+            isLoading.setValue(true);
+            Room newRoom = repository.createRoom(name.trim(), description != null ? description.trim() : "");
+            isLoading.setValue(false);
+            if (newRoom != null) {
+                applyRoomFilter();
+                actionMessage.setValue("Tạo quỹ \"" + newRoom.getName() + "\" thành công!");
+            } else {
+                actionMessage.setValue("Tạo quỹ thất bại!");
+            }
             return;
         }
         isLoading.setValue(true);
-        repository.createRoom(name.trim(), description != null ? description.trim() : "", currentUserId,
+        repository.createRoom(name.trim(), description != null ? description.trim() : "", effectiveUserId,
                 new RoomRepository.DataCallback<Room>() {
                     @Override public void onSuccess(Room room) {
                         loadRemoteData();
@@ -136,12 +151,21 @@ public class HomeViewModel extends ViewModel {
             actionMessage.setValue("Mã mời không được để trống!");
             return;
         }
-        if (currentUserId.isEmpty()) {
-            actionMessage.setValue("Vui lòng đăng nhập");
+        String effectiveUserId = getEffectiveUserId();
+        if (effectiveUserId.isEmpty() || effectiveUserId.startsWith("user-")) {
+            isLoading.setValue(true);
+            Room room = repository.joinRoomByCode(joinCode.trim());
+            isLoading.setValue(false);
+            if (room != null) {
+                applyRoomFilter();
+                actionMessage.setValue("Tham gia quỹ \"" + room.getName() + "\" thành công!");
+            } else {
+                actionMessage.setValue("Không tìm thấy quỹ với mã tham gia này!");
+            }
             return;
         }
         isLoading.setValue(true);
-        repository.joinRoom(joinCode.trim().toUpperCase(), currentUserId,
+        repository.joinRoom(joinCode.trim().toUpperCase(), effectiveUserId,
                 new RoomRepository.DataCallback<Room>() {
                     @Override public void onSuccess(Room room) {
                         loadRemoteData();

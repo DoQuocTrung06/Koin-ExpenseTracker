@@ -81,8 +81,8 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_alignParentStart="true"
-                        android:layout_toStartOf="@+id/btnHomeDeposit"
-                        android:layout_marginEnd="12dp"
+                        android:layout_toStartOf="@+id/layoutWalletButtons"
+                        android:layout_marginEnd="8dp"
                         android:gravity="center_vertical"
                         android:orientation="horizontal">
 
@@ -142,23 +142,56 @@
                                 app:autoSizeTextType="uniform" />
                         </LinearLayout>
                     </LinearLayout>
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnHomeDeposit"
-                        style="@style/Widget.Material3.Button"
+
+                    <LinearLayout
+                        android:id="@+id/layoutWalletButtons"
                         android:layout_width="wrap_content"
-                        android:layout_height="40dp"
+                        android:layout_height="wrap_content"
                         android:layout_alignParentEnd="true"
                         android:layout_centerVertical="true"
-                        android:backgroundTint="#33FFFFFF"
-                        android:text="Nạp tiền"
-                        android:textColor="@color/white"
-                        android:textSize="13sp"
-                        android:textStyle="bold"
-                        app:cornerRadius="20dp"
-                        app:icon="@drawable/ic_add"
-                        app:iconTint="@color/white"
-                        app:strokeColor="#66FFFFFF"
-                        app:strokeWidth="1dp" />
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnHomeDeposit"
+                            style="@style/Widget.Material3.Button"
+                            android:layout_width="wrap_content"
+                            android:layout_height="38dp"
+                            android:backgroundTint="#33FFFFFF"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
+                            android:paddingStart="10dp"
+                            android:paddingEnd="10dp"
+                            android:text="Nạp"
+                            android:textColor="@color/white"
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            app:cornerRadius="19dp"
+                            app:icon="@drawable/ic_add"
+                            app:iconSize="14dp"
+                            app:iconTint="@color/white"
+                            app:strokeColor="#66FFFFFF"
+                            app:strokeWidth="1dp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnHomeWithdraw"
+                            style="@style/Widget.Material3.Button"
+                            android:layout_width="wrap_content"
+                            android:layout_height="38dp"
+                            android:layout_marginStart="6dp"
+                            android:backgroundTint="#33FFFFFF"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
+                            android:paddingStart="10dp"
+                            android:paddingEnd="10dp"
+                            android:text="Rút"
+                            android:textColor="@color/white"
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            app:cornerRadius="19dp"
+                            app:iconTint="@color/white"
+                            app:strokeColor="#66FFFFFF"
+                            app:strokeWidth="1dp" />
+                    </LinearLayout>
                 </RelativeLayout>
 
                 <View

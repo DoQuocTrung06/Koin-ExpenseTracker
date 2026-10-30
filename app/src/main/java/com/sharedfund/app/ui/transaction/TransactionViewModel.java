@@ -251,6 +251,25 @@ public class TransactionViewModel extends ViewModel {
             }
         }
 
+        String currentUserId = repository.getCurrentUserId();
+        if (currentUserId == null || currentUserId.isEmpty() || currentUserId.startsWith("user-")) {
+            Transaction tx = new Transaction();
+            tx.setRoomId(operationRoomId);
+            tx.setType(type);
+            tx.setAmount(amount);
+            tx.setCategory(category.trim());
+            tx.setNote(note.trim());
+            tx.setCreatedBy((createdBy != null && !createdBy.trim().isEmpty()) ? createdBy.trim() : repository.getCurrentUserName());
+            boolean success = repository.addTransaction(tx);
+            if (success) {
+                addSuccessEvent.setValue(true);
+                return true;
+            } else {
+                errorMessage.setValue("Không thể lưu giao dịch. Vui lòng thử lại!");
+                return false;
+            }
+        }
+
         isLoading.setValue(true);
         TransactionRepository.DataCallback<Transaction> transactionCallback = new TransactionRepository.DataCallback<Transaction>() {
             @Override public void onSuccess(Transaction created) {

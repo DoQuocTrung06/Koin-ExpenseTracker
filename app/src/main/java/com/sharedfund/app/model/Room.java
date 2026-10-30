@@ -50,6 +50,11 @@ public class Room implements Serializable {
         this.members = members != null ? members : new ArrayList<String>();
     }
 
+    public Room(String id, String name, String joinCode, double balance, String description, int memberCount, List<String> members, String createdAt) {
+        this(id, name, joinCode, balance, description, memberCount, members);
+        this.createdAt = createdAt;
+    }
+
     public String getId() {
         return id;
     }

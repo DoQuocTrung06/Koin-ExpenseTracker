@@ -95,6 +95,9 @@ public class RoomRepository {
             roomList.clear();
             transactionList.clear();
             userRoomsMap.clear();
+            if ("user-001".equals(nextUserId)) {
+                initMockData();
+            }
         }
         this.currentUserId = nextUserId;
         this.currentUserName = (userName != null && !userName.isEmpty()) ? userName : "User";
@@ -103,6 +106,40 @@ public class RoomRepository {
         }
         recalculateAllBalances();
         notifyDataChanged();
+    }
+
+    private void initMockData() {
+        Room r1 = new Room("room-1", "Quỹ Du Lịch Đà Lạt 2026", "DALAT6", 0, "Quỹ gom tiền đi du lịch Đà Lạt mùa hoa dã quỳ của nhóm bạn thân.", 5,
+                new ArrayList<>(java.util.Arrays.asList("Bạn (Trưởng quỹ)", "Tuấn Anh", "Bảo Linh", "Minh Quân", "Thu Hương")), "01/10/2026");
+        Room r2 = new Room("room-2", "Quỹ Tiền Nhà & Sinh Hoạt Trọ", "TRO102", 0, "Quỹ đóng tiền phòng, điện nước và đồ dùng chung phòng 302.", 3,
+                new ArrayList<>(java.util.Arrays.asList("Bạn (Trưởng quỹ)", "Đức Trí", "Hoàng Nam")), "05/10/2026");
+        Room r3 = new Room("room-3", "Quỹ Ăn Trưa & Coffee Team Tech", "TECH88", 0, "Chi phí ăn trưa, trà sữa xế chiều cho team công nghệ.", 4,
+                new ArrayList<>(java.util.Arrays.asList("Bạn", "Quốc Huy (Trưởng quỹ)", "Mai Phương", "Tiến Dũng")), "10/10/2026");
+
+        roomList.add(r1);
+        roomList.add(r2);
+        roomList.add(r3);
+
+        userRoomsMap.put("user-001", new ArrayList<>(java.util.Arrays.asList("room-1", "room-2", "room-3")));
+        userRoomsMap.put("guest-001", new ArrayList<>(java.util.Arrays.asList("room-1", "room-2", "room-3")));
+
+        transactionList.add(new Transaction("tx-01", "room-1", 1000000, Transaction.TYPE_INCOME, "Đóng quỹ", "Đóng quỹ đợt 1 - Bạn", "Bạn", "12/10/2026 09:30"));
+        transactionList.add(new Transaction("tx-02", "room-1", 1000000, Transaction.TYPE_INCOME, "Đóng quỹ", "Đóng quỹ đợt 1 - Tuấn Anh", "Tuấn Anh", "12/10/2026 10:15"));
+        transactionList.add(new Transaction("tx-03", "room-1", 1000000, Transaction.TYPE_INCOME, "Đóng quỹ", "Đóng quỹ đợt 1 - Bảo Linh", "Bảo Linh", "12/10/2026 11:00"));
+        transactionList.add(new Transaction("tx-04", "room-1", 450000, Transaction.TYPE_EXPENSE, "Ăn uống", "Ăn tối lẩu gà lá é quán Tao Ngộ", "Bảo Linh", "13/10/2026 19:45"));
+        transactionList.add(new Transaction("tx-05", "room-1", 1200000, Transaction.TYPE_EXPENSE, "Thuê phòng", "Đặt cọc homestay Thung Lũng Mơ", "Bạn", "14/10/2026 08:30"));
+        transactionList.add(new Transaction("tx-06", "room-1", 320000, Transaction.TYPE_EXPENSE, "Di chuyển", "Thuê 2 xe máy vi vu hồ Tuyền Lâm", "Tuấn Anh", "14/10/2026 14:20"));
+        transactionList.add(new Transaction("tx-07", "room-1", 180000, Transaction.TYPE_EXPENSE, "Ăn uống", "Cà phê ngắm hoàng hôn đồi Dã Chiến", "Minh Quân", "14/10/2026 17:30"));
+
+        transactionList.add(new Transaction("tx-08", "room-2", 2500000, Transaction.TYPE_INCOME, "Đóng quỹ", "Tiền phòng tháng 10 - Bạn", "Bạn", "05/10/2026 08:00"));
+        transactionList.add(new Transaction("tx-09", "room-2", 2500000, Transaction.TYPE_INCOME, "Đóng quỹ", "Tiền phòng tháng 10 - Đức Trí", "Đức Trí", "05/10/2026 08:30"));
+        transactionList.add(new Transaction("tx-10", "room-2", 2500000, Transaction.TYPE_INCOME, "Đóng quỹ", "Tiền phòng tháng 10 - Hoàng Nam", "Hoàng Nam", "05/10/2026 09:00"));
+        transactionList.add(new Transaction("tx-11", "room-2", 6000000, Transaction.TYPE_EXPENSE, "Tiền nhà", "Thanh toán tiền thuê trọ tháng 10", "Bạn", "05/10/2026 10:00"));
+        transactionList.add(new Transaction("tx-12", "room-2", 850000, Transaction.TYPE_EXPENSE, "Điện nước", "Hóa đơn điện nước tháng 9", "Bạn", "08/10/2026 15:00"));
+
+        transactionList.add(new Transaction("tx-13", "room-3", 500000, Transaction.TYPE_INCOME, "Đóng quỹ", "Đóng quỹ ăn trưa tuần 2 tháng 10", "Bạn", "16/10/2026 11:30"));
+        transactionList.add(new Transaction("tx-14", "room-3", 220000, Transaction.TYPE_EXPENSE, "Ăn uống", "Cơm tấm sườn bì chả cho 4 người", "Bạn", "16/10/2026 12:15"));
+        transactionList.add(new Transaction("tx-15", "room-3", 110000, Transaction.TYPE_EXPENSE, "Ăn uống", "Trà sữa Phúc Long trưa Thứ 6", "Mai Phương", "16/10/2026 14:00"));
     }
 
     public synchronized void registerNewUser(String userId, String userName) {
@@ -257,6 +294,10 @@ public class RoomRepository {
             callback.onError("Không xác định được tài khoản đang đăng nhập.");
             return;
         }
+        if ("user-001".equals(userId)) {
+            callback.onSuccess(getUserWalletBalance());
+            return;
+        }
         String path = "/profiles?select=wallet_balance&id=eq." + userId;
         client.newCall(request(path).get().build()).enqueue(new okhttp3.Callback() {
             @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
@@ -268,7 +309,9 @@ public class RoomRepository {
                     if (rows.size() == 0) { callback.onError("Không tìm thấy hồ sơ ví của tài khoản."); return; }
                     JsonObject profile = rows.get(0).getAsJsonObject();
                     JsonElement value = profile.get("wallet_balance");
-                    callback.onSuccess(value == null || value.isJsonNull() ? 0.0 : value.getAsDouble());
+                    double balance = value == null || value.isJsonNull() ? 0.0 : value.getAsDouble();
+                    setUserWalletBalance(balance);
+                    callback.onSuccess(balance);
                 } catch (Exception e) { callback.onError("Dữ liệu số dư ví không hợp lệ: " + e.getMessage()); }
             }
         });
@@ -368,6 +411,73 @@ public class RoomRepository {
 
     private String makeJoinCode() {
         return UUID.randomUUID().toString().replace("-", "").substring(0, 6).toUpperCase(java.util.Locale.ROOT);
+    }
+
+    public synchronized Room createRoom(String name, String description) {
+        String id = "room-" + (roomList.size() + 1);
+        String code = makeJoinCode();
+        List<String> members = new ArrayList<>();
+        String creatorLabel = currentUserName != null && !currentUserName.isEmpty()
+                ? currentUserName + " (Trưởng quỹ)"
+                : "Bạn (Trưởng quỹ)";
+        members.add(creatorLabel);
+        Room newRoom = new Room(id, name, code, 0, description, 1, members);
+        roomList.add(0, newRoom);
+        List<String> joined = userRoomsMap.get(currentUserId);
+        if (joined == null) {
+            joined = new ArrayList<>();
+            userRoomsMap.put(currentUserId, joined);
+        }
+        if (!joined.contains(id)) {
+            joined.add(0, id);
+        }
+        recalculateAllBalances();
+        notifyDataChanged();
+        return newRoom;
+    }
+
+    public synchronized Room joinRoomByCode(String code) {
+        if (code == null) return null;
+        String cleanCode = code.trim().toUpperCase(java.util.Locale.ROOT);
+        for (Room r : roomList) {
+            if (cleanCode.equalsIgnoreCase(r.getJoinCode())) {
+                String memberLabel = currentUserName != null && !currentUserName.isEmpty()
+                        ? currentUserName
+                        : "Bạn";
+                List<String> members = r.getMembers();
+                if (members == null) {
+                    members = new ArrayList<>();
+                    r.setMembers(members);
+                }
+                if (!members.contains(memberLabel)) {
+                    members.add(memberLabel);
+                    r.setMemberCount(members.size());
+                }
+                List<String> joined = userRoomsMap.get(currentUserId);
+                if (joined == null) {
+                    joined = new ArrayList<>();
+                    userRoomsMap.put(currentUserId, joined);
+                }
+                if (!joined.contains(r.getId())) {
+                    joined.add(0, r.getId());
+                }
+                recalculateAllBalances();
+                notifyDataChanged();
+                return r;
+            }
+        }
+        return null;
+    }
+
+    public synchronized boolean addTransaction(Transaction tx) {
+        if (tx == null) return false;
+        if (tx.getId() == null || tx.getId().isEmpty()) {
+            tx.setId("tx-" + (transactionList.size() + 1));
+        }
+        transactionList.add(0, tx);
+        recalculateAllBalances();
+        notifyDataChanged();
+        return true;
     }
 
     public synchronized List<Room> getUserRooms() {
