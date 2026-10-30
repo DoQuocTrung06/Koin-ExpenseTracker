@@ -28,6 +28,8 @@
     <color name="text_tertiary">#94A3B8</color>
     <color name="border">#E2E8F0</color>
     <color name="border_light">#F1F5F9</color>
+    <color name="auth_input_background">#E8F1FE</color>
+    <color name="auth_icon_tint">#758397</color>
 
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>

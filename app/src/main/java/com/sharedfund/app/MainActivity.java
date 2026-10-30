@@ -21,11 +21,13 @@ import com.sharedfund.app.ui.transaction.TransactionFragment;
  * Thống nhất theo mục 2, 3 & 4 tài liệu Giai đoạn 3
  */
 public class MainActivity extends AppCompatActivity {
+    private static final String SETTINGS_PREFS = "koin_ui_settings";
+    private static final String KEY_DARK_THEME = "dark_theme";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        // Khóa chế độ sáng (Light Mode) đồng nhất trên mọi thiết bị
-        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
+        AppCompatDelegate.setDefaultNightMode(isDarkTheme()
+                ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
@@ -33,6 +35,18 @@ public class MainActivity extends AppCompatActivity {
             // Màn hình khởi đầu: Đăng nhập (LoginFragment) theo đúng sơ đồ luồng
             loadFragment(new LoginFragment(), false);
         }
+    }
+
+    public boolean isDarkTheme() {
+        return getSharedPreferences(SETTINGS_PREFS, MODE_PRIVATE).getBoolean(KEY_DARK_THEME, false);
+    }
+
+    public void setDarkTheme(boolean darkTheme) {
+        getSharedPreferences(SETTINGS_PREFS, MODE_PRIVATE).edit()
+                .putBoolean(KEY_DARK_THEME, darkTheme)
+                .apply();
+        AppCompatDelegate.setDefaultNightMode(darkTheme
+                ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO);
     }
 
     /**

@@ -216,7 +216,7 @@
             android:layout_height="48dp"
             android:layout_weight="2"
             android:backgroundTint="@color/accent_income"
-            android:text="Tạo mã QR"
+            android:text="Quét mã QR"
             android:textColor="@color/white"
             android:textSize="14sp"
             android:textStyle="bold"
@@ -232,7 +232,7 @@
         android:layout_height="48dp"
         android:layout_marginTop="8dp"
         android:backgroundTint="@color/primary"
-            android:text="Kiểm tra thanh toán"
+            android:text="Đã chuyển khoản · Kiểm tra SePay"
         android:textColor="@color/white"
         android:textSize="14sp"
         android:textStyle="bold"
@@ -240,5 +240,20 @@
         app:cornerRadius="12dp"
         app:icon="@drawable/ic_check"
         app:iconTint="@color/white" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnDemoPaymentSuccess"
+        style="@style/Widget.Material3.Button.OutlinedButton"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="8dp"
+        android:text="Mô phỏng thanh toán thành công (Demo)"
+        android:textColor="@color/text_secondary"
+        android:textSize="13sp"
+        android:visibility="gone"
+        app:cornerRadius="12dp"
+        app:icon="@drawable/ic_sparkles"
+        app:iconTint="@color/primary"
+        app:strokeColor="@color/border" />
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

@@ -61,7 +61,7 @@
                 android:layout_width="0dp"
                 android:layout_height="40dp"
                 android:layout_weight="1"
-                android:backgroundTint="@color/primary"
+                app:backgroundTint="@color/primary"
                 android:text="@string/filter_all"
                 android:textColor="@color/white"
                 android:textSize="13sp"
@@ -73,7 +73,7 @@
                 android:layout_width="0dp"
                 android:layout_height="40dp"
                 android:layout_weight="1"
-                android:backgroundTint="@android:color/transparent"
+                app:backgroundTint="@android:color/transparent"
                 android:text="@string/filter_income"
                 android:textColor="@color/text_secondary"
                 android:textSize="13sp"
@@ -85,7 +85,7 @@
                 android:layout_width="0dp"
                 android:layout_height="40dp"
                 android:layout_weight="1"
-                android:backgroundTint="@android:color/transparent"
+                app:backgroundTint="@android:color/transparent"
                 android:text="@string/filter_expense"
                 android:textColor="@color/text_secondary"
                 android:textSize="13sp"
@@ -176,14 +176,6 @@
                 android:textColor="@color/text_secondary"
                 android:textSize="13sp" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnEmptyAddTransaction"
-                style="@style/Widget.Material3.Button.TonalButton"
-                android:layout_width="wrap_content"
-                android:layout_height="40dp"
-                android:layout_marginTop="14dp"
-                android:text="+ Thêm giao dịch đầu tiên"
-                android:textSize="13sp" />
         </LinearLayout>
 
         <!-- Transactions RecyclerView -->
@@ -193,21 +185,8 @@
             android:layout_height="0dp"
             android:layout_weight="1"
             android:clipToPadding="false"
-            android:paddingBottom="88dp" />
+            android:paddingBottom="16dp" />
 
     </LinearLayout>
-
-    <!-- Floating Action Button for adding transaction -->
-    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
-        android:id="@+id/fabAddTransaction"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_margin="20dp"
-        android:backgroundTint="@color/primary"
-        android:text="@string/btn_add_transaction"
-        android:textColor="@color/white"
-        app:icon="@drawable/ic_add"
-        app:iconTint="@color/white" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

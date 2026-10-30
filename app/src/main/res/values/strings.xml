@@ -35,8 +35,8 @@
 
     <!-- Transaction Screen -->
     <string name="filter_all">Tất cả</string>
-    <string name="filter_income">Thu (+)</string>
-    <string name="filter_expense">Chi (-)</string>
+    <string name="filter_income">Góp (+)</string>
+    <string name="filter_expense">Rút (-)</string>
     <string name="empty_filter_result">Không tìm thấy giao dịch nào phù hợp.</string>
 
     <!-- Add Transaction Screen -->
@@ -44,7 +44,12 @@
     <string name="tx_type_expense">Khoản chi (-)</string>
     <string name="tx_type_income">Khoản thu (+)</string>
     <string name="amount_hint">Nhập số tiền (VNĐ)</string>
-    <string name="category_label">Danh mục chi tiêu</string>
+    <string name="category_label">Danh mục rút</string>
+    <string name="category_contribution_label">Danh mục góp</string>
+    <string name="category_withdrawal_label">Danh mục rút</string>
+    <string name="tx_contribute_from_wallet">Góp</string>
+    <string name="tx_withdraw_to_wallet">Rút</string>
+    <string name="tx_withdraw_request">Yêu cầu rút quỹ</string>
     <string name="note_hint">Nội dung / Lời tựa (ví dụ: Ăn trưa, Đóng tiền)</string>
     <string name="created_by_hint">Người thực hiện</string>
     <string name="btn_save_transaction">Lưu giao dịch</string>

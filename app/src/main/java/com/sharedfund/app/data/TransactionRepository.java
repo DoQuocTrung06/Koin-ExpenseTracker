@@ -117,6 +117,34 @@ public class TransactionRepository {
         callJsonbRpc("transfer_wallet_to_room", body, callback);
     }
 
+    /** Records an internal fund expense to a scanned QR recipient; it does not transfer bank funds. */
+    public void payRoomRecipient(String roomId, double amount, String category, String note,
+                                 String bankBin, String accountNumber, String recipientName,
+                                 String transferContent, DataCallback<JsonObject> callback) {
+        JsonObject body = new JsonObject();
+        body.addProperty("p_room_id", roomId);
+        body.addProperty("p_amount", amount);
+        body.addProperty("p_category", category);
+        body.addProperty("p_note", note);
+        body.addProperty("p_bank_bin", bankBin);
+        body.addProperty("p_account_number", accountNumber);
+        body.addProperty("p_recipient_name", recipientName);
+        body.addProperty("p_transfer_content", transferContent);
+        callJsonbRpc("pay_room_qr_recipient", body, callback);
+    }
+
+    /** Calls a server-side, demo-gated RPC; the client never credits balances directly. */
+    public void simulateSePayPaymentForDemo(String userId, String roomId, double amount,
+                                            String reference, DataCallback<JsonObject> callback) {
+        JsonObject body = new JsonObject();
+        body.addProperty("p_user_id", userId);
+        if (roomId == null) body.add("p_room_id", com.google.gson.JsonNull.INSTANCE);
+        else body.addProperty("p_room_id", roomId);
+        body.addProperty("p_amount", amount);
+        body.addProperty("p_reference", reference);
+        callJsonbRpc("simulate_sepay_payment", body, callback);
+    }
+
     public void submitWithdrawal(String userId, String userName, String roomId, double amount, String category, String note,
                                  boolean approveImmediately, DataCallback<Transaction> callback) {
         Transaction request = new Transaction();
@@ -244,5 +272,43 @@ public class TransactionRepository {
                 }
             });
         } catch (Exception e) { callback.onError("Invalid payment timestamp: " + e.getMessage()); }
+    }
+
+    public void findConfirmedWalletPayment(String userId, double amount, String createdAfter,
+                                           DataCallback<Transaction> callback) {
+        try {
+            String after = URLEncoder.encode(createdAfter, StandardCharsets.UTF_8.name());
+            String category = URLEncoder.encode("Nạp ví SePay", StandardCharsets.UTF_8.name());
+            String url = SupabaseConfig.REST_URL + "/transactions?user_id=eq." + userId
+                    + "&room_id=is.null&amount=eq." + (long) amount
+                    + "&category=eq." + category + "&created_at=gte." + after
+                    + "&select=*&order=created_at.desc";
+            Request request = new Request.Builder().url(url)
+                    .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
+                    .addHeader("Authorization", "Bearer " + accessToken).get().build();
+            client.newCall(request).enqueue(new Callback() {
+                @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+                @Override public void onResponse(Call call, Response response) throws IOException {
+                    String json = response.body() != null ? response.body().string() : "";
+                    if (!response.isSuccessful()) {
+                        callback.onError("HTTP " + response.code() + ": " + json); return;
+                    }
+                    Type listType = new TypeToken<List<Transaction>>() {}.getType();
+                    List<Transaction> rows = gson.fromJson(json, listType);
+                    if (rows != null) for (Transaction transaction : rows) {
+                        String status = transaction.getStatus();
+                        if (isConfirmedStatus(status)) { callback.onSuccess(transaction); return; }
+                    }
+                    callback.onSuccess(null);
+                }
+            });
+        } catch (Exception e) { callback.onError("Invalid wallet payment timestamp: " + e.getMessage()); }
+    }
+
+    private boolean isConfirmedStatus(String status) {
+        return status != null && ("success".equalsIgnoreCase(status)
+                || "completed".equalsIgnoreCase(status)
+                || "confirmed".equalsIgnoreCase(status)
+                || "paid".equalsIgnoreCase(status));
     }
 }

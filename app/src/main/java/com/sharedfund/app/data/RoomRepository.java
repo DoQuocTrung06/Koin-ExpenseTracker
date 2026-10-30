@@ -236,6 +236,28 @@ public class RoomRepository {
         });
     }
 
+    public void loadWalletBalance(String userId, DataCallback<Double> callback) {
+        if (userId == null || userId.trim().isEmpty()) {
+            callback.onError("Không xác định được tài khoản đang đăng nhập.");
+            return;
+        }
+        String path = "/profiles?select=wallet_balance&id=eq." + userId;
+        client.newCall(request(path).get().build()).enqueue(new okhttp3.Callback() {
+            @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+            @Override public void onResponse(Call call, Response response) throws IOException {
+                String body = response.body() != null ? response.body().string() : "";
+                if (!response.isSuccessful()) { callback.onError(error(response, body)); return; }
+                try {
+                    JsonArray rows = JsonParser.parseString(body).getAsJsonArray();
+                    if (rows.size() == 0) { callback.onError("Không tìm thấy hồ sơ ví của tài khoản."); return; }
+                    JsonObject profile = rows.get(0).getAsJsonObject();
+                    JsonElement value = profile.get("wallet_balance");
+                    callback.onSuccess(value == null || value.isJsonNull() ? 0.0 : value.getAsDouble());
+                } catch (Exception e) { callback.onError("Dữ liệu số dư ví không hợp lệ: " + e.getMessage()); }
+            }
+        });
+    }
+
     public void createRoom(String name, String description, String userId, DataCallback<Room> callback) {
         JsonObject payload = new JsonObject();
         payload.addProperty("name", name);
@@ -257,7 +279,7 @@ public class RoomRepository {
                     JsonArray rows = JsonParser.parseString(responseBody).getAsJsonArray();
                     if (rows.size() == 0) { callback.onError("Supabase returned no room row."); return; }
                     Room room = gson.fromJson(rows.get(0), Room.class);
-                    addMember(room, userId, "ADMIN", callback);
+                    addMember(room, userId, "OWNER", callback);
                 } catch (Exception e) { callback.onError("Invalid room response: " + e.getMessage()); }
             }
         });

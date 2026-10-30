@@ -1,6 +1,7 @@
 package com.sharedfund.app.ui.room;
 
 import android.app.Dialog;
+import android.content.pm.ApplicationInfo;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
@@ -56,6 +57,7 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
     private String roomId;
     private double pendingAmount;
     private String qrGeneratedAt;
+    private String demoPaymentReference;
 
     // Views
     private TextView tvDepositTitle;
@@ -72,6 +74,7 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
     private MaterialButton btnCancelDeposit;
     private MaterialButton btnGenerateQr;
     private MaterialButton btnDoneDeposit;
+    private MaterialButton btnDemoPaymentSuccess;
 
     // Callback để thông báo khi nạp tiền thành công
     public interface OnDepositCompleteListener {
@@ -165,6 +168,8 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
         btnCancelDeposit = view.findViewById(R.id.btnCancelDeposit);
         btnGenerateQr = view.findViewById(R.id.btnGenerateQr);
         btnDoneDeposit = view.findViewById(R.id.btnDoneDeposit);
+        btnDemoPaymentSuccess = view.findViewById(R.id.btnDemoPaymentSuccess);
+        btnDemoPaymentSuccess.setVisibility(View.GONE);
     }
 
     private void setupQuickButtons() {
@@ -191,9 +196,11 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
                 // Ẩn QR nếu người dùng chỉnh sửa số tiền
                 layoutQrSection.setVisibility(View.GONE);
                 btnDoneDeposit.setVisibility(View.GONE);
+                btnDemoPaymentSuccess.setVisibility(View.GONE);
                 pendingAmount = 0;
                 qrGeneratedAt = null;
-                btnGenerateQr.setText("Tạo mã QR");
+                demoPaymentReference = null;
+                btnGenerateQr.setText("Quét mã QR");
             }
             @Override public void afterTextChanged(Editable s) {}
         });
@@ -205,6 +212,7 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
         btnGenerateQr.setOnClickListener(v -> generateQrCode());
 
         btnDoneDeposit.setOnClickListener(v -> confirmDeposit());
+        btnDemoPaymentSuccess.setOnClickListener(v -> simulateDepositForDemo());
     }
 
     private void generateQrCode() {
@@ -229,35 +237,42 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
             return;
         }
 
-        if (isWalletDeposit()) {
-            Toast.makeText(requireContext(),
-                    "Nạp ví qua SePay chưa được nối webhook; hiện chỉ hỗ trợ QR nạp trực tiếp vào quỹ.",
-                    Toast.LENGTH_LONG).show();
-            return;
-        }
         pendingAmount = amount;
         qrGeneratedAt = Instant.now().toString();
+        demoPaymentReference = "DEMO-SEPAY-" + java.util.UUID.randomUUID();
 
         // Hiện loading
         pbDepositLoading.setVisibility(View.VISIBLE);
         btnGenerateQr.setEnabled(false);
 
-        // Dùng nội dung chuyển khoản theo mã quỹ để webhook SePay đối soát.
+        // Mã nội dung phân biệt nạp vào ví với nạp trực tiếp vào quỹ.
         String bankName = PaymentHelper.BANK_NAME;
         String accountNumber = PaymentHelper.ACCOUNT_NO;
         String accountName = PaymentHelper.ACCOUNT_NAME;
         String transferContent;
         String qrUrl;
 
-        Room room = RoomRepository.getInstance().getRoomSync(roomId);
-        if (room == null || room.getJoinCode() == null) {
-            pbDepositLoading.setVisibility(View.GONE);
-            btnGenerateQr.setEnabled(true);
-            Toast.makeText(requireContext(), "Không tìm thấy mã quỹ từ Supabase.", Toast.LENGTH_LONG).show();
-            return;
+        if (isWalletDeposit()) {
+            String userId = UserSessionManager.getInstance(requireContext()).getUserId();
+            if (userId == null || userId.trim().isEmpty()) {
+                pbDepositLoading.setVisibility(View.GONE);
+                btnGenerateQr.setEnabled(true);
+                Toast.makeText(requireContext(), "Không xác định được tài khoản để nạp ví.", Toast.LENGTH_LONG).show();
+                return;
+            }
+            transferContent = PaymentHelper.getWalletTransferContent(userId);
+            qrUrl = PaymentHelper.generateWalletQrUrl(userId, amount);
+        } else {
+            Room room = RoomRepository.getInstance().getRoomSync(roomId);
+            if (room == null || room.getJoinCode() == null) {
+                pbDepositLoading.setVisibility(View.GONE);
+                btnGenerateQr.setEnabled(true);
+                Toast.makeText(requireContext(), "Không tìm thấy mã quỹ từ Supabase.", Toast.LENGTH_LONG).show();
+                return;
+            }
+            transferContent = PaymentHelper.getTransferContent(room.getJoinCode());
+            qrUrl = PaymentHelper.generateVietQrUrl(room.getJoinCode(), amount);
         }
-        transferContent = PaymentHelper.getTransferContent(room.getJoinCode());
-        qrUrl = PaymentHelper.generateVietQrUrl(room.getJoinCode(), amount);
 
         DecimalFormat df = new DecimalFormat("#,###");
         String formattedAmount = df.format(amount).replace(',', '.') + " ₫";
@@ -301,28 +316,31 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
             } catch (Exception ignored) {
             }
 
+            final Bitmap qrBitmap = downloadedBitmap;
             if (getActivity() != null) {
                 getActivity().runOnUiThread(() -> {
                     if (!isAdded()) return;
                     pbDepositLoading.setVisibility(View.GONE);
                     btnGenerateQr.setEnabled(true);
 
-                    if (downloadedBitmap == null) {
+                    if (qrBitmap == null) {
                         layoutQrSection.setVisibility(View.GONE);
                         btnDoneDeposit.setVisibility(View.GONE);
+                        btnDemoPaymentSuccess.setVisibility(View.GONE);
                         Toast.makeText(requireContext(),
                                 "Không tải được mã QR thật từ VietQR. Vui lòng kiểm tra kết nối và thử lại.",
                                 Toast.LENGTH_LONG).show();
                         return;
                     }
 
-                    ivQrCode.setImageBitmap(downloadedBitmap);
+                    ivQrCode.setImageBitmap(qrBitmap);
                     ivQrCode.setBackgroundColor(Color.WHITE);
                     ivQrCode.setScaleType(ImageView.ScaleType.FIT_CENTER);
 
                     layoutQrSection.setVisibility(View.VISIBLE);
                     btnDoneDeposit.setVisibility(View.VISIBLE);
-                    btnGenerateQr.setText("Tạo lại QR");
+                    btnDemoPaymentSuccess.setVisibility(isDebugBuild() ? View.VISIBLE : View.GONE);
+                    btnGenerateQr.setText("Quét lại mã QR");
 
                     Toast.makeText(requireContext(),
                             "Mã VietQR đã sẵn sàng! Quét bằng ứng dụng ngân hàng.", Toast.LENGTH_SHORT).show();
@@ -337,7 +355,7 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
         UserSessionManager session = UserSessionManager.getInstance(requireContext());
         TransactionRepository transactions = new TransactionRepository();
         transactions.setAccessToken(session.getAccessToken());
-        transactions.findConfirmedPayment(roomId, pendingAmount, qrGeneratedAt,
+        TransactionRepository.DataCallback<com.sharedfund.app.model.Transaction> callback =
                 new TransactionRepository.DataCallback<com.sharedfund.app.model.Transaction>() {
                     @Override public void onSuccess(com.sharedfund.app.model.Transaction transaction) {
                         if (!isAdded()) return;
@@ -348,7 +366,9 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
                                 Toast.makeText(requireContext(), "SePay chưa xác nhận khoản chuyển này. Hãy đợi rồi kiểm tra lại.", Toast.LENGTH_LONG).show();
                                 return;
                             }
-                            RoomRepository.getInstance().onRemoteTransactionReceived(transaction);
+                            if (!isWalletDeposit()) {
+                                RoomRepository.getInstance().onRemoteTransactionReceived(transaction);
+                            }
                             if (listener != null) listener.onDepositComplete(pendingAmount);
                             Toast.makeText(requireContext(), "Đã nhận xác nhận thanh toán từ SePay.", Toast.LENGTH_SHORT).show();
                             dismiss();
@@ -362,6 +382,85 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
                             Toast.makeText(requireContext(), "Không kiểm tra được trạng thái thanh toán: " + message, Toast.LENGTH_LONG).show();
                         });
                     }
+                };
+        if (isWalletDeposit()) {
+            transactions.findConfirmedWalletPayment(session.getUserId(), pendingAmount, qrGeneratedAt, callback);
+        } else {
+            transactions.findConfirmedPayment(roomId, pendingAmount, qrGeneratedAt, callback);
+        }
+    }
+
+    private void simulateDepositForDemo() {
+        if (!isDebugBuild() || pendingAmount <= 0 || qrGeneratedAt == null) return;
+        UserSessionManager session = UserSessionManager.getInstance(requireContext());
+        String userId = session.getUserId();
+        if (userId == null || userId.trim().isEmpty()) {
+            Toast.makeText(requireContext(), "Không xác định được tài khoản demo.", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        btnDoneDeposit.setEnabled(false);
+        btnDemoPaymentSuccess.setEnabled(false);
+        TransactionRepository transactions = new TransactionRepository();
+        transactions.setAccessToken(session.getAccessToken());
+        transactions.simulateSePayPaymentForDemo(userId,
+                isWalletDeposit() ? null : roomId, pendingAmount, demoPaymentReference,
+                new TransactionRepository.DataCallback<com.google.gson.JsonObject>() {
+                    @Override public void onSuccess(com.google.gson.JsonObject result) {
+                        if (!isAdded()) return;
+                        requireActivity().runOnUiThread(() -> {
+                            if (!isAdded()) return;
+                            btnDoneDeposit.setEnabled(true);
+                            btnDemoPaymentSuccess.setEnabled(true);
+                            if (!isWalletDeposit()) {
+                                TransactionRepository repository = new TransactionRepository();
+                                repository.setAccessToken(session.getAccessToken());
+                                repository.refreshRoomTransactions(roomId,
+                                        new TransactionRepository.DataCallback<java.util.List<com.sharedfund.app.model.Transaction>>() {
+                                            @Override public void onSuccess(java.util.List<com.sharedfund.app.model.Transaction> rows) {
+                                                if (!isAdded()) return;
+                                                requireActivity().runOnUiThread(() -> {
+                                                    if (!isAdded()) return;
+                                                    if (rows != null) for (com.sharedfund.app.model.Transaction row : rows)
+                                                        RoomRepository.getInstance().onRemoteTransactionReceived(row);
+                                                    completeDemoDeposit();
+                                                });
+                                            }
+                                            @Override public void onError(String message) {
+                                                if (isAdded()) requireActivity().runOnUiThread(() -> {
+                                                    if (isAdded()) Toast.makeText(requireContext(),
+                                                            "Thanh toán demo đã được ghi nhận, nhưng không tải lại được lịch sử: " + message,
+                                                            Toast.LENGTH_LONG).show();
+                                                    if (isAdded()) completeDemoDeposit();
+                                                });
+                                            }
+                                        });
+                            } else {
+                                completeDemoDeposit();
+                            }
+                        });
+                    }
+                    @Override public void onError(String message) {
+                        if (!isAdded()) return;
+                        requireActivity().runOnUiThread(() -> {
+                            if (!isAdded()) return;
+                            btnDoneDeposit.setEnabled(true);
+                            btnDemoPaymentSuccess.setEnabled(true);
+                            Toast.makeText(requireContext(),
+                                    "Không mô phỏng được thanh toán. Kiểm tra RPC demo trên Supabase: " + message,
+                                    Toast.LENGTH_LONG).show();
+                        });
+                    }
                 });
+    }
+
+    private void completeDemoDeposit() {
+        if (listener != null) listener.onDepositComplete(pendingAmount);
+        Toast.makeText(requireContext(), "Đã mô phỏng thanh toán thành công (DEMO).", Toast.LENGTH_LONG).show();
+        dismiss();
+    }
+
+    private boolean isDebugBuild() {
+        return (requireContext().getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0;
     }
 }

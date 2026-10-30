@@ -37,7 +37,7 @@ public class RoomMember implements Serializable {
         this.fullName = displayName;
         this.avatarUrl = avatarUrl;
         this.totalContributed = contributedAmount;
-        this.role = isAdmin ? "ADMIN" : "MEMBER";
+        this.role = isAdmin ? "OWNER" : "MEMBER";
         this.joinedAt = joinedAt;
     }
 
@@ -83,11 +83,11 @@ public class RoomMember implements Serializable {
     }
 
     public boolean isAdmin() {
-        return "ADMIN".equalsIgnoreCase(this.role);
+        return "ADMIN".equalsIgnoreCase(this.role) || "OWNER".equalsIgnoreCase(this.role);
     }
 
     public void setAdmin(boolean admin) {
-        this.role = admin ? "ADMIN" : "MEMBER";
+        this.role = admin ? "OWNER" : "MEMBER";
     }
 
     public double getTotalContributed() {

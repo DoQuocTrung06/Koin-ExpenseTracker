@@ -223,6 +223,60 @@ public class TransactionViewModel extends ViewModel {
         return true;
     }
 
+    public boolean submitQrExpense(String targetRoomId, String amountStr, String category, String note,
+                                   String bankBin, String accountNumber, String recipientName,
+                                   String transferContent) {
+        if (!isCurrentUserOwner()) {
+            errorMessage.setValue("Chỉ trưởng quỹ mới có thể xác nhận chi qua QR.");
+            return false;
+        }
+        final double amount;
+        try { amount = Double.parseDouble(amountStr.trim().replace(".", "").replace(",", "")); }
+        catch (Exception error) {
+            errorMessage.setValue("Số tiền không hợp lệ.");
+            return false;
+        }
+        if (amount <= 0 || category == null || category.trim().isEmpty()) {
+            errorMessage.setValue("Vui lòng nhập số tiền và chọn danh mục.");
+            return false;
+        }
+        if (accountNumber == null || accountNumber.trim().isEmpty()) {
+            errorMessage.setValue("QR không có số tài khoản người nhận hợp lệ.");
+            return false;
+        }
+        String operationRoomId = targetRoomId != null ? targetRoomId : roomId;
+        if (operationRoomId == null || operationRoomId.trim().isEmpty()) {
+            errorMessage.setValue("Không xác định được quỹ.");
+            return false;
+        }
+
+        isLoading.setValue(true);
+        remoteRepository.payRoomRecipient(operationRoomId, amount, category.trim(), note.trim(),
+                bankBin, accountNumber.trim(), recipientName, transferContent,
+                new TransactionRepository.DataCallback<com.google.gson.JsonObject>() {
+                    @Override public void onSuccess(com.google.gson.JsonObject result) {
+                        remoteRepository.refreshRoomTransactions(operationRoomId,
+                                new TransactionRepository.DataCallback<List<Transaction>>() {
+                                    @Override public void onSuccess(List<Transaction> transactions) {
+                                        if (transactions != null) for (Transaction tx : transactions)
+                                            repository.onRemoteTransactionReceived(tx);
+                                        isLoading.postValue(false);
+                                        addSuccessEvent.postValue(true);
+                                    }
+                                    @Override public void onError(String message) {
+                                        isLoading.postValue(false);
+                                        errorMessage.postValue("Đã ghi nhận chi nhưng không tải lại được lịch sử: " + message);
+                                    }
+                                });
+                    }
+                    @Override public void onError(String message) {
+                        isLoading.postValue(false);
+                        errorMessage.postValue("Không thể ghi nhận chi QR: " + message);
+                    }
+                });
+        return true;
+    }
+
     @Override
     protected void onCleared() {
         super.onCleared();

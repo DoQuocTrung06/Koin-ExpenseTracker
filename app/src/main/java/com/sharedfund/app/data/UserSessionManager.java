@@ -76,6 +76,10 @@ public class UserSessionManager {
         return preferences.getString(KEY_AVATAR_URL, "");
     }
 
+    public void saveAvatarUrl(String avatarUrl) {
+        preferences.edit().putString(KEY_AVATAR_URL, avatarUrl != null ? avatarUrl : "").apply();
+    }
+
     public String getAccessToken() {
         return preferences.getString(KEY_ACCESS_TOKEN, "");
     }
