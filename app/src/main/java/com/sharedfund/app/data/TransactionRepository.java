@@ -1,6 +1,7 @@
 package com.sharedfund.app.data;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
@@ -121,137 +122,146 @@ public class TransactionRepository {
     }
 
     public void transferWalletToRoom(String userId, String roomId, double amount, String note, DataCallback<JsonObject> callback) {
-        String url = SupabaseConfig.REST_URL + "/rpc/transfer_wallet_to_room";
-        JsonObject params = new JsonObject();
-        params.addProperty("p_user_id", userId);
-        params.addProperty("p_room_id", roomId);
-        params.addProperty("p_amount", amount);
-        params.addProperty("p_note", (note != null && !note.trim().isEmpty()) ? note : "Contribution from wallet");
+        contributeFromWallet(userId, roomId, amount, (note != null && !note.trim().isEmpty()) ? note : "Contribution from wallet", callback);
+    }
 
-        RequestBody body = RequestBody.create(params.toString(), JSON);
+    public void contributeFromWallet(String userId, String roomId, double amount, String note,
+                                     DataCallback<JsonObject> callback) {
+        JsonObject body = new JsonObject();
+        body.addProperty("p_user_id", userId);
+        body.addProperty("p_room_id", roomId);
+        body.addProperty("p_amount", amount);
+        body.addProperty("p_note", note);
+        callJsonbRpc("transfer_wallet_to_room", body, callback);
+    }
+
+    public void payRoomRecipient(String roomId, double amount, String category, String note,
+                                 String bankBin, String accountNumber, String recipientName,
+                                 String transferContent, DataCallback<JsonObject> callback) {
+        JsonObject body = new JsonObject();
+        body.addProperty("p_room_id", roomId);
+        body.addProperty("p_amount", amount);
+        body.addProperty("p_category", category);
+        body.addProperty("p_note", note);
+        body.addProperty("p_bank_bin", bankBin);
+        body.addProperty("p_account_number", accountNumber);
+        body.addProperty("p_recipient_name", recipientName);
+        body.addProperty("p_transfer_content", transferContent);
+        callJsonbRpc("pay_room_qr_recipient", body, callback);
+    }
+
+    public void simulateSePayPaymentForDemo(String userId, String roomId, double amount,
+                                            String reference, DataCallback<JsonObject> callback) {
+        JsonObject body = new JsonObject();
+        body.addProperty("p_user_id", userId);
+        if (roomId == null) body.add("p_room_id", com.google.gson.JsonNull.INSTANCE);
+        else body.addProperty("p_room_id", roomId);
+        body.addProperty("p_amount", amount);
+        body.addProperty("p_reference", reference);
+        callJsonbRpc("simulate_sepay_payment", body, callback);
+    }
+
+    public void submitWithdrawal(String userId, String userName, String roomId, double amount, String category, String note,
+                                 boolean approveImmediately, DataCallback<Transaction> callback) {
+        Transaction request = new Transaction();
+        request.setRoomId(roomId);
+        request.setUserId(userId);
+        request.setCreatedBy(userName);
+        request.setType("EXPENSE");
+        request.setAmount(amount);
+        request.setCategory(category);
+        request.setNote(note);
+        request.setStatus("PENDING");
+        request.setTransactionDate(java.time.LocalDate.now().toString());
+        createTransaction(request, new DataCallback<Transaction>() {
+            @Override public void onSuccess(Transaction created) {
+                if (!approveImmediately) {
+                    callback.onSuccess(created);
+                    return;
+                }
+                approveExpenseTransaction(userId, created.getId(), new DataCallback<JsonObject>() {
+                    @Override public void onSuccess(JsonObject result) {
+                        created.setStatus("APPROVED");
+                        if (result.has("new_room_balance") && !result.get("new_room_balance").isJsonNull())
+                            created.setBalanceAfter(result.get("new_room_balance").getAsDouble());
+                        created.setApprovedBy(userId);
+                        created.setApprovedAt(java.time.Instant.now().toString());
+                        callback.onSuccess(created);
+                    }
+                    @Override public void onError(String message) {
+                        callback.onError("Yêu cầu rút đã được ghi nhưng chưa duyệt tự động; giao dịch vẫn đang chờ duyệt: " + message);
+                    }
+                });
+            }
+            @Override public void onError(String message) { callback.onError(message); }
+        });
+    }
+
+    public void approveExpenseTransaction(String adminUserId, String transactionId,
+                                          DataCallback<JsonObject> callback) {
+        JsonObject payload = new JsonObject();
+        payload.addProperty("p_admin_user_id", adminUserId);
+        payload.addProperty("p_transaction_id", transactionId);
+        callJsonbRpc("approve_expense_transaction", payload, callback);
+    }
+
+    public void rejectExpenseTransaction(String adminUserId, String transactionId, String reason,
+                                         DataCallback<JsonObject> callback) {
+        JsonObject payload = new JsonObject();
+        payload.addProperty("p_admin_user_id", adminUserId);
+        payload.addProperty("p_transaction_id", transactionId);
+        payload.addProperty("p_rejection_reason", reason);
+        callJsonbRpc("reject_expense_transaction", payload, callback);
+    }
+
+    public void reviewWithdrawal(String adminUserId, String transactionId, boolean approve, String reason,
+                                 DataCallback<JsonObject> callback) {
+        if (approve) approveExpenseTransaction(adminUserId, transactionId, callback);
+        else rejectExpenseTransaction(adminUserId, transactionId, reason, callback);
+    }
+
+    private void callJsonbRpc(String functionName, JsonObject payload, DataCallback<JsonObject> callback) {
         Request request = new Request.Builder()
-                .url(url)
+                .url(SupabaseConfig.REST_URL + "/rpc/" + functionName)
                 .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
                 .addHeader("Authorization", "Bearer " + getEffectiveToken())
                 .addHeader("Content-Type", "application/json")
-                .post(body)
+                .post(RequestBody.create(gson.toJson(payload), JSON))
                 .build();
-
         client.newCall(request).enqueue(new Callback() {
-            @Override
-            public void onFailure(Call call, IOException e) {
-                callback.onError(e.getMessage());
-            }
-
-            @Override
-            public void onResponse(Call call, Response response) throws IOException {
-                String json = response.body() != null ? response.body().string() : "";
+            @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+            @Override public void onResponse(Call call, Response response) throws IOException {
+                String body = response.body() != null ? response.body().string() : "";
                 if (!response.isSuccessful()) {
-                    callback.onError("HTTP " + response.code() + ": " + json);
+                    callback.onError("HTTP " + response.code() + ": " + body);
                     return;
                 }
                 try {
-                    JsonObject result = JsonParser.parseString(json).getAsJsonObject();
-                    if (result.has("success") && result.get("success").getAsBoolean()) {
-                        callback.onSuccess(result);
-                    } else {
-                        String msg = result.has("message") ? result.get("message").getAsString() : "Transaction failed";
-                        callback.onError(msg);
+                    JsonElement root = JsonParser.parseString(body);
+                    if (!root.isJsonObject()) { callback.onError("Supabase returned an invalid RPC result."); return; }
+                    JsonObject result = root.getAsJsonObject();
+                    if (result.has("success") && !result.get("success").getAsBoolean()) {
+                        callback.onError(result.has("message") ? result.get("message").getAsString()
+                                : "Supabase rejected the operation.");
+                        return;
                     }
-                } catch (Exception e) {
-                    callback.onError("Parse error: " + e.getMessage());
-                }
+                    callback.onSuccess(result);
+                } catch (Exception e) { callback.onError("Invalid transaction response: " + e.getMessage()); }
             }
         });
     }
 
     public void approveExpense(String adminUserId, String transactionId, DataCallback<JsonObject> callback) {
-        String url = SupabaseConfig.REST_URL + "/rpc/approve_expense_transaction";
-        JsonObject params = new JsonObject();
-        params.addProperty("p_admin_user_id", adminUserId);
-        params.addProperty("p_transaction_id", transactionId);
-
-        RequestBody body = RequestBody.create(params.toString(), JSON);
-        Request request = new Request.Builder()
-                .url(url)
-                .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
-                .addHeader("Authorization", "Bearer " + getEffectiveToken())
-                .addHeader("Content-Type", "application/json")
-                .post(body)
-                .build();
-
-        client.newCall(request).enqueue(new Callback() {
-            @Override
-            public void onFailure(Call call, IOException e) {
-                callback.onError(e.getMessage());
-            }
-
-            @Override
-            public void onResponse(Call call, Response response) throws IOException {
-                String json = response.body() != null ? response.body().string() : "";
-                if (!response.isSuccessful()) {
-                    callback.onError("HTTP " + response.code() + ": " + json);
-                    return;
-                }
-                try {
-                    JsonObject result = JsonParser.parseString(json).getAsJsonObject();
-                    if (result.has("success") && result.get("success").getAsBoolean()) {
-                        callback.onSuccess(result);
-                    } else {
-                        String msg = result.has("message") ? result.get("message").getAsString() : "Approval failed";
-                        callback.onError(msg);
-                    }
-                } catch (Exception e) {
-                    callback.onError("Parse error: " + e.getMessage());
-                }
-            }
-        });
+        approveExpenseTransaction(adminUserId, transactionId, callback);
     }
 
     public void rejectExpense(String adminUserId, String transactionId, String reason, DataCallback<JsonObject> callback) {
-        String url = SupabaseConfig.REST_URL + "/rpc/reject_expense_transaction";
-        JsonObject params = new JsonObject();
-        params.addProperty("p_admin_user_id", adminUserId);
-        params.addProperty("p_transaction_id", transactionId);
-        params.addProperty("p_rejection_reason", reason != null ? reason : "");
-
-        RequestBody body = RequestBody.create(params.toString(), JSON);
-        Request request = new Request.Builder()
-                .url(url)
-                .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
-                .addHeader("Authorization", "Bearer " + getEffectiveToken())
-                .addHeader("Content-Type", "application/json")
-                .post(body)
-                .build();
-
-        client.newCall(request).enqueue(new Callback() {
-            @Override
-            public void onFailure(Call call, IOException e) {
-                callback.onError(e.getMessage());
-            }
-
-            @Override
-            public void onResponse(Call call, Response response) throws IOException {
-                String json = response.body() != null ? response.body().string() : "";
-                if (!response.isSuccessful()) {
-                    callback.onError("HTTP " + response.code() + ": " + json);
-                    return;
-                }
-                try {
-                    JsonObject result = JsonParser.parseString(json).getAsJsonObject();
-                    if (result.has("success") && result.get("success").getAsBoolean()) {
-                        callback.onSuccess(result);
-                    } else {
-                        String msg = result.has("message") ? result.get("message").getAsString() : "Rejection failed";
-                        callback.onError(msg);
-                    }
-                } catch (Exception e) {
-                    callback.onError("Parse error: " + e.getMessage());
-                }
-            }
-        });
+        rejectExpenseTransaction(adminUserId, transactionId, reason, callback);
     }
 
+    public void refreshRoomTransactions(String roomId, DataCallback<List<Transaction>> callback) {
+        getTransactionsByRoom(roomId, callback);
+    }
     public void findConfirmedPayment(String roomId, double amount, String createdAfter,
                                      DataCallback<Transaction> callback) {
         try {
@@ -401,5 +411,43 @@ public class TransactionRepository {
                 }
             }
         });
+    }
+
+    public void findConfirmedWalletPayment(String userId, double amount, String createdAfter,
+                                           DataCallback<Transaction> callback) {
+        try {
+            String after = URLEncoder.encode(createdAfter, StandardCharsets.UTF_8.name());
+            String category = URLEncoder.encode("Nạp ví SePay", StandardCharsets.UTF_8.name());
+            String url = SupabaseConfig.REST_URL + "/transactions?user_id=eq." + userId
+                    + "&room_id=is.null&amount=eq." + (long) amount
+                    + "&category=eq." + category + "&created_at=gte." + after
+                    + "&select=*&order=created_at.desc";
+            Request request = new Request.Builder().url(url)
+                    .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
+                    .addHeader("Authorization", "Bearer " + getEffectiveToken()).get().build();
+            client.newCall(request).enqueue(new Callback() {
+                @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+                @Override public void onResponse(Call call, Response response) throws IOException {
+                    String json = response.body() != null ? response.body().string() : "";
+                    if (!response.isSuccessful()) {
+                        callback.onError("HTTP " + response.code() + ": " + json); return;
+                    }
+                    Type listType = new TypeToken<List<Transaction>>() {}.getType();
+                    List<Transaction> rows = gson.fromJson(json, listType);
+                    if (rows != null) for (Transaction transaction : rows) {
+                        String status = transaction.getStatus();
+                        if (isConfirmedStatus(status)) { callback.onSuccess(transaction); return; }
+                    }
+                    callback.onSuccess(null);
+                }
+            });
+        } catch (Exception e) { callback.onError("Invalid wallet payment timestamp: " + e.getMessage()); }
+    }
+
+    private boolean isConfirmedStatus(String status) {
+        return status != null && ("success".equalsIgnoreCase(status)
+                || "completed".equalsIgnoreCase(status)
+                || "confirmed".equalsIgnoreCase(status)
+                || "paid".equalsIgnoreCase(status));
     }
 }

@@ -252,6 +252,28 @@ public class RoomRepository {
         });
     }
 
+    public void loadWalletBalance(String userId, DataCallback<Double> callback) {
+        if (userId == null || userId.trim().isEmpty()) {
+            callback.onError("Không xác định được tài khoản đang đăng nhập.");
+            return;
+        }
+        String path = "/profiles?select=wallet_balance&id=eq." + userId;
+        client.newCall(request(path).get().build()).enqueue(new okhttp3.Callback() {
+            @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+            @Override public void onResponse(Call call, Response response) throws IOException {
+                String body = response.body() != null ? response.body().string() : "";
+                if (!response.isSuccessful()) { callback.onError(error(response, body)); return; }
+                try {
+                    JsonArray rows = JsonParser.parseString(body).getAsJsonArray();
+                    if (rows.size() == 0) { callback.onError("Không tìm thấy hồ sơ ví của tài khoản."); return; }
+                    JsonObject profile = rows.get(0).getAsJsonObject();
+                    JsonElement value = profile.get("wallet_balance");
+                    callback.onSuccess(value == null || value.isJsonNull() ? 0.0 : value.getAsDouble());
+                } catch (Exception e) { callback.onError("Dữ liệu số dư ví không hợp lệ: " + e.getMessage()); }
+            }
+        });
+    }
+
     public void createRoom(String name, String description, String userId, DataCallback<Room> callback) {
         JsonObject payload = new JsonObject();
         payload.addProperty("name", name);
@@ -273,7 +295,7 @@ public class RoomRepository {
                     JsonArray rows = JsonParser.parseString(responseBody).getAsJsonArray();
                     if (rows.size() == 0) { callback.onError("Supabase returned no room row."); return; }
                     Room room = gson.fromJson(rows.get(0), Room.class);
-                    addMember(room, userId, "ADMIN", callback);
+                    addMember(room, userId, "OWNER", callback);
                 } catch (Exception e) { callback.onError("Invalid room response: " + e.getMessage()); }
             }
         });
@@ -372,7 +394,7 @@ public class RoomRepository {
             double income = 0;
             double expense = 0;
             for (Transaction tx : transactionList) {
-                if (tx.getRoomId().equals(r.getId())) {
+                if (r.getId().equals(tx.getRoomId()) && affectsBalance(tx)) {
                     if (tx.isIncome()) {
                         income += tx.getAmount();
                     } else if (tx.isExpense() && (tx.isApproved() || tx.getStatus() == null)) {
@@ -535,7 +557,7 @@ public class RoomRepository {
         double sum = 0;
         if (roomId == null) return sum;
         for (Transaction tx : transactionList) {
-            if (roomId.equals(tx.getRoomId()) && tx.isIncome()) {
+            if (roomId.equals(tx.getRoomId()) && affectsBalance(tx) && tx.isIncome()) {
                 sum += tx.getAmount();
             }
         }
@@ -546,7 +568,7 @@ public class RoomRepository {
         double sum = 0;
         if (roomId == null) return sum;
         for (Transaction tx : transactionList) {
-            if (roomId.equals(tx.getRoomId()) && tx.isExpense() && (tx.isApproved() || tx.getStatus() == null)) {
+            if (roomId.equals(tx.getRoomId()) && affectsBalance(tx) && tx.isExpense()) {
                 sum += tx.getAmount();
             }
         }
@@ -557,8 +579,8 @@ public class RoomRepository {
         Map<String, Double> map = new HashMap<>();
         if (roomId == null) return map;
         for (Transaction tx : transactionList) {
-            if (roomId.equals(tx.getRoomId()) && tx.isExpense() && (tx.isApproved() || tx.getStatus() == null)) {
-                String cat = tx.getCategory() != null ? tx.getCategory() : "Other";
+            if (roomId.equals(tx.getRoomId()) && affectsBalance(tx) && tx.isExpense()) {
+                String cat = tx.getCategory() != null ? tx.getCategory() : "Khác";
                 Double current = map.get(cat);
                 map.put(cat, (current != null ? current : 0.0) + tx.getAmount());
             }
@@ -566,6 +588,16 @@ public class RoomRepository {
         return map;
     }
 
+    private boolean affectsBalance(Transaction transaction) {
+        if (transaction == null) return false;
+        String status = transaction.getStatus();
+        return status == null || status.trim().isEmpty()
+                || "APPROVED".equalsIgnoreCase(status)
+                || "SUCCESS".equalsIgnoreCase(status)
+                || "COMPLETED".equalsIgnoreCase(status)
+                || "CONFIRMED".equalsIgnoreCase(status)
+                || "PAID".equalsIgnoreCase(status);
+    }
     public synchronized void onRemoteTransactionReceived(Transaction tx) {
         if (tx == null) return;
         boolean updated = false;

@@ -11,6 +11,9 @@ import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.EditText;
+import android.text.InputType;
+import android.app.AlertDialog;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -22,10 +25,9 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.button.MaterialButton;
-import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
-import com.sharedfund.app.MainActivity;
 import com.sharedfund.app.R;
 import com.sharedfund.app.data.RoomRepository;
+import com.sharedfund.app.data.TransactionRepository;
 import com.sharedfund.app.data.UserSessionManager;
 import com.sharedfund.app.model.Transaction;
 
@@ -48,9 +50,7 @@ public class TransactionFragment extends Fragment implements TransactionAdapter.
     private LinearLayout layoutTxError;
     private TextView tvTxErrorMessage;
     private MaterialButton btnTxRetry;
-    private MaterialButton btnEmptyAddTransaction;
     private ProgressBar pbTxLoading;
-    private ExtendedFloatingActionButton fabAddTransaction;
 
     public static TransactionFragment newInstance(String roomId) {
         TransactionFragment fragment = new TransactionFragment();
@@ -81,6 +81,7 @@ public class TransactionFragment extends Fragment implements TransactionAdapter.
         initViews(view);
         setupRecyclerView();
         setupViewModel();
+        updateFilterUI(viewModel.getCurrentFilter());
         setupClickListeners();
     }
 
@@ -102,9 +103,7 @@ public class TransactionFragment extends Fragment implements TransactionAdapter.
         layoutTxError = view.findViewById(R.id.layoutTxError);
         tvTxErrorMessage = view.findViewById(R.id.tvTxErrorMessage);
         btnTxRetry = view.findViewById(R.id.btnTxRetry);
-        btnEmptyAddTransaction = view.findViewById(R.id.btnEmptyAddTransaction);
         pbTxLoading = view.findViewById(R.id.pbTxLoading);
-        fabAddTransaction = view.findViewById(R.id.fabAddTransaction);
     }
 
     private void setupRecyclerView() {
@@ -203,22 +202,6 @@ public class TransactionFragment extends Fragment implements TransactionAdapter.
             }
         });
 
-        fabAddTransaction.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                openAddTransactionScreen();
-            }
-        });
-
-        if (btnEmptyAddTransaction != null) {
-            btnEmptyAddTransaction.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    openAddTransactionScreen();
-                }
-            });
-        }
-
         if (btnTxRetry != null) {
             btnTxRetry.setOnClickListener(new View.OnClickListener() {
                 @Override
@@ -230,30 +213,29 @@ public class TransactionFragment extends Fragment implements TransactionAdapter.
         }
     }
 
-    private void openAddTransactionScreen() {
-        if (getActivity() instanceof MainActivity) {
-            ((MainActivity) getActivity()).openAddTransaction(roomId);
-        }
-    }
-
     private void updateFilterUI(TransactionViewModel.FilterType filter) {
         int primaryColor = ContextCompat.getColor(requireContext(), R.color.primary);
         int transparentColor = Color.TRANSPARENT;
         int activeTextColor = Color.WHITE;
         int inactiveTextColor = ContextCompat.getColor(requireContext(), R.color.text_secondary);
 
-        btnFilterAll.setBackgroundTintList(ColorStateList.valueOf(filter == TransactionViewModel.FilterType.ALL ? primaryColor : transparentColor));
-        btnFilterAll.setTextColor(filter == TransactionViewModel.FilterType.ALL ? activeTextColor : inactiveTextColor);
+        setFilterButtonState(btnFilterAll, filter == TransactionViewModel.FilterType.ALL,
+                primaryColor, transparentColor, activeTextColor, inactiveTextColor);
+        setFilterButtonState(btnFilterIncome, filter == TransactionViewModel.FilterType.INCOME,
+                primaryColor, transparentColor, activeTextColor, inactiveTextColor);
+        setFilterButtonState(btnFilterExpense, filter == TransactionViewModel.FilterType.EXPENSE,
+                primaryColor, transparentColor, activeTextColor, inactiveTextColor);
+    }
 
-        btnFilterIncome.setBackgroundTintList(ColorStateList.valueOf(filter == TransactionViewModel.FilterType.INCOME ? primaryColor : transparentColor));
-        btnFilterIncome.setTextColor(filter == TransactionViewModel.FilterType.INCOME ? activeTextColor : inactiveTextColor);
-
-        btnFilterExpense.setBackgroundTintList(ColorStateList.valueOf(filter == TransactionViewModel.FilterType.EXPENSE ? primaryColor : transparentColor));
-        btnFilterExpense.setTextColor(filter == TransactionViewModel.FilterType.EXPENSE ? activeTextColor : inactiveTextColor);
+    private void setFilterButtonState(MaterialButton button, boolean selected, int primaryColor,
+                                      int transparentColor, int activeTextColor, int inactiveTextColor) {
+        button.setBackgroundTintList(ColorStateList.valueOf(selected ? primaryColor : transparentColor));
+        button.setTextColor(selected ? activeTextColor : inactiveTextColor);
     }
 
     @Override
     public void onTransactionClick(Transaction transaction) {
+        if (transaction == null) return;
         boolean isAdmin = RoomRepository.getInstance().isCurrentUserAdmin(roomId);
         TransactionDetailBottomSheet sheet = TransactionDetailBottomSheet.newInstance(transaction, isAdmin);
         sheet.setActionListener(new TransactionDetailBottomSheet.OnTransactionActionListener() {

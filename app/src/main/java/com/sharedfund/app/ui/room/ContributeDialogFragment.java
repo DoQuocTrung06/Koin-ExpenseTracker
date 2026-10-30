@@ -24,6 +24,7 @@ import com.sharedfund.app.R;
 import com.sharedfund.app.data.RoomRepository;
 import com.sharedfund.app.data.TransactionRepository;
 import com.sharedfund.app.data.UserSessionManager;
+import com.sharedfund.app.model.Room;
 
 import java.text.DecimalFormat;
 
@@ -212,24 +213,46 @@ public class ContributeDialogFragment extends BottomSheetDialogFragment {
             tilContributeAmount.setError("Số dư ví không đủ (Hiện có: " + df.format(currentWalletBalance).replace(',', '.') + " ₫). Vui lòng nạp thêm!");
             return;
         }
-
         UserSessionManager session = UserSessionManager.getInstance(requireContext());
         btnConfirmContribute.setEnabled(false);
         TransactionRepository transactions = new TransactionRepository();
         transactions.setAccessToken(session.getAccessToken());
-        transactions.transferWalletToRoom(session.getUserId(), roomId, amount, note, new TransactionRepository.DataCallback<com.google.gson.JsonObject>() {
+        transactions.transferWalletToRoom(session.getUserId(), roomId, amount, note.isEmpty() ? "Đóng quỹ" : note,
+                new TransactionRepository.DataCallback<com.google.gson.JsonObject>() {
             @Override public void onSuccess(com.google.gson.JsonObject result) {
                 if (!isAdded()) return;
                 requireActivity().runOnUiThread(() -> {
-                    btnConfirmContribute.setEnabled(true);
                     if (result.has("new_wallet_balance")) {
                         RoomRepository.getInstance().setUserWalletBalance(result.get("new_wallet_balance").getAsDouble());
                     }
-                    DecimalFormat df = new DecimalFormat("#,###");
-                    String formattedAmount = df.format(amount).replace(',', '.') + " ₫";
-                    Toast.makeText(requireContext(), "Đóng quỹ thành công: " + formattedAmount, Toast.LENGTH_SHORT).show();
-                    if (listener != null) listener.onContributeComplete(amount);
-                    dismiss();
+                    transactions.refreshRoomTransactions(roomId,
+                            new TransactionRepository.DataCallback<java.util.List<com.sharedfund.app.model.Transaction>>() {
+                        @Override public void onSuccess(java.util.List<com.sharedfund.app.model.Transaction> rows) {
+                            if (!isAdded()) return;
+                            requireActivity().runOnUiThread(() -> {
+                                if (rows != null) {
+                                    for (com.sharedfund.app.model.Transaction row : rows) {
+                                        RoomRepository.getInstance().onRemoteTransactionReceived(row);
+                                    }
+                                }
+                                DecimalFormat df = new DecimalFormat("#,###");
+                                String formattedAmount = df.format(amount).replace(',', '.') + " ₫";
+                                Toast.makeText(requireContext(), "Đóng quỹ thành công: " + formattedAmount, Toast.LENGTH_SHORT).show();
+                                if (listener != null) listener.onContributeComplete(amount);
+                                dismiss();
+                            });
+                        }
+                        @Override public void onError(String message) {
+                            if (!isAdded()) return;
+                            requireActivity().runOnUiThread(() -> {
+                                DecimalFormat df = new DecimalFormat("#,###");
+                                String formattedAmount = df.format(amount).replace(',', '.') + " ₫";
+                                Toast.makeText(requireContext(), "Đóng quỹ thành công: " + formattedAmount, Toast.LENGTH_SHORT).show();
+                                if (listener != null) listener.onContributeComplete(amount);
+                                dismiss();
+                            });
+                        }
+                    });
                 });
             }
             @Override public void onError(String errorMessage) {

@@ -5,8 +5,6 @@
     android:layout_height="wrap_content"
     android:background="@drawable/bg_bottom_sheet"
     android:orientation="vertical">
-
-    <!-- Handle bar -->
     <View
         android:layout_width="36dp"
         android:layout_height="4dp"
@@ -14,8 +12,6 @@
         android:layout_marginTop="10dp"
         android:background="@color/border"
         android:backgroundTint="@color/text_tertiary" />
-
-    <!-- Header -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -57,14 +53,10 @@
             android:textSize="12sp"
             android:textStyle="bold" />
     </LinearLayout>
-
-    <!-- Divider -->
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:background="@color/border" />
-
-    <!-- Total contributions row -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -93,8 +85,6 @@
             android:textSize="15sp"
             android:textStyle="bold" />
     </LinearLayout>
-
-    <!-- Members RecyclerView -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvMembers"
         android:layout_width="match_parent"

@@ -105,6 +105,15 @@ public class TransactionViewModel extends ViewModel {
         return statusFilter;
     }
 
+    public boolean isCurrentUserOwner() {
+        Room room = repository.getRoomSync(roomId);
+        if (room == null) return false;
+        String role = room.getCurrentUserRole();
+        if (role != null) return "ADMIN".equalsIgnoreCase(role) || "OWNER".equalsIgnoreCase(role);
+        return repository.getCurrentUserId() != null
+                && repository.getCurrentUserId().equals(room.getCreatedBy());
+    }
+
     public void setFilter(FilterType filter) {
         this.currentFilter = filter;
         applyFilter(filter);
@@ -194,6 +203,10 @@ public class TransactionViewModel extends ViewModel {
         });
     }
 
+    public boolean submitTransaction(String targetRoomId, String type, String amountStr, String category, String note) {
+        return submitTransaction(targetRoomId, type, amountStr, category, note, null);
+    }
+
     public boolean submitTransaction(String targetRoomId, String type, String amountStr, String category, String note, String createdBy) {
         if (amountStr == null || amountStr.trim().isEmpty()) {
             errorMessage.setValue("Vui lòng nhập số tiền");
@@ -223,44 +236,23 @@ public class TransactionViewModel extends ViewModel {
             return false;
         }
 
-        if (createdBy == null || createdBy.trim().isEmpty()) {
-            createdBy = repository.getCurrentUserName();
+        final String operationRoomId = targetRoomId != null ? targetRoomId : this.roomId;
+        if (operationRoomId == null || operationRoomId.trim().isEmpty()) {
+            errorMessage.setValue("Không xác định được quỹ.");
+            return false;
         }
-        if (createdBy == null || createdBy.trim().isEmpty()) {
-            createdBy = "Thành viên";
-        }
-
-        Transaction tx = new Transaction();
-        tx.setRoomId(targetRoomId != null ? targetRoomId : this.roomId);
-        tx.setUserId(repository.getCurrentUserId());
-        tx.setType(Transaction.TYPE_INCOME.equalsIgnoreCase(type) || "INCOME".equalsIgnoreCase(type)
-                ? "INCOME" : "EXPENSE");
-        tx.setAmount(amount);
-        tx.setCategory(category.trim());
-        tx.setNote(note.trim());
-        tx.setCreatedBy(createdBy.trim());
-        tx.setTransactionDate(LocalDate.now().toString());
-
-        if (tx.isExpense()) {
-            boolean isAdmin = repository.isCurrentUserAdmin(tx.getRoomId());
-            tx.setStatus(isAdmin ? Transaction.STATUS_APPROVED : Transaction.STATUS_PENDING);
-        } else {
-            tx.setStatus(Transaction.STATUS_APPROVED);
-        }
-
-        Room room = repository.getRoomSync(tx.getRoomId());
-        if (room != null) {
-            double newBalance = room.getBalance();
-            if (tx.isIncome()) {
-                newBalance += amount;
-            } else if (tx.isApproved()) {
-                newBalance -= amount;
+        final boolean income = Transaction.TYPE_INCOME.equalsIgnoreCase(type) || "INCOME".equalsIgnoreCase(type);
+        final boolean owner = isCurrentUserOwner();
+        if (!income && owner) {
+            Room room = repository.getRoomSync(operationRoomId);
+            if (room == null || room.getBalance() < amount) {
+                errorMessage.setValue("Số dư quỹ không đủ để thực hiện khoản chi.");
+                return false;
             }
-            tx.setBalanceAfter(newBalance);
         }
 
         isLoading.setValue(true);
-        remoteRepository.createTransaction(tx, new TransactionRepository.DataCallback<Transaction>() {
+        TransactionRepository.DataCallback<Transaction> transactionCallback = new TransactionRepository.DataCallback<Transaction>() {
             @Override public void onSuccess(Transaction created) {
                 repository.onRemoteTransactionReceived(created);
                 isLoading.postValue(false);
@@ -270,7 +262,90 @@ public class TransactionViewModel extends ViewModel {
                 isLoading.postValue(false);
                 errorMessage.postValue("Failed to create transaction: " + message);
             }
-        });
+        };
+        if (income) {
+            String userId = repository.getCurrentUserId();
+            remoteRepository.contributeFromWallet(userId, operationRoomId, amount, note.trim(),
+                    new TransactionRepository.DataCallback<JsonObject>() {
+                        @Override public void onSuccess(JsonObject result) {
+                            remoteRepository.refreshRoomTransactions(operationRoomId,
+                                    new TransactionRepository.DataCallback<List<Transaction>>() {
+                                        @Override public void onSuccess(List<Transaction> transactions) {
+                                            if (transactions != null) for (Transaction tx : transactions)
+                                                repository.onRemoteTransactionReceived(tx);
+                                            isLoading.postValue(false);
+                                            addSuccessEvent.postValue(true);
+                                        }
+                                        @Override public void onError(String message) {
+                                            isLoading.postValue(false);
+                                            errorMessage.postValue("Đã nạp ví vào quỹ nhưng không tải lại được lịch sử: " + message);
+                                        }
+                                    });
+                        }
+                        @Override public void onError(String message) {
+                            isLoading.postValue(false);
+                            errorMessage.postValue("Không thể nạp từ ví cá nhân: " + message);
+                        }
+                    });
+        } else {
+            String creatorName = (createdBy != null && !createdBy.trim().isEmpty()) ? createdBy.trim() : repository.getCurrentUserName();
+            remoteRepository.submitWithdrawal(repository.getCurrentUserId(), creatorName, operationRoomId, amount,
+                    category.trim(), note.trim(), owner, transactionCallback);
+        }
+        return true;
+    }
+
+    public boolean submitQrExpense(String targetRoomId, String amountStr, String category, String note,
+                                   String bankBin, String accountNumber, String recipientName,
+                                   String transferContent) {
+        if (!isCurrentUserOwner()) {
+            errorMessage.setValue("Chỉ trưởng quỹ mới có thể xác nhận chi qua QR.");
+            return false;
+        }
+        final double amount;
+        try { amount = Double.parseDouble(amountStr.trim().replace(".", "").replace(",", "")); }
+        catch (Exception error) {
+            errorMessage.setValue("Số tiền không hợp lệ.");
+            return false;
+        }
+        if (amount <= 0 || category == null || category.trim().isEmpty()) {
+            errorMessage.setValue("Vui lòng nhập số tiền và chọn danh mục.");
+            return false;
+        }
+        if (accountNumber == null || accountNumber.trim().isEmpty()) {
+            errorMessage.setValue("QR không có số tài khoản người nhận hợp lệ.");
+            return false;
+        }
+        String operationRoomId = targetRoomId != null ? targetRoomId : roomId;
+        if (operationRoomId == null || operationRoomId.trim().isEmpty()) {
+            errorMessage.setValue("Không xác định được quỹ.");
+            return false;
+        }
+
+        isLoading.setValue(true);
+        remoteRepository.payRoomRecipient(operationRoomId, amount, category.trim(), note.trim(),
+                bankBin, accountNumber.trim(), recipientName, transferContent,
+                new TransactionRepository.DataCallback<JsonObject>() {
+                    @Override public void onSuccess(JsonObject result) {
+                        remoteRepository.refreshRoomTransactions(operationRoomId,
+                                new TransactionRepository.DataCallback<List<Transaction>>() {
+                                    @Override public void onSuccess(List<Transaction> transactions) {
+                                        if (transactions != null) for (Transaction tx : transactions)
+                                            repository.onRemoteTransactionReceived(tx);
+                                        isLoading.postValue(false);
+                                        addSuccessEvent.postValue(true);
+                                    }
+                                    @Override public void onError(String message) {
+                                        isLoading.postValue(false);
+                                        errorMessage.postValue("Đã ghi nhận chi nhưng không tải lại được lịch sử: " + message);
+                                    }
+                                });
+                    }
+                    @Override public void onError(String message) {
+                        isLoading.postValue(false);
+                        errorMessage.postValue("Không thể ghi nhận chi QR: " + message);
+                    }
+                });
         return true;
     }
 

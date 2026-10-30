@@ -11,8 +11,6 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:padding="20dp">
-
-        <!-- Header -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -36,8 +34,6 @@
                 android:textSize="17sp"
                 android:textStyle="bold" />
         </LinearLayout>
-
-        <!-- Card hiển thị số dư ví cá nhân -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/cardContributeWallet"
             android:layout_width="match_parent"
@@ -97,8 +93,6 @@
                     android:textStyle="bold" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
-
-        <!-- Nhập số tiền -->
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/tilContributeAmount"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
@@ -122,8 +116,6 @@
                 android:textSize="18sp"
                 android:textStyle="bold" />
         </com.google.android.material.textfield.TextInputLayout>
-
-        <!-- Quick amount suggestions -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -189,8 +181,6 @@
                 app:strokeColor="@color/primary"
                 app:strokeWidth="1dp" />
         </LinearLayout>
-
-        <!-- Lời nhắn / Ghi chú -->
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/tilContributeNote"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
@@ -211,8 +201,6 @@
                 android:textColor="@color/text_primary"
                 android:textSize="14sp" />
         </com.google.android.material.textfield.TextInputLayout>
-
-        <!-- Buttons -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

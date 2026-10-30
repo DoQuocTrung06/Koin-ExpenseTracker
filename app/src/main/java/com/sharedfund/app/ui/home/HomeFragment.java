@@ -1,6 +1,7 @@
 package com.sharedfund.app.ui.home;
 
 import androidx.appcompat.app.AlertDialog;
+import androidx.activity.OnBackPressedCallback;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.sharedfund.app.ui.room.DepositDialogFragment;
 import android.content.ClipData;
@@ -13,6 +14,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -35,6 +37,7 @@ import com.sharedfund.app.adapter.RoomAdapter;
 import com.sharedfund.app.data.RoomRepository;
 import com.sharedfund.app.data.UserSessionManager;
 import com.sharedfund.app.model.Room;
+import com.sharedfund.app.ui.profile.AvatarImageLoader;
 
 import java.text.DecimalFormat;
 import java.util.List;
@@ -46,6 +49,8 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
 
     private TextView tvTotalBalance;
     private TextView tvRoomCountSubtitle;
+    private ImageView ivHomeAvatar;
+    private TextView tvHomeAvatarInitials;
     private TextView tvTotalRoomBalanceMini;
     private MaterialButton btnHomeDeposit;
     private TextView tvRoomCountBadge;
@@ -60,7 +65,12 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
     private ProgressBar pbLoading;
 
     private View btnUserProfile;
-    private TextView tvUserInitials;
+    private View accountDrawerScrim;
+    private LinearLayout accountDrawer;
+    private TextView tvDrawerUserName;
+    private TextView tvDrawerUserEmail;
+    private TextView tvDrawerThemeValue;
+    private OnBackPressedCallback drawerBackCallback;
 
     @Nullable
     @Override
@@ -81,18 +91,18 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
         setupRecyclerView();
         setupViewModel();
         setupClickListeners();
+        drawerBackCallback = new OnBackPressedCallback(false) {
+            @Override public void handleOnBackPressed() { hideAccountDrawer(); }
+        };
+        requireActivity().getOnBackPressedDispatcher().addCallback(getViewLifecycleOwner(), drawerBackCallback);
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        updateUserAvatar();
+        updateHomeAvatar();
         if (viewModel != null) {
-            Double walletBal = viewModel.getUserWalletBalance().getValue();
-            if (walletBal != null && tvTotalBalance != null) {
-                DecimalFormat df = new DecimalFormat("#,###");
-                tvTotalBalance.setText(df.format(walletBal).replace(',', '.') + " ₫");
-            }
+            viewModel.refreshWalletBalance();
             Double roomTotal = viewModel.getTotalRoomBalance().getValue();
             if (roomTotal != null && tvTotalRoomBalanceMini != null) {
                 DecimalFormat df = new DecimalFormat("#,###");
@@ -101,26 +111,16 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
         }
     }
 
-    private void updateUserAvatar() {
-        if (tvUserInitials != null && getContext() != null) {
-            String name = UserSessionManager.getInstance(requireContext()).getCurrentUserName();
-            if (name != null && !name.trim().isEmpty()) {
-                String[] parts = name.trim().split(" ");
-                if (parts.length >= 2) {
-                    tvUserInitials.setText(("" + parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase());
-                } else {
-                    tvUserInitials.setText(("" + name.charAt(0)).toUpperCase());
-                }
-            } else {
-                tvUserInitials.setText("U");
-            }
-        }
-    }
-
     private void initViews(View view) {
         btnUserProfile = view.findViewById(R.id.btnUserProfile);
-        tvUserInitials = view.findViewById(R.id.tvUserInitials);
+        accountDrawerScrim = view.findViewById(R.id.accountDrawerScrim);
+        accountDrawer = view.findViewById(R.id.accountDrawer);
+        tvDrawerUserName = view.findViewById(R.id.tvDrawerUserName);
+        tvDrawerUserEmail = view.findViewById(R.id.tvDrawerUserEmail);
+        tvDrawerThemeValue = view.findViewById(R.id.tvDrawerThemeValue);
         tvTotalBalance = view.findViewById(R.id.tvTotalBalance);
+        ivHomeAvatar = view.findViewById(R.id.ivHomeAvatar);
+        tvHomeAvatarInitials = view.findViewById(R.id.tvHomeAvatarInitials);
         tvRoomCountSubtitle = view.findViewById(R.id.tvRoomCountSubtitle);
         tvTotalRoomBalanceMini = view.findViewById(R.id.tvTotalRoomBalanceMini);
         btnHomeDeposit = view.findViewById(R.id.btnHomeDeposit);
@@ -135,7 +135,24 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
         btnRetryRooms = view.findViewById(R.id.btnRetryRooms);
         pbLoading = view.findViewById(R.id.pbLoading);
 
-        updateUserAvatar();
+    }
+
+    private void updateHomeAvatar() {
+        if (ivHomeAvatar == null || getContext() == null) return;
+        com.sharedfund.app.data.UserSessionManager session =
+                com.sharedfund.app.data.UserSessionManager.getInstance(requireContext());
+        String name = session.getCurrentUserName();
+        if (name == null || name.trim().isEmpty()) {
+            tvHomeAvatarInitials.setText("U");
+        } else {
+            String[] parts = name.trim().split("\\s+");
+            String initials = parts.length > 1
+                    ? ("" + parts[0].charAt(0) + parts[parts.length - 1].charAt(0))
+                    : String.valueOf(parts[0].charAt(0));
+            tvHomeAvatarInitials.setText(initials.toUpperCase(java.util.Locale.ROOT));
+        }
+        tvHomeAvatarInitials.setVisibility(View.VISIBLE);
+        AvatarImageLoader.load(ivHomeAvatar, tvHomeAvatarInitials, session.getAvatarUrl());
     }
 
     private void setupRecyclerView() {
@@ -173,7 +190,7 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
             }
         });
 
-        viewModel.getUserWalletBalance().observe(getViewLifecycleOwner(), new Observer<Double>() {
+        viewModel.getPersonalWalletBalance().observe(getViewLifecycleOwner(), new Observer<Double>() {
             @Override
             public void onChanged(Double walletBalance) {
                 if (walletBalance != null && tvTotalBalance != null) {
@@ -206,7 +223,15 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
             @Override
             public void onChanged(String msg) {
                 if (msg != null && !msg.isEmpty()) {
-                    Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show();
+                    if (msg.startsWith("Tạo quỹ thất bại:")) {
+                        new MaterialAlertDialogBuilder(requireContext())
+                                .setTitle("Không tạo được quỹ")
+                                .setMessage(msg)
+                                .setPositiveButton("Đóng", null)
+                                .show();
+                    } else {
+                        Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show();
+                    }
                 }
             }
         });
@@ -217,7 +242,8 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
             btnHomeDeposit.setVisibility(View.VISIBLE);
             btnHomeDeposit.setOnClickListener(v -> {
                 DepositDialogFragment dialog = DepositDialogFragment.newWalletInstance();
-                dialog.show(getChildFragmentManager(), "home_wallet_deposit");
+                dialog.setOnDepositCompleteListener(amount -> viewModel.refreshWalletBalance());
+                dialog.show(getChildFragmentManager(), "wallet_deposit_dialog");
             });
         }
 
@@ -255,15 +281,89 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
         }
 
         if (btnUserProfile != null) {
-            btnUserProfile.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    if (getActivity() instanceof MainActivity) {
-                        ((MainActivity) getActivity()).openProfile();
-                    }
-                }
-            });
+            btnUserProfile.setOnClickListener(v -> showAccountDrawer());
         }
+        accountDrawerScrim.setOnClickListener(v -> hideAccountDrawer());
+        viewClick(R.id.btnCloseAccountDrawer, v -> hideAccountDrawer());
+        viewClick(R.id.btnDrawerAccount, v -> {
+            hideAccountDrawer();
+            if (getActivity() instanceof MainActivity) ((MainActivity) getActivity()).openProfile();
+        });
+        viewClick(R.id.btnDrawerTheme, v -> showThemeChooser());
+        viewClick(R.id.btnDrawerLogout, v -> confirmDrawerLogout());
+    }
+
+    private interface DrawerAction { void run(View view); }
+
+    private void viewClick(int id, DrawerAction action) {
+        View item = requireView().findViewById(id);
+        if (item != null) item.setOnClickListener(action::run);
+    }
+
+    private void showAccountDrawer() {
+        if (accountDrawer == null || accountDrawerScrim == null) return;
+        com.sharedfund.app.data.UserSessionManager session =
+                com.sharedfund.app.data.UserSessionManager.getInstance(requireContext());
+        tvDrawerUserName.setText(session.getCurrentUserName());
+        tvDrawerUserEmail.setText(session.getCurrentUserEmail());
+        if (getActivity() instanceof MainActivity) {
+            tvDrawerThemeValue.setText(((MainActivity) getActivity()).isDarkTheme() ? "Tối" : "Sáng");
+        }
+        accountDrawerScrim.setVisibility(View.VISIBLE);
+        accountDrawerScrim.setAlpha(0f);
+        accountDrawerScrim.animate().alpha(1f).setDuration(180).start();
+        accountDrawer.setVisibility(View.VISIBLE);
+        accountDrawer.setAlpha(1f);
+        accountDrawer.post(() -> {
+            if (accountDrawer == null || !isAdded()) return;
+            accountDrawer.setTranslationX(accountDrawer.getWidth());
+            accountDrawer.animate().translationX(0f).setDuration(220).start();
+        });
+        if (drawerBackCallback != null) drawerBackCallback.setEnabled(true);
+    }
+
+    private void hideAccountDrawer() {
+        if (accountDrawer == null || accountDrawer.getVisibility() != View.VISIBLE) return;
+        int slideDistance = accountDrawer.getWidth();
+        accountDrawer.animate().translationX(slideDistance).setDuration(180).withEndAction(() -> {
+            if (accountDrawer != null) {
+                accountDrawer.setVisibility(View.GONE);
+                accountDrawer.setTranslationX(0f);
+            }
+        }).start();
+        accountDrawerScrim.animate().alpha(0f).setDuration(180)
+                .withEndAction(() -> accountDrawerScrim.setVisibility(View.GONE)).start();
+        if (drawerBackCallback != null) drawerBackCallback.setEnabled(false);
+    }
+
+    private void showThemeChooser() {
+        boolean dark = getActivity() instanceof MainActivity && ((MainActivity) getActivity()).isDarkTheme();
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Chỉnh theme")
+                .setSingleChoiceItems(new String[]{"Sáng", "Tối"}, dark ? 1 : 0, (dialog, which) -> {
+                    dialog.dismiss();
+                    hideAccountDrawer();
+                    if (getActivity() instanceof MainActivity) {
+                        ((MainActivity) getActivity()).setDarkTheme(which == 1);
+                    }
+                })
+                .setNegativeButton("Hủy", null)
+                .show();
+    }
+
+    private void confirmDrawerLogout() {
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Đăng xuất")
+                .setMessage("Bạn có chắc muốn đăng xuất khỏi tài khoản này?")
+                .setNegativeButton("Hủy", null)
+                .setPositiveButton("Đăng xuất", (dialog, which) -> {
+                    com.sharedfund.app.data.UserSessionManager.getInstance(requireContext()).clearSession();
+                    com.sharedfund.app.data.RoomRepository.getInstance().setCurrentUser("", "");
+                    hideAccountDrawer();
+                    Toast.makeText(requireContext(), "Đã đăng xuất!", Toast.LENGTH_SHORT).show();
+                    if (getActivity() instanceof MainActivity) ((MainActivity) getActivity()).openLogin();
+                })
+                .show();
     }
 
     @Override

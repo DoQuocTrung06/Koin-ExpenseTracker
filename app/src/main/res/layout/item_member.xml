@@ -5,8 +5,6 @@
     android:layout_height="wrap_content"
     android:orientation="horizontal"
     android:padding="12dp">
-
-    <!-- Avatar circle với initials -->
     <TextView
         android:id="@+id/tvMemberInitials"
         android:layout_width="44dp"
@@ -17,8 +15,6 @@
         android:textColor="@color/white"
         android:textSize="16sp"
         android:textStyle="bold" />
-
-    <!-- Name + Contribution info -->
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -26,8 +22,6 @@
         android:layout_marginStart="12dp"
         android:layout_weight="1"
         android:orientation="vertical">
-
-        <!-- Row: Tên + Badge -->
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -44,8 +38,6 @@
                 android:textColor="@color/text_primary"
                 android:textSize="14sp"
                 android:textStyle="bold" />
-
-            <!-- Badge Admin -->
             <TextView
                 android:id="@+id/tvMemberBadge"
                 android:layout_width="wrap_content"
@@ -62,8 +54,6 @@
                 android:textStyle="bold"
                 android:visibility="gone" />
         </LinearLayout>
-
-        <!-- Thanh tiến trình đóng góp -->
         <TextView
             android:id="@+id/tvMemberContribution"
             android:layout_width="wrap_content"
@@ -73,8 +63,6 @@
             android:textColor="@color/text_secondary"
             android:textSize="12sp" />
     </LinearLayout>
-
-    <!-- Phần trăm đóng góp -->
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

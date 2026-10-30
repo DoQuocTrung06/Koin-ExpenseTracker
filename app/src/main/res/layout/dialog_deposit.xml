@@ -10,8 +10,6 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:padding="20dp">
-
-        <!-- Header -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -36,8 +34,6 @@
                 android:textSize="17sp"
                 android:textStyle="bold" />
         </LinearLayout>
-
-        <!-- Nhập số tiền -->
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/tilDepositAmount"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
@@ -61,8 +57,6 @@
                 android:textSize="18sp"
                 android:textStyle="bold" />
         </com.google.android.material.textfield.TextInputLayout>
-
-        <!-- Quick amount buttons -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -128,8 +122,6 @@
                 app:strokeColor="@color/accent_income"
                 app:strokeWidth="1dp" />
         </LinearLayout>
-
-    <!-- QR Code Section (hiển thị sau khi nhập số tiền) -->
     <LinearLayout
         android:id="@+id/layoutQrSection"
         android:layout_width="match_parent"
@@ -138,16 +130,12 @@
         android:gravity="center"
         android:orientation="vertical"
         android:visibility="gone">
-
-        <!-- QR Image -->
         <ImageView
             android:id="@+id/ivQrCode"
             android:layout_width="200dp"
             android:layout_height="200dp"
             android:contentDescription="VietQR"
             android:scaleType="fitCenter" />
-
-        <!-- Transfer info -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -182,8 +170,6 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
     </LinearLayout>
-
-    <!-- Loading -->
     <ProgressBar
         android:id="@+id/pbDepositLoading"
         android:layout_width="wrap_content"
@@ -191,8 +177,6 @@
         android:layout_gravity="center"
         android:layout_marginTop="12dp"
         android:visibility="gone" />
-
-    <!-- Action Buttons -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -216,7 +200,7 @@
             android:layout_height="48dp"
             android:layout_weight="2"
             android:backgroundTint="@color/accent_income"
-            android:text="Tạo mã QR"
+            android:text="Quét mã QR"
             android:textColor="@color/white"
             android:textSize="14sp"
             android:textStyle="bold"
@@ -224,15 +208,13 @@
             app:icon="@drawable/ic_add"
             app:iconTint="@color/white" />
     </LinearLayout>
-
-    <!-- Done button (ẩn, chỉ hiện sau khi đã tạo QR) -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnDoneDeposit"
         android:layout_width="match_parent"
         android:layout_height="48dp"
         android:layout_marginTop="8dp"
         android:backgroundTint="@color/primary"
-            android:text="Kiểm tra thanh toán"
+            android:text="Đã chuyển khoản · Kiểm tra SePay"
         android:textColor="@color/white"
         android:textSize="14sp"
         android:textStyle="bold"
@@ -240,5 +222,20 @@
         app:cornerRadius="12dp"
         app:icon="@drawable/ic_check"
         app:iconTint="@color/white" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnDemoPaymentSuccess"
+        style="@style/Widget.Material3.Button.OutlinedButton"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="8dp"
+        android:text="Mô phỏng thanh toán thành công (Demo)"
+        android:textColor="@color/text_secondary"
+        android:textSize="13sp"
+        android:visibility="gone"
+        app:cornerRadius="12dp"
+        app:icon="@drawable/ic_sparkles"
+        app:iconTint="@color/primary"
+        app:strokeColor="@color/border" />
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

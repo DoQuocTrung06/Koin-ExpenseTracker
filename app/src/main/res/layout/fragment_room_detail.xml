@@ -10,8 +10,6 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical">
-
-        <!-- Top App Bar -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -43,8 +41,6 @@
                 android:textColor="@color/text_primary"
                 android:textSize="18sp"
                 android:textStyle="bold" />
-
-            <!-- Join Code Pill with Copy & Ripple -->
             <LinearLayout
                 android:id="@+id/btnDetailCopyCode"
                 android:layout_width="wrap_content"
@@ -78,8 +74,6 @@
                     app:tint="@color/primary" />
             </LinearLayout>
         </LinearLayout>
-
-        <!-- Room Balance Card -->
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -104,8 +98,6 @@
                     android:text="Quỹ Du Lịch Đà Lạt"
                     android:textColor="#E0E7FF"
                     android:textSize="13sp" />
-
-                <!-- Auto-sizing room balance to prevent cutting of large numbers -->
                 <TextView
                     android:id="@+id/tvDetailBalance"
                     android:layout_width="match_parent"
@@ -134,8 +126,6 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal">
-
-                    <!-- Income Mini Block -->
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
@@ -166,8 +156,6 @@
                             app:autoSizeStepGranularity="1sp"
                             app:autoSizeTextType="uniform" />
                     </LinearLayout>
-
-                    <!-- Expense Mini Block -->
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
@@ -204,8 +192,6 @@
 
             </LinearLayout>
         </FrameLayout>
-
-        <!-- Quick Action Grid (3 Actions with ripple feedback) -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -213,8 +199,6 @@
             android:layout_marginTop="16dp"
             android:layout_marginEnd="16dp"
             android:orientation="horizontal">
-
-            <!-- Action 1: Danh sách giao dịch -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/btnNavTransactions"
                 android:layout_width="0dp"
@@ -258,8 +242,6 @@
                         android:textStyle="bold" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
-
-            <!-- Action 2: Thêm giao dịch -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/btnNavAddTransaction"
                 android:layout_width="0dp"
@@ -302,8 +284,6 @@
                         android:textStyle="bold" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
-
-            <!-- Action 3: Nạp tiền VietQR (cho tất cả thành viên) -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/btnNavDeposit"
                 android:layout_width="0dp"
@@ -348,8 +328,6 @@
                         android:textStyle="bold" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
-
-            <!-- Action 4: Thống kê -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/btnNavStatistics"
                 android:layout_width="0dp"
@@ -395,8 +373,6 @@
             </com.google.android.material.card.MaterialCardView>
 
         </LinearLayout>
-
-        <!-- Members Card (clickable -> mở Dialog thành viên) -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/cardMembersContainer"
             android:layout_width="match_parent"
@@ -453,8 +429,6 @@
                 </LinearLayout>
 
             </LinearLayout>
-
-            <!-- Hint: bấm để xem chi tiết -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -483,8 +457,6 @@
                     android:textStyle="bold" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
-
-        <!-- Recent Transactions Header -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -517,8 +489,6 @@
                 android:textSize="13sp"
                 android:textStyle="bold" />
         </LinearLayout>
-
-        <!-- Loading Indicator -->
         <ProgressBar
             android:id="@+id/pbDetailLoading"
             android:layout_width="wrap_content"
@@ -527,8 +497,6 @@
             android:layout_marginTop="16dp"
             android:layout_marginBottom="16dp"
             android:visibility="gone" />
-
-        <!-- Empty recent transactions Container -->
         <LinearLayout
             android:id="@+id/layoutEmptyRecentTx"
             android:layout_width="match_parent"
@@ -565,8 +533,6 @@
                 android:textSize="12sp"
                 app:icon="@drawable/ic_add" />
         </LinearLayout>
-
-        <!-- Recent Transactions RecyclerView -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/cardRecentTransactions"
             android:layout_width="match_parent"

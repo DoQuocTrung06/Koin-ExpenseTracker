@@ -18,6 +18,7 @@ public class HomeViewModel extends ViewModel {
     private final MutableLiveData<String> actionMessage = new MutableLiveData<>();
     private final MutableLiveData<String> searchQuery = new MutableLiveData<>("");
     private final MediatorLiveData<List<Room>> filteredRooms = new MediatorLiveData<>();
+    private final MutableLiveData<Double> personalWalletBalance = new MutableLiveData<>();
     private String currentUserId = "";
 
     public HomeViewModel() {
@@ -57,6 +58,8 @@ public class HomeViewModel extends ViewModel {
         return repository.getTotalBalanceLiveData();
     }
 
+    public LiveData<Double> getPersonalWalletBalance() { return personalWalletBalance; }
+
     public LiveData<Boolean> getIsLoading() {
         return isLoading;
     }
@@ -70,6 +73,17 @@ public class HomeViewModel extends ViewModel {
         repository.setCurrentUser(currentUserId, userName);
         repository.configureAccessToken(accessToken);
         loadRemoteData();
+        refreshWalletBalance();
+    }
+
+    public void refreshWalletBalance() {
+        if (currentUserId.isEmpty()) return;
+        repository.loadWalletBalance(currentUserId, new RoomRepository.DataCallback<Double>() {
+            @Override public void onSuccess(Double balance) { personalWalletBalance.postValue(balance); }
+            @Override public void onError(String message) {
+                actionMessage.postValue("Không tải được số dư ví cá nhân: " + message);
+            }
+        });
     }
 
     public void loadRemoteData() {
@@ -77,7 +91,7 @@ public class HomeViewModel extends ViewModel {
             actionMessage.setValue("Vui lòng đăng nhập");
             return;
         }
-        isLoading.setValue(true);
+        isLoading.postValue(true);
         repository.loadUserData(currentUserId, new RoomRepository.DataCallback<List<Room>>() {
             @Override public void onSuccess(List<Room> rooms) {
                 isLoading.postValue(false);
