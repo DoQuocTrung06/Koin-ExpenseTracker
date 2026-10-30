@@ -16,10 +16,6 @@ import com.sharedfund.app.model.Transaction;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Adapter hiển thị danh sách giao dịch Thu/Chi
- * Thống nhất theo mục 4 & 5 tài liệu Giai đoạn 3
- */
 public class TransactionAdapter extends RecyclerView.Adapter<TransactionAdapter.TransactionViewHolder> {
 
     public interface OnTransactionClickListener {
@@ -66,6 +62,7 @@ public class TransactionAdapter extends RecyclerView.Adapter<TransactionAdapter.
         private final TextView tvTxTime;
         private final TextView tvTxAmount;
         private final TextView tvTxCategory;
+        private final TextView tvTxStatus;
 
         public TransactionViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -75,6 +72,7 @@ public class TransactionAdapter extends RecyclerView.Adapter<TransactionAdapter.
             tvTxTime = itemView.findViewById(R.id.tvTxTime);
             tvTxAmount = itemView.findViewById(R.id.tvTxAmount);
             tvTxCategory = itemView.findViewById(R.id.tvTxCategory);
+            tvTxStatus = itemView.findViewById(R.id.tvTxStatus);
         }
 
         public void bind(final Transaction tx, final OnTransactionClickListener listener) {
@@ -83,6 +81,20 @@ public class TransactionAdapter extends RecyclerView.Adapter<TransactionAdapter.
             tvTxTime.setText(tx.getCreatedAt());
             tvTxAmount.setText(tx.getFormattedAmount());
             tvTxCategory.setText(tx.getCategory() != null ? tx.getCategory() : "Khác");
+
+            if (tx.isPending()) {
+                tvTxStatus.setVisibility(View.VISIBLE);
+                tvTxStatus.setText("Chờ duyệt");
+                tvTxStatus.setBackgroundResource(R.drawable.bg_pending_badge);
+                tvTxStatus.setTextColor(ContextCompat.getColor(itemView.getContext(), R.color.accent_amber));
+            } else if (tx.isRejected()) {
+                tvTxStatus.setVisibility(View.VISIBLE);
+                tvTxStatus.setText("Từ chối");
+                tvTxStatus.setBackgroundResource(R.drawable.bg_expense_badge);
+                tvTxStatus.setTextColor(ContextCompat.getColor(itemView.getContext(), R.color.accent_expense));
+            } else {
+                tvTxStatus.setVisibility(View.GONE);
+            }
 
             int contextColor;
             if (tx.isIncome()) {
@@ -93,7 +105,6 @@ public class TransactionAdapter extends RecyclerView.Adapter<TransactionAdapter.
                 contextColor = ContextCompat.getColor(itemView.getContext(), R.color.accent_expense);
                 tvTxAmount.setTextColor(contextColor);
 
-                // Set category icon
                 String cat = tx.getCategory() != null ? tx.getCategory().toLowerCase() : "";
                 if (cat.contains("ăn") || cat.contains("uống") || cat.contains("cà phê")) {
                     ivTxIcon.setImageResource(R.drawable.ic_restaurant);

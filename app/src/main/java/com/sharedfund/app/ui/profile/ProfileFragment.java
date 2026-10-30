@@ -19,11 +19,6 @@ import com.sharedfund.app.data.RoomRepository;
 import com.sharedfund.app.data.UserSessionManager;
 import com.sharedfund.app.model.Profile;
 
-/**
- * Màn hình Thông tin cá nhân (ProfileFragment)
- * Hiển thị avatar initials, email, họ tên, số quỹ tham gia và số giao dịch.
- * Xử lý chức năng Đăng xuất an toàn: xóa phiên đăng nhập -> về LoginFragment.
- */
 public class ProfileFragment extends Fragment {
 
     private TextView tvAvatarInitials;
@@ -76,7 +71,6 @@ public class ProfileFragment extends Fragment {
             String email = profile.getEmail() != null ? profile.getEmail() : "";
             String userId = profile.getId() != null ? profile.getId() : "—";
 
-            // Avatar: lấy chữ cái đầu họ tên
             String initials = getInitials(fullName);
             tvAvatarInitials.setText(initials);
             tvProfileName.setText(fullName);
@@ -86,7 +80,6 @@ public class ProfileFragment extends Fragment {
             tvProfileUserId.setText(userId);
         }
 
-        // Thống kê từ cache dữ liệu đã tải trong phiên hiện tại.
         RoomRepository repo = RoomRepository.getInstance();
         int roomCount = repo.getRoomsLiveData().getValue() != null
                 ? repo.getRoomsLiveData().getValue().size() : 0;

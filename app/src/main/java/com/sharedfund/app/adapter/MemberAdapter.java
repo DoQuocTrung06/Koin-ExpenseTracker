@@ -17,10 +17,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/**
- * Adapter hiển thị danh sách thành viên trong Dialog thành viên quỹ.
- * Mỗi item gồm: avatar initials, tên, badge Trưởng quỹ, số tiền đóng góp, % đóng góp.
- */
 public class MemberAdapter extends RecyclerView.Adapter<MemberAdapter.MemberViewHolder> {
 
     private List<RoomMember> members = new ArrayList<>();
@@ -28,7 +24,6 @@ public class MemberAdapter extends RecyclerView.Adapter<MemberAdapter.MemberView
 
     public void setMembers(List<RoomMember> members) {
         this.members = members != null ? members : new ArrayList<>();
-        // Tính tổng đóng góp để tính phần trăm
         totalContribution = 0;
         for (RoomMember m : this.members) {
             totalContribution += m.getContributedAmount();
@@ -81,18 +76,15 @@ public class MemberAdapter extends RecyclerView.Adapter<MemberAdapter.MemberView
             tvInitials.setText(member.getInitials());
             tvName.setText(member.getDisplayName());
 
-            // Badge Trưởng quỹ
             if (member.isAdmin()) {
                 tvBadge.setVisibility(View.VISIBLE);
             } else {
                 tvBadge.setVisibility(View.GONE);
             }
 
-            // Số tiền đóng góp
             String formattedAmount = df.format(member.getContributedAmount()) + " ₫";
             tvContribution.setText("Đã đóng: " + formattedAmount);
 
-            // Phần trăm đóng góp
             if (totalContribution > 0) {
                 double percent = (member.getContributedAmount() / totalContribution) * 100;
                 tvPercent.setText(String.format(Locale.getDefault(), "%.0f%%", percent));

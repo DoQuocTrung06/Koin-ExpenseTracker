@@ -12,13 +12,6 @@ import com.sharedfund.app.model.Transaction;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * ViewModel cho màn hình Chi tiết quỹ (RoomDetailFragment)
- * Quản lý trạng thái quỹ, danh sách giao dịch gần nhất, tổng thu, tổng chi.
- * Được thiết kế theo cơ chế Reactive: Tự động lắng nghe thay đổi từ RoomRepository
- * (sẵn sàng tích hợp Supabase Realtime / PostgreSQL) để cập nhật giao diện ngay lập tức
- * mà không cần người dùng phải thoát ra vào lại màn hình.
- */
 public class RoomViewModel extends ViewModel {
     private final RoomRepository repository;
     private String roomId;
@@ -28,6 +21,7 @@ public class RoomViewModel extends ViewModel {
     private final MutableLiveData<Double> totalIncomeLiveData = new MutableLiveData<>(0.0);
     private final MutableLiveData<Double> totalExpenseLiveData = new MutableLiveData<>(0.0);
     private final MutableLiveData<Boolean> isLoading = new MutableLiveData<>(false);
+    private final MutableLiveData<String> actionMessage = new MutableLiveData<>();
 
     private final Observer<List<Transaction>> transactionsObserver;
     private final Observer<List<Room>> roomsObserver;
@@ -35,7 +29,6 @@ public class RoomViewModel extends ViewModel {
     public RoomViewModel() {
         this.repository = RoomRepository.getInstance();
 
-        // Tự động lắng nghe cập nhật dữ liệu từ Repository (Reactive Pattern)
         this.transactionsObserver = new Observer<List<Transaction>>() {
             @Override
             public void onChanged(List<Transaction> transactions) {
@@ -74,7 +67,6 @@ public class RoomViewModel extends ViewModel {
         roomLiveData.setValue(r);
 
         List<Transaction> all = repository.getTransactionsForRoom(roomId);
-        // Lấy tối đa 5 giao dịch gần nhất
         List<Transaction> recent = new ArrayList<>();
         int count = Math.min(5, all.size());
         for (int i = 0; i < count; i++) {
@@ -105,6 +97,20 @@ public class RoomViewModel extends ViewModel {
 
     public LiveData<Boolean> getIsLoading() {
         return isLoading;
+    }
+
+    public LiveData<String> getActionMessage() {
+        return actionMessage;
+    }
+
+    public void leaveRoom(String userId, RoomRepository.DataCallback<Boolean> callback) {
+        if (roomId == null) return;
+        repository.leaveRoom(roomId, userId, callback);
+    }
+
+    public void deleteRoom(String adminUserId, RoomRepository.DataCallback<Boolean> callback) {
+        if (roomId == null) return;
+        repository.deleteRoom(roomId, adminUserId, callback);
     }
 
     @Override

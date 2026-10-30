@@ -1,6 +1,7 @@
 package com.sharedfund.app;
 
 import android.os.Bundle;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
@@ -8,6 +9,9 @@ import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
 
+import com.sharedfund.app.data.RoomRepository;
+import com.sharedfund.app.data.SupabaseAuthenticator;
+import com.sharedfund.app.data.UserSessionManager;
 import com.sharedfund.app.ui.home.HomeFragment;
 import com.sharedfund.app.ui.login.LoginFragment;
 import com.sharedfund.app.ui.profile.ProfileFragment;
@@ -16,35 +20,46 @@ import com.sharedfund.app.ui.statistics.StatisticsFragment;
 import com.sharedfund.app.ui.transaction.AddTransactionFragment;
 import com.sharedfund.app.ui.transaction.TransactionFragment;
 
-/**
- * MainActivity - Điều phối và quản lý điều hướng các màn hình Fragment
- * Thống nhất theo mục 2, 3 & 4 tài liệu Giai đoạn 3
- */
 public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        // Khóa chế độ sáng (Light Mode) đồng nhất trên mọi thiết bị
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        SupabaseAuthenticator.setSessionExpiredListener(this::onSessionExpired);
+        RoomRepository.getInstance().startRealtime();
+
         if (savedInstanceState == null) {
-            // Màn hình khởi đầu: Đăng nhập (LoginFragment) theo đúng sơ đồ luồng
-            loadFragment(new LoginFragment(), false);
+            UserSessionManager session = UserSessionManager.getInstance(this);
+            if (session.isLoggedIn() && session.getUserId() != null && !session.getUserId().trim().isEmpty()) {
+                if (session.isTokenExpired() && (session.getRefreshToken() == null || session.getRefreshToken().trim().isEmpty())) {
+                    session.clearSession();
+                    loadFragment(new LoginFragment(), false);
+                } else {
+                    RoomRepository.getInstance().setCurrentUser(session.getUserId(), session.getFullName());
+                    RoomRepository.getInstance().configureAccessToken(session.getAccessToken());
+                    loadFragment(new HomeFragment(), false);
+                }
+            } else {
+                loadFragment(new LoginFragment(), false);
+            }
         }
     }
 
-    /**
-     * Chuyển đến màn hình Trang chủ (sau đăng nhập)
-     */
+    public void onSessionExpired() {
+        runOnUiThread(() -> {
+            UserSessionManager.getInstance(this).clearSession();
+            Toast.makeText(this, "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại", Toast.LENGTH_LONG).show();
+            openLogin();
+        });
+    }
+
     public void openHome() {
         loadFragment(new HomeFragment(), false);
     }
 
-    /**
-     * Điều hướng và thay thế Fragment vào container
-     */
     public void loadFragment(Fragment fragment, boolean addToBackStack) {
         FragmentManager fm = getSupportFragmentManager();
         FragmentTransaction ft = fm.beginTransaction();
@@ -61,47 +76,29 @@ public class MainActivity extends AppCompatActivity {
         ft.commit();
     }
 
-    /**
-     * Chuyển đến màn hình Chi tiết quỹ
-     */
     public void openRoomDetail(String roomId) {
         loadFragment(RoomDetailFragment.newInstance(roomId), true);
     }
 
-    /**
-     * Chuyển đến màn hình Lịch sử giao dịch của quỹ
-     */
     public void openTransactions(String roomId) {
         loadFragment(TransactionFragment.newInstance(roomId), true);
     }
 
-    /**
-     * Chuyển đến màn hình Thêm giao dịch mới
-     */
     public void openAddTransaction(String roomId) {
         loadFragment(AddTransactionFragment.newInstance(roomId), true);
     }
 
-    /**
-     * Chuyển đến màn hình Thống kê quỹ
-     */
     public void openStatistics(String roomId) {
         loadFragment(StatisticsFragment.newInstance(roomId), true);
     }
 
-    /**
-     * Chuyển đến màn hình Thông tin cá nhân
-     */
     public void openProfile() {
         loadFragment(new ProfileFragment(), true);
     }
 
-    /**
-     * Đăng xuất - quay về màn hình đăng nhập và xóa toàn bộ back stack
-     */
     public void openLogin() {
         getSupportFragmentManager().popBackStack(null,
-                androidx.fragment.app.FragmentManager.POP_BACK_STACK_INCLUSIVE);
+                FragmentManager.POP_BACK_STACK_INCLUSIVE);
         loadFragment(new LoginFragment(), false);
     }
 }

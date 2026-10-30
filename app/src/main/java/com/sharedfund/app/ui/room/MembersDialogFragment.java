@@ -4,8 +4,8 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Toast;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -17,21 +17,13 @@ import com.sharedfund.app.R;
 import com.sharedfund.app.adapter.MemberAdapter;
 import com.sharedfund.app.data.RoomRepository;
 import com.sharedfund.app.data.UserSessionManager;
-import com.sharedfund.app.model.Room;
 import com.sharedfund.app.model.RoomMember;
-import com.sharedfund.app.model.Transaction;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/**
- * MembersDialogFragment - BottomSheet hiển thị danh sách thành viên trong quỹ
- * Mỗi thành viên bao gồm: Avatar initials, tên, badge Trưởng quỹ,
- * số tiền đóng góp thực tế và % đóng góp so với tổng quỹ.
- */
 public class MembersDialogFragment extends BottomSheetDialogFragment {
 
     private static final String ARG_ROOM_ID = "room_id";

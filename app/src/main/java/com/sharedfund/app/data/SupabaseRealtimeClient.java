@@ -66,6 +66,7 @@ public class SupabaseRealtimeClient {
                 public void onError(Exception ex) {
                 }
             };
+            webSocketClient.setDnsResolver(SafeDns.getInstance());
             webSocketClient.connect();
         } catch (Exception ignored) {
         }
@@ -80,7 +81,7 @@ public class SupabaseRealtimeClient {
         JsonObject config = new JsonObject();
         com.google.gson.JsonArray pgChanges = new com.google.gson.JsonArray();
         JsonObject change = new JsonObject();
-        change.addProperty("event", "INSERT");
+        change.addProperty("event", "*");
         change.addProperty("schema", "public");
         change.addProperty("table", "transactions");
         pgChanges.add(change);

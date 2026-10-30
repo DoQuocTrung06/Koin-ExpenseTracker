@@ -1,34 +1,56 @@
 package com.sharedfund.app.ui.home;
 
 import androidx.lifecycle.LiveData;
+import androidx.lifecycle.MediatorLiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 
 import com.sharedfund.app.data.RoomRepository;
+import com.sharedfund.app.data.SearchHelper;
+import com.sharedfund.app.data.SupabaseAuthenticator;
 import com.sharedfund.app.model.Room;
 
 import java.util.List;
 
-/**
- * ViewModel cho màn hình Trang chủ (HomeFragment)
- * Quản lý danh sách quỹ, tổng số dư toàn bộ, trạng thái tải và các thao tác Tạo / Tham gia quỹ.
- */
 public class HomeViewModel extends ViewModel {
     private final RoomRepository repository;
     private final MutableLiveData<Boolean> isLoading = new MutableLiveData<>(false);
     private final MutableLiveData<String> actionMessage = new MutableLiveData<>();
+    private final MutableLiveData<String> searchQuery = new MutableLiveData<>("");
+    private final MediatorLiveData<List<Room>> filteredRooms = new MediatorLiveData<>();
     private String currentUserId = "";
 
     public HomeViewModel() {
         this.repository = RoomRepository.getInstance();
+
+        filteredRooms.addSource(repository.getRoomsLiveData(), rooms -> applyRoomFilter());
+        filteredRooms.addSource(searchQuery, query -> applyRoomFilter());
+    }
+
+    private void applyRoomFilter() {
+        List<Room> all = repository.getRoomsLiveData().getValue();
+        String query = searchQuery.getValue();
+        filteredRooms.setValue(SearchHelper.filterRooms(all, query));
+    }
+
+    public void setSearchQuery(String query) {
+        searchQuery.setValue(query != null ? query : "");
+    }
+
+    public LiveData<String> getSearchQuery() {
+        return searchQuery;
     }
 
     public LiveData<List<Room>> getRooms() {
-        return repository.getRoomsLiveData();
+        return filteredRooms;
     }
 
     public LiveData<Double> getTotalRoomBalance() {
         return repository.getTotalBalanceLiveData();
+    }
+
+    public LiveData<Double> getUserWalletBalance() {
+        return repository.getUserWalletLiveData();
     }
 
     public LiveData<Double> getTotalBalance() {
@@ -52,7 +74,7 @@ public class HomeViewModel extends ViewModel {
 
     public void loadRemoteData() {
         if (currentUserId.isEmpty()) {
-            actionMessage.setValue("Vui lòng đăng nhập bằng tài khoản Supabase.");
+            actionMessage.setValue("Vui lòng đăng nhập");
             return;
         }
         isLoading.setValue(true);
@@ -62,7 +84,12 @@ public class HomeViewModel extends ViewModel {
             }
             @Override public void onError(String message) {
                 isLoading.postValue(false);
-                actionMessage.postValue("Không tải được dữ liệu Supabase: " + message);
+                if (message != null && (message.contains("401") || message.contains("PGRST303") || message.contains("JWT expired"))) {
+                    actionMessage.postValue("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại");
+                    SupabaseAuthenticator.notifyExpired(null);
+                } else {
+                    actionMessage.postValue("Failed to load data: " + message);
+                }
             }
         });
     }
@@ -73,7 +100,8 @@ public class HomeViewModel extends ViewModel {
             return;
         }
         if (currentUserId.isEmpty()) {
-            actionMessage.setValue("Vui lòng đăng nhập bằng tài khoản Supabase."); return;
+            actionMessage.setValue("Vui lòng đăng nhập");
+            return;
         }
         isLoading.setValue(true);
         repository.createRoom(name.trim(), description != null ? description.trim() : "", currentUserId,
@@ -84,29 +112,31 @@ public class HomeViewModel extends ViewModel {
                     }
                     @Override public void onError(String message) {
                         isLoading.postValue(false);
-                        actionMessage.postValue("Tạo quỹ thất bại: " + message);
+                        actionMessage.postValue("Lỗi tạo quỹ: " + message);
                     }
                 });
     }
 
     public void joinRoom(String joinCode) {
         if (joinCode == null || joinCode.trim().isEmpty()) {
-            actionMessage.setValue("Vui lòng nhập mã tham gia!");
+            actionMessage.setValue("Mã mời không được để trống!");
             return;
         }
         if (currentUserId.isEmpty()) {
-            actionMessage.setValue("Vui lòng đăng nhập bằng tài khoản Supabase."); return;
+            actionMessage.setValue("Vui lòng đăng nhập");
+            return;
         }
         isLoading.setValue(true);
-        repository.joinRoom(joinCode.trim(), currentUserId, new RoomRepository.DataCallback<Room>() {
-            @Override public void onSuccess(Room room) {
-                loadRemoteData();
-                actionMessage.postValue("Đã tham gia quỹ \"" + room.getName() + "\"!");
-            }
-            @Override public void onError(String message) {
-                isLoading.postValue(false);
-                actionMessage.postValue("Không thể tham gia quỹ: " + message);
-            }
-        });
+        repository.joinRoom(joinCode.trim().toUpperCase(), currentUserId,
+                new RoomRepository.DataCallback<Room>() {
+                    @Override public void onSuccess(Room room) {
+                        loadRemoteData();
+                        actionMessage.postValue("Tham gia quỹ \"" + room.getName() + "\" thành công!");
+                    }
+                    @Override public void onError(String message) {
+                        isLoading.postValue(false);
+                        actionMessage.postValue("Lỗi tham gia quỹ: " + message);
+                    }
+                });
     }
 }

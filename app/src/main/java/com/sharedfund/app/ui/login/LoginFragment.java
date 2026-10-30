@@ -1,5 +1,7 @@
 package com.sharedfund.app.ui.login;
 
+import android.content.res.ColorStateList;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -23,27 +25,19 @@ import com.sharedfund.app.R;
 import com.sharedfund.app.data.AuthRepository;
 import com.sharedfund.app.data.RoomRepository;
 import com.sharedfund.app.data.UserSessionManager;
+import com.sharedfund.app.model.Profile;
 
-/**
- * Màn hình Đăng nhập / Đăng ký (LoginFragment)
- * Hỗ trợ toggle giữa 2 chế độ: Login và Register với validation đầy đủ.
- * Tích hợp UserSessionManager để lưu phiên đăng nhập.
- * Đăng nhập và đăng ký qua Supabase Auth API.
- */
 public class LoginFragment extends Fragment {
 
     private boolean isLoginMode = true;
     private AuthRepository authRepository;
 
-    // Tab buttons
     private MaterialButton btnTabLogin;
     private MaterialButton btnTabRegister;
 
-    // Title
     private TextView tvAuthTitle;
     private TextView tvAuthSubtitle;
 
-    // Form fields
     private TextInputLayout tilFullName;
     private TextInputEditText etFullName;
     private TextInputLayout tilEmail;
@@ -53,7 +47,6 @@ public class LoginFragment extends Fragment {
     private TextInputLayout tilConfirmPassword;
     private TextInputEditText etConfirmPassword;
 
-    // Actions
     private ProgressBar pbAuthLoading;
     private MaterialButton btnAuthAction;
     private MaterialButton btnSkipLogin;
@@ -94,10 +87,6 @@ public class LoginFragment extends Fragment {
         btnSkipLogin = view.findViewById(R.id.btnSkipLogin);
     }
 
-    // ==========================================
-    // TAB TOGGLE LOGIC
-    // ==========================================
-
     private void setupTabToggle() {
         btnTabLogin.setOnClickListener(v -> switchToMode(true));
         btnTabRegister.setOnClickListener(v -> switchToMode(false));
@@ -108,14 +97,11 @@ public class LoginFragment extends Fragment {
         clearAllErrors();
 
         if (loginMode) {
-            // --- Login mode ---
             btnTabLogin.setBackgroundTintList(
-                    android.content.res.ColorStateList.valueOf(
-                            requireContext().getColor(R.color.primary)));
+                    ColorStateList.valueOf(requireContext().getColor(R.color.primary)));
             btnTabLogin.setTextColor(requireContext().getColor(R.color.white));
             btnTabRegister.setBackgroundTintList(
-                    android.content.res.ColorStateList.valueOf(
-                            android.graphics.Color.TRANSPARENT));
+                    ColorStateList.valueOf(Color.TRANSPARENT));
             btnTabRegister.setTextColor(requireContext().getColor(R.color.text_secondary));
 
             tvAuthTitle.setText("Đăng nhập tài khoản");
@@ -125,14 +111,11 @@ public class LoginFragment extends Fragment {
             tilFullName.setVisibility(View.GONE);
             tilConfirmPassword.setVisibility(View.GONE);
         } else {
-            // --- Register mode ---
             btnTabRegister.setBackgroundTintList(
-                    android.content.res.ColorStateList.valueOf(
-                            requireContext().getColor(R.color.primary)));
+                    ColorStateList.valueOf(requireContext().getColor(R.color.primary)));
             btnTabRegister.setTextColor(requireContext().getColor(R.color.white));
             btnTabLogin.setBackgroundTintList(
-                    android.content.res.ColorStateList.valueOf(
-                            android.graphics.Color.TRANSPARENT));
+                    ColorStateList.valueOf(Color.TRANSPARENT));
             btnTabLogin.setTextColor(requireContext().getColor(R.color.text_secondary));
 
             tvAuthTitle.setText("Tạo tài khoản mới");
@@ -143,10 +126,6 @@ public class LoginFragment extends Fragment {
             tilConfirmPassword.setVisibility(View.VISIBLE);
         }
     }
-
-    // ==========================================
-    // TEXT WATCHERS - Xóa lỗi khi người dùng gõ
-    // ==========================================
 
     private void setupTextWatchers() {
         attachClearError(etFullName, tilFullName);
@@ -165,10 +144,6 @@ public class LoginFragment extends Fragment {
         });
     }
 
-    // ==========================================
-    // CLICK LISTENERS
-    // ==========================================
-
     private void setupClickListeners() {
         btnAuthAction.setOnClickListener(v -> {
             if (isLoginMode) {
@@ -178,13 +153,8 @@ public class LoginFragment extends Fragment {
             }
         });
 
-        // Không hỗ trợ đăng nhập khách: mọi dữ liệu phải gắn với user Supabase đã xác thực.
         btnSkipLogin.setVisibility(View.GONE);
     }
-
-    // ==========================================
-    // VALIDATE & LOGIN
-    // ==========================================
 
     private void validateAndLogin() {
         clearAllErrors();
@@ -213,7 +183,7 @@ public class LoginFragment extends Fragment {
         setLoadingState(true);
         authRepository.signIn(email, pass, new AuthRepository.AuthCallback() {
             @Override
-            public void onSuccess(com.sharedfund.app.model.Profile profile) {
+            public void onSuccess(Profile profile) {
                 runOnUiThreadIfAttached(() -> {
                     setLoadingState(false);
                     if (profile == null || profile.getId() == null || profile.getId().trim().isEmpty()) {
@@ -236,14 +206,10 @@ public class LoginFragment extends Fragment {
         });
     }
 
-    // ==========================================
-    // VALIDATE & REGISTER
-    // ==========================================
-
     private void validateAndRegister() {
         clearAllErrors();
         String fullName = getText(etFullName);
-        String email = getText(etEmail);
+        String email = getText(emailEditText());
         String pass = getText(etPassword);
         String confirmPass = getText(etConfirmPassword);
         boolean hasError = false;
@@ -286,7 +252,7 @@ public class LoginFragment extends Fragment {
         UserSessionManager.getInstance(requireContext()).clearSession();
         authRepository.signUp(email, pass, fullName, new AuthRepository.AuthCallback() {
             @Override
-            public void onSuccess(com.sharedfund.app.model.Profile profile) {
+            public void onSuccess(Profile profile) {
                 runOnUiThreadIfAttached(() -> {
                     setLoadingState(false);
                     if (profile == null || profile.getId() == null || profile.getId().trim().isEmpty()) {
@@ -296,7 +262,6 @@ public class LoginFragment extends Fragment {
 
                     UserSessionManager sessions = UserSessionManager.getInstance(requireContext());
                     if (sessions.getAccessToken() == null || sessions.getAccessToken().isEmpty()) {
-                        // Supabase đang yêu cầu xác nhận email trước khi đăng nhập.
                         sessions.clearSession();
                         Toast.makeText(requireContext(),
                                 "Tài khoản đã được tạo. Hãy xác nhận email rồi đăng nhập.",
@@ -322,10 +287,9 @@ public class LoginFragment extends Fragment {
         });
     }
 
-    // ==========================================
-    // HELPER
-    // ==========================================
-
+    private TextInputEditText emailEditText() {
+        return etEmail;
+    }
 
     private void runOnUiThreadIfAttached(Runnable action) {
         if (isAdded() && getActivity() != null) {

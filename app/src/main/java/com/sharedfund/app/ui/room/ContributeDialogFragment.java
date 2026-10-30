@@ -24,15 +24,9 @@ import com.sharedfund.app.R;
 import com.sharedfund.app.data.RoomRepository;
 import com.sharedfund.app.data.TransactionRepository;
 import com.sharedfund.app.data.UserSessionManager;
-import com.sharedfund.app.model.Room;
-import com.sharedfund.app.model.Transaction;
 
 import java.text.DecimalFormat;
 
-/**
- * BottomSheet đóng tiền vào quỹ từ số dư ví tài khoản cá nhân.
- * Kiểm tra số dư ví hiện có, trừ tiền trong ví và chuyển vào quỹ nhóm.
- */
 public class ContributeDialogFragment extends BottomSheetDialogFragment {
 
     private static final String ARG_ROOM_ID = "room_id";
@@ -116,6 +110,14 @@ public class ContributeDialogFragment extends BottomSheetDialogFragment {
         updateWalletDisplay();
         setupQuickButtons();
         setupListeners();
+
+        RoomRepository.getInstance().getUserWalletLiveData().observe(getViewLifecycleOwner(), balance -> {
+            if (balance != null) {
+                currentWalletBalance = balance;
+                DecimalFormat df = new DecimalFormat("#,###");
+                tvContributeWalletBalance.setText(df.format(currentWalletBalance).replace(',', '.') + " ₫");
+            }
+        });
     }
 
     private void bindViews(View view) {
@@ -134,14 +136,15 @@ public class ContributeDialogFragment extends BottomSheetDialogFragment {
 
         String currentUserName = UserSessionManager.getInstance(requireContext()).getCurrentUserName();
         etContributeNote.setText("Đóng quỹ - " + currentUserName);
-        btnQuickDepositWallet.setVisibility(View.GONE);
-        view.findViewById(R.id.cardContributeWallet).setVisibility(View.GONE);
-        btnQuickContributeAll.setVisibility(View.GONE);
+        btnQuickDepositWallet.setVisibility(View.VISIBLE);
+        view.findViewById(R.id.cardContributeWallet).setVisibility(View.VISIBLE);
+        btnQuickContributeAll.setVisibility(View.VISIBLE);
     }
 
     private void updateWalletDisplay() {
-        currentWalletBalance = 0;
-        tvContributeWalletBalance.setText("Không dùng ví cá nhân");
+        currentWalletBalance = RoomRepository.getInstance().getUserWalletBalance();
+        DecimalFormat df = new DecimalFormat("#,###");
+        tvContributeWalletBalance.setText(df.format(currentWalletBalance).replace(',', '.') + " ₫");
     }
 
     private void setupQuickButtons() {
@@ -204,43 +207,37 @@ public class ContributeDialogFragment extends BottomSheetDialogFragment {
         }
 
         String note = etContributeNote.getText() != null ? etContributeNote.getText().toString().trim() : "";
-        UserSessionManager session = UserSessionManager.getInstance(requireContext());
-        Room room = RoomRepository.getInstance().getRoomSync(roomId);
-        if (room == null) {
-            Toast.makeText(requireContext(), "Không tìm thấy quỹ đã tải từ Supabase.", Toast.LENGTH_LONG).show();
+        if (amount > currentWalletBalance) {
+            DecimalFormat df = new DecimalFormat("#,###");
+            tilContributeAmount.setError("Số dư ví không đủ (Hiện có: " + df.format(currentWalletBalance).replace(',', '.') + " ₫). Vui lòng nạp thêm!");
             return;
         }
-        Transaction transaction = new Transaction();
-        transaction.setRoomId(roomId);
-        transaction.setUserId(session.getUserId());
-        transaction.setCreatedBy(session.getFullName());
-        transaction.setType("income");
-        transaction.setAmount(amount);
-        transaction.setCategory("Đóng quỹ");
-        transaction.setNote(note.isEmpty() ? "Đóng quỹ" : note);
-        transaction.setTransactionDate(java.time.LocalDate.now().toString());
-        transaction.setBalanceAfter(room.getBalance() + amount);
-        btnConfirmContribute.setEnabled(false);
 
+        UserSessionManager session = UserSessionManager.getInstance(requireContext());
+        btnConfirmContribute.setEnabled(false);
         TransactionRepository transactions = new TransactionRepository();
         transactions.setAccessToken(session.getAccessToken());
-        transactions.createTransaction(transaction, new TransactionRepository.DataCallback<Transaction>() {
-            @Override public void onSuccess(Transaction created) {
+        transactions.transferWalletToRoom(session.getUserId(), roomId, amount, note, new TransactionRepository.DataCallback<com.google.gson.JsonObject>() {
+            @Override public void onSuccess(com.google.gson.JsonObject result) {
                 if (!isAdded()) return;
                 requireActivity().runOnUiThread(() -> {
-                    if (!isAdded()) return;
-                    RoomRepository.getInstance().onRemoteTransactionReceived(created);
-                    Toast.makeText(requireContext(), "Đã lưu khoản đóng quỹ lên Supabase.", Toast.LENGTH_SHORT).show();
+                    btnConfirmContribute.setEnabled(true);
+                    if (result.has("new_wallet_balance")) {
+                        RoomRepository.getInstance().setUserWalletBalance(result.get("new_wallet_balance").getAsDouble());
+                    }
+                    DecimalFormat df = new DecimalFormat("#,###");
+                    String formattedAmount = df.format(amount).replace(',', '.') + " ₫";
+                    Toast.makeText(requireContext(), "Đóng quỹ thành công: " + formattedAmount, Toast.LENGTH_SHORT).show();
                     if (listener != null) listener.onContributeComplete(amount);
                     dismiss();
                 });
             }
-            @Override public void onError(String message) {
+            @Override public void onError(String errorMessage) {
                 if (!isAdded()) return;
                 requireActivity().runOnUiThread(() -> {
-                    if (!isAdded()) return;
                     btnConfirmContribute.setEnabled(true);
-                    Toast.makeText(requireContext(), "Không lưu được lên Supabase: " + message, Toast.LENGTH_LONG).show();
+                    tilContributeAmount.setError(errorMessage);
+                    Toast.makeText(requireContext(), "Giao dịch thất bại: " + errorMessage, Toast.LENGTH_LONG).show();
                 });
             }
         });

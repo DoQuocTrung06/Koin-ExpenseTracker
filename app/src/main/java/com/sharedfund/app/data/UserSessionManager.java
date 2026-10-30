@@ -2,7 +2,10 @@ package com.sharedfund.app.data;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.util.Base64;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.sharedfund.app.model.Profile;
 
 public class UserSessionManager {
@@ -14,6 +17,8 @@ public class UserSessionManager {
     private static final String KEY_FULL_NAME = "full_name";
     private static final String KEY_AVATAR_URL = "avatar_url";
     private static final String KEY_ACCESS_TOKEN = "access_token";
+    private static final String KEY_REFRESH_TOKEN = "refresh_token";
+    private static final String KEY_EXPIRES_AT = "expires_at";
 
     private static volatile UserSessionManager instance;
     private final SharedPreferences preferences;
@@ -29,11 +34,20 @@ public class UserSessionManager {
         return instance;
     }
 
+    public static synchronized UserSessionManager getInstance() {
+        return instance;
+    }
+
     public void saveSession(String userId, String email, String fullName, String avatarUrl) {
-        saveSession(userId, email, fullName, avatarUrl, "");
+        saveSession(userId, email, fullName, avatarUrl, "", "", 0);
     }
 
     public void saveSession(String userId, String email, String fullName, String avatarUrl, String accessToken) {
+        saveSession(userId, email, fullName, avatarUrl, accessToken, "", 0);
+    }
+
+    public void saveSession(String userId, String email, String fullName, String avatarUrl,
+                            String accessToken, String refreshToken, long expiresInSeconds) {
         SharedPreferences.Editor editor = preferences.edit();
         editor.putBoolean(KEY_IS_LOGGED_IN, true);
         editor.putString(KEY_USER_ID, userId);
@@ -41,11 +55,61 @@ public class UserSessionManager {
         editor.putString(KEY_FULL_NAME, fullName);
         editor.putString(KEY_AVATAR_URL, avatarUrl);
         editor.putString(KEY_ACCESS_TOKEN, accessToken);
+        editor.putString(KEY_REFRESH_TOKEN, refreshToken);
+
+        long expTime = extractExpiresAt(accessToken, expiresInSeconds);
+        editor.putLong(KEY_EXPIRES_AT, expTime);
         editor.apply();
+    }
+
+    public void updateTokens(String accessToken, String refreshToken, long expiresInSeconds) {
+        SharedPreferences.Editor editor = preferences.edit();
+        if (accessToken != null && !accessToken.trim().isEmpty()) {
+            editor.putString(KEY_ACCESS_TOKEN, accessToken);
+        }
+        if (refreshToken != null && !refreshToken.trim().isEmpty()) {
+            editor.putString(KEY_REFRESH_TOKEN, refreshToken);
+        }
+        long expTime = extractExpiresAt(accessToken, expiresInSeconds);
+        editor.putLong(KEY_EXPIRES_AT, expTime);
+        editor.apply();
+    }
+
+    private long extractExpiresAt(String token, long expiresInSeconds) {
+        if (expiresInSeconds > 0) {
+            return (System.currentTimeMillis() / 1000) + expiresInSeconds;
+        }
+        if (token != null && !token.trim().isEmpty()) {
+            try {
+                String[] parts = token.split("\\.");
+                if (parts.length >= 2) {
+                    byte[] decoded = Base64.decode(parts[1], Base64.URL_SAFE);
+                    JsonObject obj = JsonParser.parseString(new String(decoded)).getAsJsonObject();
+                    if (obj.has("exp")) {
+                        return obj.get("exp").getAsLong();
+                    }
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        return (System.currentTimeMillis() / 1000) + 3600;
     }
 
     public boolean isLoggedIn() {
         return preferences.getBoolean(KEY_IS_LOGGED_IN, false);
+    }
+
+    public boolean isTokenExpired() {
+        String token = getAccessToken();
+        if (token == null || token.trim().isEmpty()) {
+            return true;
+        }
+        long expiresAt = preferences.getLong(KEY_EXPIRES_AT, 0);
+        if (expiresAt <= 0) {
+            expiresAt = extractExpiresAt(token, 0);
+            preferences.edit().putLong(KEY_EXPIRES_AT, expiresAt).apply();
+        }
+        return (System.currentTimeMillis() / 1000) >= (expiresAt - 60);
     }
 
     public String getUserId() {
@@ -78,6 +142,10 @@ public class UserSessionManager {
 
     public String getAccessToken() {
         return preferences.getString(KEY_ACCESS_TOKEN, "");
+    }
+
+    public String getRefreshToken() {
+        return preferences.getString(KEY_REFRESH_TOKEN, "");
     }
 
     public Profile getCurrentProfile() {

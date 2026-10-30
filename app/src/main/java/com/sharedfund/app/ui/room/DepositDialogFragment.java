@@ -36,9 +36,11 @@ import com.google.android.material.textfield.TextInputLayout;
 import com.sharedfund.app.R;
 import com.sharedfund.app.data.PaymentHelper;
 import com.sharedfund.app.data.RoomRepository;
+import com.sharedfund.app.data.SafeDns;
 import com.sharedfund.app.data.TransactionRepository;
 import com.sharedfund.app.data.UserSessionManager;
 import com.sharedfund.app.model.Room;
+import com.sharedfund.app.model.Transaction;
 
 import java.text.DecimalFormat;
 import java.time.Instant;
@@ -48,11 +50,6 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 
-/**
- * DepositDialogFragment - BottomSheet nạp tiền VietQR động
- * Người dùng nhập số tiền -> Nhấn "Tạo mã QR" -> Hiển thị QR thanh toán + hướng dẫn.
- * The confirmation action checks the transaction written by the SePay webhook in Supabase.
- */
 public class DepositDialogFragment extends BottomSheetDialogFragment {
 
     private static final String ARG_ROOM_ID = "room_id";
@@ -61,7 +58,6 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
     private double pendingAmount;
     private String qrGeneratedAt;
 
-    // Views
     private TextView tvDepositTitle;
     private TextInputLayout tilDepositAmount;
     private TextInputEditText etDepositAmount;
@@ -77,7 +73,6 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
     private MaterialButton btnGenerateQr;
     private MaterialButton btnDoneDeposit;
 
-    // Callback để thông báo khi nạp tiền thành công
     public interface OnDepositCompleteListener {
         void onDepositComplete(double amount);
     }
@@ -150,7 +145,7 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
         setupTextWatcher();
         setupClickListeners();
         if (tvDepositTitle != null) {
-            tvDepositTitle.setText(isWalletDeposit() ? "Nạp tiền vào tài khoản" : "Nạp tiền vào quỹ");
+            tvDepositTitle.setText(isWalletDeposit() ? "Nạp tiền vào ví cá nhân" : "Nạp tiền vào quỹ nhóm");
         }
     }
 
@@ -192,7 +187,6 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
                 if (tilDepositAmount.getError() != null) tilDepositAmount.setError(null);
-                // Ẩn QR nếu người dùng chỉnh sửa số tiền
                 layoutQrSection.setVisibility(View.GONE);
                 btnDoneDeposit.setVisibility(View.GONE);
                 pendingAmount = 0;
@@ -233,33 +227,38 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
             return;
         }
 
-        if (isWalletDeposit()) {
-            Toast.makeText(requireContext(), "Schema Supabase hiện không có bảng ví cá nhân.", Toast.LENGTH_LONG).show();
-            return;
-        }
         pendingAmount = amount;
         qrGeneratedAt = Instant.now().toString();
 
-        // Hiện loading
         pbDepositLoading.setVisibility(View.VISIBLE);
         btnGenerateQr.setEnabled(false);
 
-        // Dùng nội dung chuyển khoản theo mã quỹ để webhook SePay đối soát.
         String bankName = PaymentHelper.BANK_NAME;
         String accountNumber = PaymentHelper.ACCOUNT_NO;
         String accountName = PaymentHelper.ACCOUNT_NAME;
         String transferContent;
         String qrUrl;
 
-        Room room = RoomRepository.getInstance().getRoomSync(roomId);
-        if (room == null || room.getJoinCode() == null) {
-            pbDepositLoading.setVisibility(View.GONE);
-            btnGenerateQr.setEnabled(true);
-            Toast.makeText(requireContext(), "Không tìm thấy mã quỹ từ Supabase.", Toast.LENGTH_LONG).show();
-            return;
+        if (isWalletDeposit()) {
+            String shortUserId = UserSessionManager.getInstance(requireContext()).getUserId();
+            if (shortUserId != null && shortUserId.length() > 6) {
+                shortUserId = shortUserId.substring(0, 6).toUpperCase();
+            } else {
+                shortUserId = "WALLET";
+            }
+            transferContent = "NAP V " + shortUserId;
+            qrUrl = "https://qr.sepay.vn/img?bank=" + bankName + "&acc=" + accountNumber + "&template=compact&amount=" + (long) amount + "&des=" + transferContent;
+        } else {
+            Room room = RoomRepository.getInstance().getRoomSync(roomId);
+            if (room == null || room.getJoinCode() == null) {
+                pbDepositLoading.setVisibility(View.GONE);
+                btnGenerateQr.setEnabled(true);
+                Toast.makeText(requireContext(), "Không tìm thấy mã quỹ từ Supabase", Toast.LENGTH_LONG).show();
+                return;
+            }
+            transferContent = PaymentHelper.getTransferContent(room.getJoinCode());
+            qrUrl = PaymentHelper.generateVietQrUrl(room.getJoinCode(), amount);
         }
-        transferContent = PaymentHelper.getTransferContent(room.getJoinCode());
-        qrUrl = PaymentHelper.generateVietQrUrl(room.getJoinCode(), amount);
 
         DecimalFormat df = new DecimalFormat("#,###");
         String formattedAmount = df.format(amount).replace(',', '.') + " ₫";
@@ -272,7 +271,6 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
                 + "📝 Nội dung: " + transferContent + "  (📋 Chạm để sao chép)"
         );
 
-        // Cho phép sao chép thông tin thanh toán nhanh
         tvTransferInfo.setOnClickListener(v -> {
             if (!isAdded()) return;
             ClipboardManager clipboard = (ClipboardManager) requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
@@ -287,13 +285,12 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
             }
         });
 
-        // Đã tạo qrUrl theo loại nạp tiền
-
-        // Tải ảnh VietQR thực tế từ API VietQR qua OkHttp trên background thread
         Executors.newSingleThreadExecutor().execute(() -> {
             Bitmap downloadedBitmap = null;
             try {
-                OkHttpClient client = new OkHttpClient();
+                OkHttpClient client = new OkHttpClient.Builder()
+                        .dns(SafeDns.getInstance())
+                        .build();
                 Request request = new Request.Builder().url(qrUrl).build();
                 try (Response response = client.newCall(request).execute()) {
                     if (response.isSuccessful() && response.body() != null) {
@@ -328,28 +325,21 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
         });
     }
 
-    /**
-     * Tạo ảnh QR placeholder hiển thị thông tin chuyển khoản
-     * Giai đoạn sau: thay bằng ảnh QR thật từ VietQR API
-     */
     private Bitmap generateQrPlaceholderBitmap(String accountNumber, String amount, String content) {
         int size = 480;
         Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
 
-        // Nền trắng bo góc
         Paint bgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         bgPaint.setColor(Color.WHITE);
         canvas.drawRoundRect(new RectF(0, 0, size, size), 20, 20, bgPaint);
 
-        // Border xanh nhạt
         Paint borderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         borderPaint.setStyle(Paint.Style.STROKE);
         borderPaint.setColor(Color.parseColor("#4F46E5"));
         borderPaint.setStrokeWidth(4);
         canvas.drawRoundRect(new RectF(4, 4, size - 4, size - 4), 18, 18, borderPaint);
 
-        // Tiêu đề "VietQR"
         Paint titlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         titlePaint.setColor(Color.parseColor("#4F46E5"));
         titlePaint.setTextSize(32);
@@ -357,13 +347,11 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
         titlePaint.setTextAlign(Paint.Align.CENTER);
         canvas.drawText("VietQR - SharedFund", size / 2f, 50, titlePaint);
 
-        // Divider
         Paint linePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         linePaint.setColor(Color.parseColor("#E2E8F0"));
         linePaint.setStrokeWidth(2);
         canvas.drawLine(30, 70, size - 30, 70, linePaint);
 
-        // Vùng QR giả (grid pattern)
         Paint qrDotPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         qrDotPaint.setColor(Color.parseColor("#1E293B"));
         int qrSize = 250;
@@ -371,11 +359,11 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
         int qrAreaY = 85;
         int cellSize = 10;
         java.util.Random rand = new java.util.Random(accountNumber.hashCode());
-        // Vẽ corner anchors
+
         drawQrAnchor(canvas, qrDotPaint, qrAreaX, qrAreaY, 56);
         drawQrAnchor(canvas, qrDotPaint, qrAreaX + qrSize - 56, qrAreaY, 56);
         drawQrAnchor(canvas, qrDotPaint, qrAreaX, qrAreaY + qrSize - 56, 56);
-        // Vẽ random dots cho phần giữa
+
         for (int x = qrAreaX + 64; x < qrAreaX + qrSize - 64; x += cellSize) {
             for (int y = qrAreaY + 64; y < qrAreaY + qrSize - 64; y += cellSize) {
                 if (rand.nextBoolean()) {
@@ -384,7 +372,6 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
             }
         }
 
-        // Thông tin bên dưới QR
         Paint infoPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         infoPaint.setColor(Color.parseColor("#0F172A"));
         infoPaint.setTextSize(20);
@@ -407,14 +394,12 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
         return bitmap;
     }
 
-    /** Vẽ anchor cho góc QR code */
     private void drawQrAnchor(Canvas canvas, Paint paint, int x, int y, int size) {
-        // Outer square
         Paint outerPaint = new Paint(paint);
         outerPaint.setStyle(Paint.Style.STROKE);
         outerPaint.setStrokeWidth(6);
         canvas.drawRect(x, y, x + size, y + size, outerPaint);
-        // Inner solid square
+
         int inset = size / 4;
         canvas.drawRect(x + inset, y + inset, x + size - inset, y + size - inset, paint);
     }
@@ -426,8 +411,8 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
         TransactionRepository transactions = new TransactionRepository();
         transactions.setAccessToken(session.getAccessToken());
         transactions.findConfirmedPayment(roomId, pendingAmount, qrGeneratedAt,
-                new TransactionRepository.DataCallback<com.sharedfund.app.model.Transaction>() {
-                    @Override public void onSuccess(com.sharedfund.app.model.Transaction transaction) {
+                new TransactionRepository.DataCallback<Transaction>() {
+                    @Override public void onSuccess(Transaction transaction) {
                         if (!isAdded()) return;
                         requireActivity().runOnUiThread(() -> {
                             if (!isAdded()) return;
@@ -437,6 +422,9 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
                                 return;
                             }
                             RoomRepository.getInstance().onRemoteTransactionReceived(transaction);
+                            if (isWalletDeposit()) {
+                                RoomRepository.getInstance().loadUserProfile();
+                            }
                             if (listener != null) listener.onDepositComplete(pendingAmount);
                             Toast.makeText(requireContext(), "Đã nhận xác nhận thanh toán từ SePay.", Toast.LENGTH_SHORT).show();
                             dismiss();

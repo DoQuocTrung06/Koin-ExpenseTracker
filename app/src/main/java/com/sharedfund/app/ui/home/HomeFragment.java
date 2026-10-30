@@ -32,17 +32,13 @@ import com.google.android.material.textfield.TextInputLayout;
 import com.sharedfund.app.MainActivity;
 import com.sharedfund.app.R;
 import com.sharedfund.app.adapter.RoomAdapter;
+import com.sharedfund.app.data.RoomRepository;
+import com.sharedfund.app.data.UserSessionManager;
 import com.sharedfund.app.model.Room;
 
 import java.text.DecimalFormat;
 import java.util.List;
 
-/**
- * Màn hình Trang chủ (HomeFragment)
- * Quản lý danh sách quỹ, tổng số dư toàn bộ, trạng thái tải và các thao tác Tạo / Tham gia quỹ.
- * Đã chuẩn hóa kiểm thử giao diện: không vỡ màn hình, cuộn danh sách mượt mà, số tiền không bị cắt,
- * thông báo thiếu dữ liệu bằng TextInputLayout, nút bấm phản hồi tốt, empty & loading state đầy đủ.
- */
 public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickListener {
 
     private HomeViewModel viewModel;
@@ -76,10 +72,9 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        // Đảm bảo RoomRepository đồng bộ đúng tài khoản đang đăng nhập
-        com.sharedfund.app.data.UserSessionManager session = com.sharedfund.app.data.UserSessionManager.getInstance(requireContext());
+        UserSessionManager session = UserSessionManager.getInstance(requireContext());
         if (session.isLoggedIn()) {
-            com.sharedfund.app.data.RoomRepository.getInstance().setCurrentUser(session.getUserId(), session.getFullName());
+            RoomRepository.getInstance().setCurrentUser(session.getUserId(), session.getFullName());
         }
 
         initViews(view);
@@ -93,11 +88,12 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
         super.onResume();
         updateUserAvatar();
         if (viewModel != null) {
-            Double roomTotal = viewModel.getTotalRoomBalance().getValue();
-            if (roomTotal != null && tvTotalBalance != null) {
+            Double walletBal = viewModel.getUserWalletBalance().getValue();
+            if (walletBal != null && tvTotalBalance != null) {
                 DecimalFormat df = new DecimalFormat("#,###");
-                tvTotalBalance.setText(df.format(roomTotal).replace(',', '.') + " ₫");
+                tvTotalBalance.setText(df.format(walletBal).replace(',', '.') + " ₫");
             }
+            Double roomTotal = viewModel.getTotalRoomBalance().getValue();
             if (roomTotal != null && tvTotalRoomBalanceMini != null) {
                 DecimalFormat df = new DecimalFormat("#,###");
                 tvTotalRoomBalanceMini.setText(df.format(roomTotal).replace(',', '.') + " ₫");
@@ -107,7 +103,7 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
 
     private void updateUserAvatar() {
         if (tvUserInitials != null && getContext() != null) {
-            String name = com.sharedfund.app.data.UserSessionManager.getInstance(requireContext()).getCurrentUserName();
+            String name = UserSessionManager.getInstance(requireContext()).getCurrentUserName();
             if (name != null && !name.trim().isEmpty()) {
                 String[] parts = name.trim().split(" ");
                 if (parts.length >= 2) {
@@ -150,14 +146,12 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
 
     private void setupViewModel() {
         viewModel = new ViewModelProvider(this).get(HomeViewModel.class);
-        com.sharedfund.app.data.UserSessionManager activeSession =
-                com.sharedfund.app.data.UserSessionManager.getInstance(requireContext());
+        UserSessionManager activeSession = UserSessionManager.getInstance(requireContext());
         if (activeSession.isLoggedIn()) {
             viewModel.configureSupabase(activeSession.getUserId(), activeSession.getFullName(),
                     activeSession.getAccessToken());
         }
 
-        // Quan sát danh sách quỹ
         viewModel.getRooms().observe(getViewLifecycleOwner(), new Observer<List<Room>>() {
             @Override
             public void onChanged(List<Room> rooms) {
@@ -179,8 +173,7 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
             }
         });
 
-        // 1. Quan sát số dư ví tài khoản cá nhân (hiển thị trên thẻ chính)
-        viewModel.getTotalRoomBalance().observe(getViewLifecycleOwner(), new Observer<Double>() {
+        viewModel.getUserWalletBalance().observe(getViewLifecycleOwner(), new Observer<Double>() {
             @Override
             public void onChanged(Double walletBalance) {
                 if (walletBalance != null && tvTotalBalance != null) {
@@ -191,7 +184,6 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
             }
         });
 
-        // 2. Quan sát tổng số dư các quỹ phòng (hiển thị ở góc phải mini stat)
         viewModel.getTotalRoomBalance().observe(getViewLifecycleOwner(), new Observer<Double>() {
             @Override
             public void onChanged(Double roomTotal) {
@@ -203,7 +195,6 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
             }
         });
 
-        // Trạng thái tải
         viewModel.getIsLoading().observe(getViewLifecycleOwner(), new Observer<Boolean>() {
             @Override
             public void onChanged(Boolean loading) {
@@ -211,7 +202,6 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
             }
         });
 
-        // Thông báo kết quả thao tác
         viewModel.getActionMessage().observe(getViewLifecycleOwner(), new Observer<String>() {
             @Override
             public void onChanged(String msg) {
@@ -224,7 +214,11 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
 
     private void setupClickListeners() {
         if (btnHomeDeposit != null) {
-            btnHomeDeposit.setVisibility(View.GONE);
+            btnHomeDeposit.setVisibility(View.VISIBLE);
+            btnHomeDeposit.setOnClickListener(v -> {
+                DepositDialogFragment dialog = DepositDialogFragment.newWalletInstance();
+                dialog.show(getChildFragmentManager(), "home_wallet_deposit");
+            });
         }
 
         btnCreateRoom.setOnClickListener(new View.OnClickListener() {
@@ -255,10 +249,7 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
                 @Override
                 public void onClick(View v) {
                     layoutErrorState.setVisibility(View.GONE);
-                    pbLoading.setVisibility(View.VISIBLE);
-                    // Trigger refresh
-                    rvRooms.setVisibility(View.VISIBLE);
-                    pbLoading.setVisibility(View.GONE);
+                    viewModel.loadRemoteData();
                 }
             });
         }
@@ -316,7 +307,7 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
 
         final AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
                 .setView(dialogView)
-                .setPositiveButton(R.string.btn_confirm, null) // Sẽ ghi đè listener để chặn auto-dismiss khi có lỗi
+                .setPositiveButton(R.string.btn_confirm, null)
                 .setNegativeButton(R.string.btn_cancel, null)
                 .create();
 

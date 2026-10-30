@@ -1,7 +1,10 @@
 package com.sharedfund.app.ui.statistics;
 
 import android.graphics.Color;
+import android.graphics.PorterDuff;
+import android.graphics.Typeface;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -25,11 +28,6 @@ import java.text.DecimalFormat;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Màn hình Thống kê (StatisticsFragment)
- * Tổng quan tình hình tài chính của quỹ, phân bổ danh mục chi và danh sách các khoản chi lớn nhất.
- * Đã chuẩn hóa: không bị cắt số tiền dài, thanh tiến trình hiển thị tỷ lệ đẹp mắt, danh sách dài cuộn mượt mà.
- */
 public class StatisticsFragment extends Fragment {
 
     private static final String ARG_ROOM_ID = "arg_room_id";
@@ -49,14 +47,13 @@ public class StatisticsFragment extends Fragment {
 
     private final DecimalFormat df = new DecimalFormat("#,###");
 
-    // Bảng màu hiện đại cho các thanh danh mục
     private final int[] categoryColors = new int[]{
-            Color.parseColor("#4F46E5"), // Indigo
-            Color.parseColor("#EC4899"), // Pink
-            Color.parseColor("#F59E0B"), // Amber
-            Color.parseColor("#10B981"), // Emerald
-            Color.parseColor("#06B6D4"), // Cyan
-            Color.parseColor("#8B5CF6")  // Purple
+            Color.parseColor("#4F46E5"),
+            Color.parseColor("#EC4899"),
+            Color.parseColor("#F59E0B"),
+            Color.parseColor("#10B981"),
+            Color.parseColor("#06B6D4"),
+            Color.parseColor("#8B5CF6")
     };
 
     public static StatisticsFragment newInstance(String roomId) {
@@ -180,7 +177,6 @@ public class StatisticsFragment extends Fragment {
         }
         tvEmptyBreakdown.setVisibility(View.GONE);
 
-        // Tính tổng tiền chi
         double totalExpense = 0;
         for (Double amt : map.values()) {
             totalExpense += amt;
@@ -195,12 +191,10 @@ public class StatisticsFragment extends Fragment {
             double amt = entry.getValue();
             int percent = (int) Math.round((amt / totalExpense) * 100);
 
-            // Container row
             LinearLayout row = new LinearLayout(requireContext());
             row.setOrientation(LinearLayout.VERTICAL);
             row.setPadding(0, 10, 0, 10);
 
-            // Top label: Category name & percent and amount
             LinearLayout topLabel = new LinearLayout(requireContext());
             topLabel.setOrientation(LinearLayout.HORIZONTAL);
 
@@ -209,9 +203,9 @@ public class StatisticsFragment extends Fragment {
             tvName.setText(entry.getKey() + " (" + percent + "%)");
             tvName.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary));
             tvName.setTextSize(13);
-            tvName.setTypeface(null, android.graphics.Typeface.BOLD);
+            tvName.setTypeface(null, Typeface.BOLD);
             tvName.setSingleLine(true);
-            tvName.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            tvName.setEllipsize(TextUtils.TruncateAt.END);
 
             TextView tvAmt = new TextView(requireContext());
             tvAmt.setText(df.format(amt).replace(',', '.') + " ₫");
@@ -223,17 +217,16 @@ public class StatisticsFragment extends Fragment {
             topLabel.addView(tvName);
             topLabel.addView(tvAmt);
 
-            // Progress bar
             ProgressBar pb = new ProgressBar(requireContext(), null, android.R.attr.progressBarStyleHorizontal);
             LinearLayout.LayoutParams pbParams = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, 18);
             pbParams.topMargin = 10;
             pb.setLayoutParams(pbParams);
             pb.setMax(100);
-            pb.setProgress(Math.max(5, percent)); // Hiển thị tối thiểu 5% để thấy màu
+            pb.setProgress(Math.max(5, percent));
 
             int color = categoryColors[colorIdx % categoryColors.length];
-            pb.getProgressDrawable().setColorFilter(color, android.graphics.PorterDuff.Mode.SRC_IN);
+            pb.getProgressDrawable().setColorFilter(color, PorterDuff.Mode.SRC_IN);
 
             row.addView(topLabel);
             row.addView(pb);
@@ -262,15 +255,13 @@ public class StatisticsFragment extends Fragment {
             item.setPadding(24, 16, 24, 16);
             item.setGravity(android.view.Gravity.CENTER_VERTICAL);
 
-            // Index badge
             TextView tvIndex = new TextView(requireContext());
             tvIndex.setText("#" + (i + 1));
             tvIndex.setTextColor(ContextCompat.getColor(requireContext(), R.color.primary));
             tvIndex.setTextSize(14);
-            tvIndex.setTypeface(null, android.graphics.Typeface.BOLD);
+            tvIndex.setTypeface(null, Typeface.BOLD);
             tvIndex.setWidth(60);
 
-            // Note & user
             LinearLayout info = new LinearLayout(requireContext());
             info.setOrientation(LinearLayout.VERTICAL);
             info.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
@@ -279,26 +270,25 @@ public class StatisticsFragment extends Fragment {
             tvTitle.setText(tx.getNote());
             tvTitle.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary));
             tvTitle.setTextSize(14);
-            tvTitle.setTypeface(null, android.graphics.Typeface.BOLD);
+            tvTitle.setTypeface(null, Typeface.BOLD);
             tvTitle.setSingleLine(true);
-            tvTitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            tvTitle.setEllipsize(TextUtils.TruncateAt.END);
 
             TextView tvSub = new TextView(requireContext());
             tvSub.setText(tx.getCreatedBy() + " · " + tx.getCategory());
             tvSub.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary));
             tvSub.setTextSize(12);
             tvSub.setSingleLine(true);
-            tvSub.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            tvSub.setEllipsize(TextUtils.TruncateAt.END);
 
             info.addView(tvTitle);
             info.addView(tvSub);
 
-            // Amount (guaranteed single line and never cut)
             TextView tvAmount = new TextView(requireContext());
             tvAmount.setText(tx.getFormattedAmount());
             tvAmount.setTextColor(ContextCompat.getColor(requireContext(), R.color.accent_expense));
             tvAmount.setTextSize(14);
-            tvAmount.setTypeface(null, android.graphics.Typeface.BOLD);
+            tvAmount.setTypeface(null, Typeface.BOLD);
             tvAmount.setSingleLine(true);
             tvAmount.setPadding(12, 0, 0, 0);
 

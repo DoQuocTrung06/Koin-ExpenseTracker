@@ -13,7 +13,6 @@
     android:paddingEnd="16dp"
     android:paddingBottom="12dp">
 
-    <!-- Category Icon badge -->
     <FrameLayout
         android:id="@+id/iconContainer"
         android:layout_width="44dp"
@@ -29,7 +28,6 @@
             android:src="@drawable/ic_restaurant" />
     </FrameLayout>
 
-    <!-- Info Column -->
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -43,7 +41,7 @@
             android:layout_height="wrap_content"
             android:ellipsize="end"
             android:maxLines="1"
-            android:text="Ăn tối lẩu gà lá é quán Tao Ngộ"
+            android:text="Transaction Note"
             android:textColor="@color/text_primary"
             android:textSize="14sp"
             android:textStyle="bold" />
@@ -61,7 +59,7 @@
                 android:layout_height="wrap_content"
                 android:ellipsize="end"
                 android:maxLines="1"
-                android:text="Bảo Linh"
+                android:text="Member"
                 android:textColor="@color/text_secondary"
                 android:textSize="12sp" />
 
@@ -76,13 +74,12 @@
                 android:id="@+id/tvTxTime"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="13/10/2026 19:45"
+                android:text="Date Time"
                 android:textColor="@color/text_tertiary"
                 android:textSize="11sp" />
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Amount and Category Pill Column (guaranteed no cutting/wrapping of long amounts) -->
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -98,7 +95,7 @@
             android:gravity="end"
             android:maxLines="1"
             android:singleLine="true"
-            android:text="-450.000 ₫"
+            android:text="0 ₫"
             android:textColor="@color/accent_expense"
             android:textSize="15sp"
             android:textStyle="bold"
@@ -107,21 +104,44 @@
             app:autoSizeStepGranularity="1sp"
             app:autoSizeTextType="uniform" />
 
-        <TextView
-            android:id="@+id/tvTxCategory"
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:background="@drawable/bg_card"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:paddingStart="8dp"
-            android:paddingTop="2dp"
-            android:paddingEnd="8dp"
-            android:paddingBottom="2dp"
-            android:text="Ăn uống"
-            android:textColor="@color/text_secondary"
-            android:textSize="11sp" />
+            android:gravity="center_vertical|end"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/tvTxStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="6dp"
+                android:background="@drawable/bg_pending_badge"
+                android:paddingStart="6dp"
+                android:paddingTop="2dp"
+                android:paddingEnd="6dp"
+                android:paddingBottom="2dp"
+                android:text="Chờ duyệt"
+                android:textColor="@color/accent_amber"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/tvTxCategory"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_card"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:paddingStart="8dp"
+                android:paddingTop="2dp"
+                android:paddingEnd="8dp"
+                android:paddingBottom="2dp"
+                android:text="Danh mục"
+                android:textColor="@color/text_secondary"
+                android:textSize="11sp" />
+        </LinearLayout>
     </LinearLayout>
 
 </LinearLayout>

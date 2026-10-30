@@ -15,11 +15,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
-/**
- * ViewModel cho màn hình Thống kê (StatisticsFragment)
- * Tổng hợp số dư, tổng thu, tổng chi, tỷ lệ theo danh mục và top khoản chi tiêu lớn.
- * Thiết kế Reactive: Tự động cập nhật thống kê khi Repository có dữ liệu giao dịch mới.
- */
 public class StatisticsViewModel extends ViewModel {
     private final RoomRepository repository;
     private String roomId;
@@ -38,7 +33,6 @@ public class StatisticsViewModel extends ViewModel {
     public StatisticsViewModel() {
         this.repository = RoomRepository.getInstance();
 
-        // Reactive stream: Tự động tính toán lại khi có giao dịch mới (Realtime-Ready)
         this.transactionsObserver = new Observer<List<Transaction>>() {
             @Override
             public void onChanged(List<Transaction> transactions) {
@@ -83,7 +77,6 @@ public class StatisticsViewModel extends ViewModel {
         Map<String, Double> breakdown = repository.getCategoryBreakdown(roomId);
         categoryStatsLiveData.setValue(breakdown);
 
-        // Top 5 khoản chi lớn nhất
         List<Transaction> all = repository.getTransactionsForRoom(roomId);
         List<Transaction> expenses = new ArrayList<>();
         for (Transaction tx : all) {

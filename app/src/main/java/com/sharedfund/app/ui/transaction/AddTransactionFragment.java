@@ -33,11 +33,6 @@ import com.sharedfund.app.model.Transaction;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Màn hình Thêm giao dịch (AddTransactionFragment)
- * Quản lý form nhập liệu: loại giao dịch, số tiền, danh mục, ghi chú và người thực hiện.
- * Đã chuẩn hóa: form validation trực quan, xóa lỗi tức thì khi gõ, phản hồi nút bấm khi đang lưu.
- */
 public class AddTransactionFragment extends Fragment {
 
     private static final String ARG_ROOM_ID = "arg_room_id";
@@ -190,11 +185,10 @@ public class AddTransactionFragment extends Fragment {
             @Override public void onError(String message) {
                 if (!isAdded()) return;
                 requireActivity().runOnUiThread(() -> Toast.makeText(requireContext(),
-                        "Không tải được danh mục từ Supabase: " + message, Toast.LENGTH_LONG).show());
+                        "Failed to load categories: " + message, Toast.LENGTH_LONG).show());
             }
         });
 
-        // Lắng nghe lỗi hiển thị
         viewModel.getErrorMessage().observe(getViewLifecycleOwner(), new Observer<String>() {
             @Override
             public void onChanged(String error) {
@@ -206,7 +200,6 @@ public class AddTransactionFragment extends Fragment {
             }
         });
 
-        // Lắng nghe trạng thái tải
         viewModel.getIsLoading().observe(getViewLifecycleOwner(), new Observer<Boolean>() {
             @Override
             public void onChanged(Boolean loading) {
@@ -220,13 +213,11 @@ public class AddTransactionFragment extends Fragment {
             }
         });
 
-        // Lắng nghe sự kiện thêm thành công
         viewModel.getAddSuccessEvent().observe(getViewLifecycleOwner(), new Observer<Boolean>() {
             @Override
             public void onChanged(Boolean success) {
                 if (success != null && success) {
                     Toast.makeText(requireContext(), R.string.tx_added_success, Toast.LENGTH_SHORT).show();
-                    // Chuyển thẳng về Lịch sử giao dịch theo đúng sơ đồ luồng
                     if (getActivity() instanceof MainActivity) {
                         requireActivity().getSupportFragmentManager().popBackStack();
                         ((MainActivity) getActivity()).openTransactions(roomId);
@@ -274,7 +265,6 @@ public class AddTransactionFragment extends Fragment {
     }
 
     private void validateAndSave() {
-        // Xóa thông báo lỗi trước đó
         tilAmount.setError(null);
         tilNote.setError(null);
         tilCreatedBy.setError(null);

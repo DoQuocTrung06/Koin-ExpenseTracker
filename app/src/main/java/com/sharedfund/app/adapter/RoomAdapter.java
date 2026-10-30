@@ -14,10 +14,6 @@ import com.sharedfund.app.model.Room;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Adapter hiển thị danh sách các quỹ (Rooms) trên RecyclerView
- * Thống nhất theo mục 4 & 5 tài liệu Giai đoạn 3
- */
 public class RoomAdapter extends RecyclerView.Adapter<RoomAdapter.RoomViewHolder> {
 
     public interface OnRoomClickListener {

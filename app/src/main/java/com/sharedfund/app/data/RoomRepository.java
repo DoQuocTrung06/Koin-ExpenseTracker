@@ -3,6 +3,8 @@ package com.sharedfund.app.data;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 
+import com.sharedfund.app.SharedFundApp;
+
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -14,6 +16,7 @@ import com.sharedfund.app.model.Room;
 import com.sharedfund.app.model.Transaction;
 import com.sharedfund.app.model.RoomMember;
 import com.sharedfund.app.model.Category;
+import com.sharedfund.app.model.Profile;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -29,13 +32,6 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 
-/**
- * Repository cung cấp dữ liệu cho ứng dụng SharedFund.
- * Repository không khởi tạo mock data; dữ liệu thật phải được tải từ Supabase.
- * Điểm kết nối (Integration Point): Sẵn sàng thay thế và tích hợp Supabase REST API & PostgreSQL Realtime.
- * Kiến trúc Reactive: Mọi thay đổi dữ liệu (từ người dùng nội bộ hoặc sự kiện Realtime bên ngoài)
- * sẽ tự động đồng bộ đến tất cả các ViewModel qua LiveData streams.
- */
 public class RoomRepository {
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
 
@@ -43,30 +39,34 @@ public class RoomRepository {
         void onSuccess(T value);
         void onError(String message);
     }
+
     private static volatile RoomRepository instance;
 
-    // Bộ nhớ đệm cho dữ liệu đã tải từ Supabase
     private final List<Room> roomList = new ArrayList<>();
     private final List<Transaction> transactionList = new ArrayList<>();
-
-    // Quản lý thành viên: userId -> danh sách roomId mà user đó đã tham gia/tạo
     private final Map<String, List<String>> userRoomsMap = new HashMap<>();
     private String currentUserId = "";
-    private String currentUserName = "Bạn";
-    private final OkHttpClient client = new OkHttpClient();
+    private String currentUserName = "User";
+    private final OkHttpClient client = new OkHttpClient.Builder()
+            .dns(SafeDns.getInstance())
+            .authenticator(new SupabaseAuthenticator(SharedFundApp.getInstance()))
+            .build();
     private final Gson gson = new Gson();
     private String token = SupabaseConfig.SUPABASE_ANON_KEY;
+    private SupabaseRealtimeClient realtimeClient;
 
-    // LiveData streams
     private final MutableLiveData<List<Room>> roomsLiveData = new MutableLiveData<>();
     private final MutableLiveData<List<Transaction>> transactionsLiveData = new MutableLiveData<>();
     private final MutableLiveData<Double> totalBalanceLiveData = new MutableLiveData<>();
+    private final MutableLiveData<Double> userWalletLiveData = new MutableLiveData<>(0.0);
+    private double currentWalletBalance = 0.0;
 
     private RoomRepository() {
-        // Supabase will populate these streams through repository API calls.
         roomsLiveData.setValue(new ArrayList<>());
         transactionsLiveData.setValue(new ArrayList<>());
         totalBalanceLiveData.setValue(0.0);
+        userWalletLiveData.setValue(0.0);
+        startRealtime();
     }
 
     public static synchronized RoomRepository getInstance() {
@@ -76,9 +76,19 @@ public class RoomRepository {
         return instance;
     }
 
-    /**
-     * Chuyển đổi ngữ cảnh người dùng hiện tại
-     */
+    public synchronized void startRealtime() {
+        if (realtimeClient == null) {
+            realtimeClient = new SupabaseRealtimeClient();
+            realtimeClient.setRealtimeListener(tx -> {
+                onRemoteTransactionReceived(tx);
+                if (currentUserId != null && currentUserId.equals(tx.getUserId())) {
+                    loadUserProfile();
+                }
+            });
+            realtimeClient.connect();
+        }
+    }
+
     public synchronized void setCurrentUser(String userId, String userName) {
         String nextUserId = userId != null ? userId : "";
         if (!nextUserId.equals(this.currentUserId)) {
@@ -87,7 +97,7 @@ public class RoomRepository {
             userRoomsMap.clear();
         }
         this.currentUserId = nextUserId;
-        this.currentUserName = (userName != null && !userName.isEmpty()) ? userName : "Người dùng";
+        this.currentUserName = (userName != null && !userName.isEmpty()) ? userName : "User";
         if (!userRoomsMap.containsKey(this.currentUserId)) {
             userRoomsMap.put(this.currentUserId, new ArrayList<>());
         }
@@ -95,12 +105,9 @@ public class RoomRepository {
         notifyDataChanged();
     }
 
-    /**
-     * Đăng ký tài khoản mới: người dùng mới bắt đầu với 0 quỹ (không có sẵn quỹ nào)
-     */
     public synchronized void registerNewUser(String userId, String userName) {
         this.currentUserId = userId;
-        this.currentUserName = (userName != null && !userName.isEmpty()) ? userName : "Bạn";
+        this.currentUserName = (userName != null && !userName.isEmpty()) ? userName : "User";
         userRoomsMap.put(this.currentUserId, new ArrayList<>());
         recalculateAllBalances();
         notifyDataChanged();
@@ -118,10 +125,18 @@ public class RoomRepository {
         token = accessToken != null && !accessToken.trim().isEmpty()
                 ? accessToken : SupabaseConfig.SUPABASE_ANON_KEY;
     }
+
     private Request.Builder request(String path) {
+        String activeToken = token;
+        if ((activeToken == null || activeToken.equals(SupabaseConfig.SUPABASE_ANON_KEY)) && SharedFundApp.getInstance() != null) {
+            String sessionToken = UserSessionManager.getInstance(SharedFundApp.getInstance()).getAccessToken();
+            if (sessionToken != null && !sessionToken.trim().isEmpty()) {
+                activeToken = sessionToken;
+            }
+        }
         return new Request.Builder().url(SupabaseConfig.REST_URL + path)
                 .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
-                .addHeader("Authorization", "Bearer " + token);
+                .addHeader("Authorization", "Bearer " + activeToken);
     }
 
     private String error(Response response, String body) {
@@ -129,6 +144,7 @@ public class RoomRepository {
     }
 
     public void loadUserData(String userId, DataCallback<List<Room>> callback) {
+        loadUserProfile(userId, null);
         String path = "/room_members?select=role,rooms(*)&user_id=eq." + userId;
         client.newCall(request(path).get().build()).enqueue(new okhttp3.Callback() {
             @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
@@ -220,7 +236,7 @@ public class RoomRepository {
                             JsonObject row = element.getAsJsonObject();
                             if (!room.getId().equals(row.get("room_id").getAsString())) continue;
                             JsonElement profile = row.get("profiles");
-                            String name = "Thành viên";
+                            String name = "Member";
                             if (profile != null && profile.isJsonObject() && profile.getAsJsonObject().has("full_name")) {
                                 name = profile.getAsJsonObject().get("full_name").getAsString();
                             }
@@ -273,7 +289,7 @@ public class RoomRepository {
                 if (!response.isSuccessful()) { callback.onError(error(response, body)); return; }
                 try {
                     JsonArray rows = JsonParser.parseString(body).getAsJsonArray();
-                    if (rows.size() == 0) { callback.onError("Không tìm thấy quỹ với mã tham gia này."); return; }
+                    if (rows.size() == 0) { callback.onError("Fund room not found with this join code."); return; }
                     addMember(gson.fromJson(rows.get(0), Room.class), userId, "MEMBER", callback);
                 } catch (Exception e) { callback.onError("Invalid room response: " + e.getMessage()); }
             }
@@ -331,9 +347,7 @@ public class RoomRepository {
     private String makeJoinCode() {
         return UUID.randomUUID().toString().replace("-", "").substring(0, 6).toUpperCase(java.util.Locale.ROOT);
     }
-    /**
-     * Lấy danh sách các quỹ mà người dùng hiện tại đã tham gia hoặc tạo
-     */
+
     public synchronized List<Room> getUserRooms() {
         List<String> joinedIds = userRoomsMap.get(currentUserId);
         if (joinedIds == null) {
@@ -349,16 +363,10 @@ public class RoomRepository {
         return result;
     }
 
-    /**
-     * Lấy tất cả các quỹ trên toàn hệ thống (dành cho tra cứu mã mời hoặc admin)
-     */
     public synchronized List<Room> getAllSystemRooms() {
         return new ArrayList<>(roomList);
     }
 
-    /**
-     * Tính toán lại số dư của từng quỹ và tổng số dư của người dùng hiện tại
-     */
     public synchronized void recalculateAllBalances() {
         for (Room r : roomList) {
             double income = 0;
@@ -367,7 +375,7 @@ public class RoomRepository {
                 if (tx.getRoomId().equals(r.getId())) {
                     if (tx.isIncome()) {
                         income += tx.getAmount();
-                    } else {
+                    } else if (tx.isExpense() && (tx.isApproved() || tx.getStatus() == null)) {
                         expense += tx.getAmount();
                     }
                 }
@@ -376,7 +384,6 @@ public class RoomRepository {
             r.setBalance(balance);
         }
 
-        // Tổng số dư phản ánh đúng các quỹ mà user hiện tại tham gia
         double userTotal = 0;
         List<Room> myRooms = getUserRooms();
         for (Room r : myRooms) {
@@ -390,7 +397,6 @@ public class RoomRepository {
         transactionsLiveData.postValue(new ArrayList<>(transactionList));
     }
 
-    /** Replace the in-memory view with rows fetched from Supabase for the active user. */
     public synchronized void replaceRemoteData(List<Room> rooms, List<Transaction> transactions) {
         roomList.clear();
         transactionList.clear();
@@ -408,10 +414,6 @@ public class RoomRepository {
         notifyDataChanged();
     }
 
-    // ==========================================
-    // GETTERS & QUERY APIS
-    // ==========================================
-
     public LiveData<List<Room>> getRoomsLiveData() {
         return roomsLiveData;
     }
@@ -422,6 +424,58 @@ public class RoomRepository {
 
     public LiveData<Double> getTotalBalanceLiveData() {
         return totalBalanceLiveData;
+    }
+
+    public LiveData<Double> getUserWalletLiveData() {
+        return userWalletLiveData;
+    }
+
+    public synchronized double getUserWalletBalance() {
+        return currentWalletBalance;
+    }
+
+    public synchronized void setUserWalletBalance(double balance) {
+        this.currentWalletBalance = balance;
+        userWalletLiveData.postValue(balance);
+    }
+
+    public boolean isCurrentUserAdmin(String roomId) {
+        Room r = getRoomSync(roomId);
+        if (r == null) return false;
+        String role = r.getCurrentUserRole();
+        return "ADMIN".equalsIgnoreCase(role) || "OWNER".equalsIgnoreCase(role);
+    }
+
+    public void loadUserProfile() {
+        loadUserProfile(currentUserId, null);
+    }
+
+    public void loadUserProfile(String userId, DataCallback<Profile> callback) {
+        if (userId == null || userId.trim().isEmpty()) return;
+        String path = "/profiles?id=eq." + userId + "&select=*";
+        client.newCall(request(path).get().build()).enqueue(new okhttp3.Callback() {
+            @Override public void onFailure(Call call, IOException e) {
+                if (callback != null) callback.onError(e.getMessage());
+            }
+            @Override public void onResponse(Call call, Response response) throws IOException {
+                String body = response.body() != null ? response.body().string() : "";
+                if (!response.isSuccessful()) {
+                    if (callback != null) callback.onError(error(response, body));
+                    return;
+                }
+                try {
+                    Profile[] list = gson.fromJson(body, Profile[].class);
+                    if (list != null && list.length > 0) {
+                        setUserWalletBalance(list[0].getWalletBalance());
+                        if (callback != null) callback.onSuccess(list[0]);
+                    } else if (callback != null) {
+                        callback.onError("Profile not found");
+                    }
+                } catch (Exception e) {
+                    if (callback != null) callback.onError(e.getMessage());
+                }
+            }
+        });
     }
 
     public synchronized Room getRoomSync(String roomId) {
@@ -451,6 +505,32 @@ public class RoomRepository {
         return list;
     }
 
+    public synchronized List<Transaction> getTransactionsForUser(String userId) {
+        List<Transaction> list = new ArrayList<>();
+        if (userId == null) return list;
+        for (Transaction tx : transactionList) {
+            if (userId.equals(tx.getUserId())) {
+                list.add(tx);
+            }
+        }
+        return list;
+    }
+
+    public synchronized List<Transaction> getContributionsForMember(String roomId, String userId) {
+        List<Transaction> list = new ArrayList<>();
+        if (roomId == null || userId == null) return list;
+        for (Transaction tx : transactionList) {
+            if (roomId.equals(tx.getRoomId()) && userId.equals(tx.getUserId()) && tx.isIncome()) {
+                list.add(tx);
+            }
+        }
+        return list;
+    }
+
+    public synchronized List<Room> searchRooms(String query) {
+        return SearchHelper.filterRooms(roomList, query);
+    }
+
     public synchronized double getRoomTotalIncome(String roomId) {
         double sum = 0;
         if (roomId == null) return sum;
@@ -466,7 +546,7 @@ public class RoomRepository {
         double sum = 0;
         if (roomId == null) return sum;
         for (Transaction tx : transactionList) {
-            if (roomId.equals(tx.getRoomId()) && tx.isExpense()) {
+            if (roomId.equals(tx.getRoomId()) && tx.isExpense() && (tx.isApproved() || tx.getStatus() == null)) {
                 sum += tx.getAmount();
             }
         }
@@ -477,8 +557,8 @@ public class RoomRepository {
         Map<String, Double> map = new HashMap<>();
         if (roomId == null) return map;
         for (Transaction tx : transactionList) {
-            if (roomId.equals(tx.getRoomId()) && tx.isExpense()) {
-                String cat = tx.getCategory() != null ? tx.getCategory() : "Khác";
+            if (roomId.equals(tx.getRoomId()) && tx.isExpense() && (tx.isApproved() || tx.getStatus() == null)) {
+                String cat = tx.getCategory() != null ? tx.getCategory() : "Other";
                 Double current = map.get(cat);
                 map.put(cat, (current != null ? current : 0.0) + tx.getAmount());
             }
@@ -486,20 +566,11 @@ public class RoomRepository {
         return map;
     }
 
-    // ==========================================
-    // REALTIME & SUPABASE / POSTGRESQL INTEGRATION HOOKS
-    // ==========================================
-
-    /**
-     * Điểm kết nối khi nhận được sự kiện INSERT/UPDATE từ Supabase PostgreSQL Realtime Channel
-     * Cập nhật danh sách giao dịch và thông báo cho toàn bộ các ViewModel đang hoạt động.
-     */
     public synchronized void onRemoteTransactionReceived(Transaction tx) {
         if (tx == null) return;
-        // Kiểm tra xem transaction đã có chưa để cập nhật hoặc thêm mới
         boolean updated = false;
         for (int i = 0; i < transactionList.size(); i++) {
-            if (transactionList.get(i).getId().equals(tx.getId())) {
+            if (transactionList.get(i).getId() != null && transactionList.get(i).getId().equals(tx.getId())) {
                 transactionList.set(i, tx);
                 updated = true;
                 break;
@@ -512,14 +583,11 @@ public class RoomRepository {
         notifyDataChanged();
     }
 
-    /**
-     * Điểm kết nối khi nhận được sự kiện cập nhật Room từ Supabase Realtime Channel
-     */
     public synchronized void onRemoteRoomReceived(Room room) {
         if (room == null) return;
         boolean updated = false;
         for (int i = 0; i < roomList.size(); i++) {
-            if (roomList.get(i).getId().equals(room.getId())) {
+            if (roomList.get(i).getId() != null && roomList.get(i).getId().equals(room.getId())) {
                 roomList.set(i, room);
                 updated = true;
                 break;
@@ -532,4 +600,85 @@ public class RoomRepository {
         notifyDataChanged();
     }
 
+    public void leaveRoom(String roomId, String userId, DataCallback<Boolean> callback) {
+        Room room = getRoomSync(roomId);
+        if (room != null && "OWNER".equalsIgnoreCase(room.getCurrentUserRole())) {
+            callback.onError("Room owner cannot leave the room. Please transfer ownership or delete the room.");
+            return;
+        }
+        String path = "/room_members?room_id=eq." + roomId + "&user_id=eq." + userId;
+        client.newCall(request(path).delete().build()).enqueue(new okhttp3.Callback() {
+            @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+            @Override public void onResponse(Call call, Response response) {
+                if (!response.isSuccessful()) {
+                    callback.onError("HTTP " + response.code());
+                    return;
+                }
+                loadUserData(currentUserId, new DataCallback<List<Room>>() {
+                    @Override public void onSuccess(List<Room> value) { callback.onSuccess(true); }
+                    @Override public void onError(String message) { callback.onSuccess(true); }
+                });
+            }
+        });
+    }
+
+    public void deleteRoom(String roomId, String adminUserId, DataCallback<Boolean> callback) {
+        Room room = getRoomSync(roomId);
+        if (room != null) {
+            String role = room.getCurrentUserRole();
+            boolean isOwner = "OWNER".equalsIgnoreCase(role) || (adminUserId != null && adminUserId.equals(room.getCreatedBy()));
+            if (!isOwner) {
+                callback.onError("Only room owner can delete the fund room.");
+                return;
+            }
+            if (room.getBalance() > 0) {
+                callback.onError("Cannot delete fund room with remaining balance. Please disburse or withdraw remaining funds first.");
+                return;
+            }
+        }
+        JsonObject params = new JsonObject();
+        params.addProperty("p_room_id", roomId);
+        params.addProperty("p_user_id", adminUserId);
+        String path = "/rpc/delete_fund_room";
+        client.newCall(request(path).post(RequestBody.create(gson.toJson(params), JSON)).build()).enqueue(new okhttp3.Callback() {
+            @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+            @Override public void onResponse(Call call, Response response) throws IOException {
+                String body = response.body() != null ? response.body().string() : "";
+                if (!response.isSuccessful()) {
+                    callback.onError("HTTP " + response.code() + ": " + body);
+                    return;
+                }
+                try {
+                    JsonObject result = JsonParser.parseString(body).getAsJsonObject();
+                    if (result.has("success") && result.get("success").getAsBoolean()) {
+                        loadUserData(currentUserId, new DataCallback<List<Room>>() {
+                            @Override public void onSuccess(List<Room> value) { callback.onSuccess(true); }
+                            @Override public void onError(String message) { callback.onSuccess(true); }
+                        });
+                    } else {
+                        String msg = result.has("message") ? result.get("message").getAsString() : "Delete failed";
+                        callback.onError(msg);
+                    }
+                } catch (Exception e) {
+                    callback.onError("Parse error: " + e.getMessage());
+                }
+            }
+        });
+    }
+
+    public void updateMemberRole(String roomId, String targetUserId, String newRole, DataCallback<Boolean> callback) {
+        JsonObject body = new JsonObject();
+        body.addProperty("role", newRole);
+        String path = "/room_members?room_id=eq." + roomId + "&user_id=eq." + targetUserId;
+        client.newCall(request(path).patch(RequestBody.create(gson.toJson(body), JSON)).build()).enqueue(new okhttp3.Callback() {
+            @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+            @Override public void onResponse(Call call, Response response) {
+                if (!response.isSuccessful()) {
+                    callback.onError("HTTP " + response.code());
+                    return;
+                }
+                callback.onSuccess(true);
+            }
+        });
+    }
 }

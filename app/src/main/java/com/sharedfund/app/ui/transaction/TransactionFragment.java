@@ -25,15 +25,12 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
 import com.sharedfund.app.MainActivity;
 import com.sharedfund.app.R;
+import com.sharedfund.app.data.RoomRepository;
+import com.sharedfund.app.data.UserSessionManager;
 import com.sharedfund.app.model.Transaction;
 
 import java.util.List;
 
-/**
- * Màn hình Lịch sử giao dịch (TransactionFragment)
- * Quản lý danh sách giao dịch, bộ lọc Thu/Chi/Tất cả, trạng thái tải, lỗi và danh sách trống.
- * Phản hồi cảm ứng mượt mà (ripple effect), cuộn danh sách độc lập, hỗ trợ cập nhật dữ liệu tức thì.
- */
 public class TransactionFragment extends Fragment implements TransactionAdapter.OnTransactionClickListener {
 
     private static final String ARG_ROOM_ID = "arg_room_id";
@@ -118,10 +115,9 @@ public class TransactionFragment extends Fragment implements TransactionAdapter.
 
     private void setupViewModel() {
         viewModel = new ViewModelProvider(this).get(TransactionViewModel.class);
-        viewModel.setAccessToken(com.sharedfund.app.data.UserSessionManager.getInstance(requireContext()).getAccessToken());
+        viewModel.setAccessToken(UserSessionManager.getInstance(requireContext()).getAccessToken());
         viewModel.setRoomId(roomId);
 
-        // Quan sát danh sách giao dịch đã lọc
         viewModel.getTransactions().observe(getViewLifecycleOwner(), new Observer<List<Transaction>>() {
             @Override
             public void onChanged(List<Transaction> transactions) {
@@ -140,7 +136,6 @@ public class TransactionFragment extends Fragment implements TransactionAdapter.
             }
         });
 
-        // Quan sát trạng thái tải
         viewModel.getIsLoading().observe(getViewLifecycleOwner(), new Observer<Boolean>() {
             @Override
             public void onChanged(Boolean loading) {
@@ -150,7 +145,6 @@ public class TransactionFragment extends Fragment implements TransactionAdapter.
             }
         });
 
-        // Quan sát thông báo lỗi
         viewModel.getErrorMessage().observe(getViewLifecycleOwner(), new Observer<String>() {
             @Override
             public void onChanged(String err) {
@@ -163,6 +157,15 @@ public class TransactionFragment extends Fragment implements TransactionAdapter.
                     } else {
                         Toast.makeText(requireContext(), err, Toast.LENGTH_SHORT).show();
                     }
+                }
+            }
+        });
+
+        viewModel.getActionMessage().observe(getViewLifecycleOwner(), new Observer<String>() {
+            @Override
+            public void onChanged(String msg) {
+                if (msg != null && !msg.isEmpty()) {
+                    Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show();
                 }
             }
         });
@@ -233,30 +236,39 @@ public class TransactionFragment extends Fragment implements TransactionAdapter.
         }
     }
 
-    /**
-     * Cập nhật màu sắc nút bộ lọc giữ nguyên hiệu ứng chạm (ripple) và viền bo tròn của MaterialButton
-     */
     private void updateFilterUI(TransactionViewModel.FilterType filter) {
         int primaryColor = ContextCompat.getColor(requireContext(), R.color.primary);
         int transparentColor = Color.TRANSPARENT;
         int activeTextColor = Color.WHITE;
         int inactiveTextColor = ContextCompat.getColor(requireContext(), R.color.text_secondary);
 
-        // Nút Tất cả
         btnFilterAll.setBackgroundTintList(ColorStateList.valueOf(filter == TransactionViewModel.FilterType.ALL ? primaryColor : transparentColor));
         btnFilterAll.setTextColor(filter == TransactionViewModel.FilterType.ALL ? activeTextColor : inactiveTextColor);
 
-        // Nút Khoản thu
         btnFilterIncome.setBackgroundTintList(ColorStateList.valueOf(filter == TransactionViewModel.FilterType.INCOME ? primaryColor : transparentColor));
         btnFilterIncome.setTextColor(filter == TransactionViewModel.FilterType.INCOME ? activeTextColor : inactiveTextColor);
 
-        // Nút Khoản chi
         btnFilterExpense.setBackgroundTintList(ColorStateList.valueOf(filter == TransactionViewModel.FilterType.EXPENSE ? primaryColor : transparentColor));
         btnFilterExpense.setTextColor(filter == TransactionViewModel.FilterType.EXPENSE ? activeTextColor : inactiveTextColor);
     }
 
     @Override
     public void onTransactionClick(Transaction transaction) {
-        Toast.makeText(requireContext(), transaction.getNote() + " (" + transaction.getFormattedAmount() + ")", Toast.LENGTH_SHORT).show();
+        boolean isAdmin = RoomRepository.getInstance().isCurrentUserAdmin(roomId);
+        TransactionDetailBottomSheet sheet = TransactionDetailBottomSheet.newInstance(transaction, isAdmin);
+        sheet.setActionListener(new TransactionDetailBottomSheet.OnTransactionActionListener() {
+            @Override
+            public void onApprove(Transaction tx) {
+                String adminId = RoomRepository.getInstance().getCurrentUserId();
+                viewModel.approveExpense(adminId, tx.getId());
+            }
+
+            @Override
+            public void onReject(Transaction tx, String reason) {
+                String adminId = RoomRepository.getInstance().getCurrentUserId();
+                viewModel.rejectExpense(adminId, tx.getId(), reason);
+            }
+        });
+        sheet.show(getChildFragmentManager(), "tx_detail");
     }
 }
