@@ -91,6 +91,8 @@ public class AddTransactionFragment extends Fragment {
         setupSpinner(new String[0]);
         setupTextWatchers();
         setupViewModel();
+        rbIncome.setText("Nạp từ ví cá nhân");
+        rbExpense.setText(viewModel.isCurrentUserOwner() ? "Rút về ví cá nhân" : "Yêu cầu rút quỹ");
         setupClickListeners();
     }
 
@@ -106,6 +108,8 @@ public class AddTransactionFragment extends Fragment {
         etNote = view.findViewById(R.id.etNote);
         tilCreatedBy = view.findViewById(R.id.tilCreatedBy);
         etCreatedBy = view.findViewById(R.id.etCreatedBy);
+        // Người thực hiện được xác định từ phiên đăng nhập ở backend, không nhập từ client.
+        tilCreatedBy.setVisibility(View.GONE);
         btnSaveTransaction = view.findViewById(R.id.btnSaveTransaction);
     }
 
@@ -225,7 +229,11 @@ public class AddTransactionFragment extends Fragment {
             @Override
             public void onChanged(Boolean success) {
                 if (success != null && success) {
-                    Toast.makeText(requireContext(), R.string.tx_added_success, Toast.LENGTH_SHORT).show();
+                    String message;
+                    if (rbIncome.isChecked()) message = "Đã chuyển tiền từ ví cá nhân vào quỹ.";
+                    else if (viewModel.isCurrentUserOwner()) message = "Đã rút tiền vào ví cá nhân.";
+                    else message = "Đã gửi yêu cầu rút quỹ. Vui lòng chờ chủ quỹ duyệt.";
+                    Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show();
                     // Chuyển thẳng về Lịch sử giao dịch theo đúng sơ đồ luồng
                     if (getActivity() instanceof MainActivity) {
                         requireActivity().getSupportFragmentManager().popBackStack();
@@ -255,12 +263,14 @@ public class AddTransactionFragment extends Fragment {
                     rbIncome.setBackgroundResource(R.drawable.bg_card);
                     rbIncome.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary));
                     setupSpinner(expenseCategories.toArray(new String[0]));
+                    rbExpense.setText(viewModel.isCurrentUserOwner() ? "Rút về ví cá nhân" : "Yêu cầu rút quỹ");
                 } else {
                     rbIncome.setBackgroundResource(R.drawable.bg_income_badge);
                     rbIncome.setTextColor(ContextCompat.getColor(requireContext(), R.color.accent_income));
                     rbExpense.setBackgroundResource(R.drawable.bg_card);
                     rbExpense.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary));
                     setupSpinner(incomeCategories.toArray(new String[0]));
+                    rbIncome.setText("Nạp từ ví cá nhân");
                 }
             }
         });
@@ -277,11 +287,9 @@ public class AddTransactionFragment extends Fragment {
         // Xóa thông báo lỗi trước đó
         tilAmount.setError(null);
         tilNote.setError(null);
-        tilCreatedBy.setError(null);
 
         String amountStr = etAmount.getText() != null ? etAmount.getText().toString().trim() : "";
         String note = etNote.getText() != null ? etNote.getText().toString().trim() : "";
-        String createdBy = etCreatedBy.getText() != null ? etCreatedBy.getText().toString().trim() : "";
         String category = spinnerCategory.getSelectedItem() != null ? spinnerCategory.getSelectedItem().toString() : "";
         String type = rbExpense.isChecked() ? Transaction.TYPE_EXPENSE : Transaction.TYPE_INCOME;
 
@@ -308,15 +316,10 @@ public class AddTransactionFragment extends Fragment {
             isValid = false;
         }
 
-        if (createdBy.isEmpty()) {
-            tilCreatedBy.setError(getString(R.string.err_creator_empty));
-            isValid = false;
-        }
-
         if (isValid) {
             btnSaveTransaction.setEnabled(false);
             btnSaveTransaction.setText("Đang lưu...");
-            viewModel.submitTransaction(roomId, type, amountStr, category, note, createdBy);
+            viewModel.submitTransaction(roomId, type, amountStr, category, note);
         }
     }
 }

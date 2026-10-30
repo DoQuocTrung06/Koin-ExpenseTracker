@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- App info -->
-    <string name="app_name">SharedFund</string>
+    <string name="app_name">Koin</string>
     <string name="app_tagline">Quản lý quỹ nhóm thông minh &amp; minh bạch</string>
 
     <!-- Navigation & Titles -->

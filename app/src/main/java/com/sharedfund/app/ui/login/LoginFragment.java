@@ -35,13 +35,11 @@ public class LoginFragment extends Fragment {
     private boolean isLoginMode = true;
     private AuthRepository authRepository;
 
-    // Tab buttons
-    private MaterialButton btnTabLogin;
-    private MaterialButton btnTabRegister;
-
     // Title
     private TextView tvAuthTitle;
     private TextView tvAuthSubtitle;
+    private TextView tvSwitchPrompt;
+    private TextView tvSwitchAction;
 
     // Form fields
     private TextInputLayout tilFullName;
@@ -56,7 +54,6 @@ public class LoginFragment extends Fragment {
     // Actions
     private ProgressBar pbAuthLoading;
     private MaterialButton btnAuthAction;
-    private MaterialButton btnSkipLogin;
 
     @Nullable
     @Override
@@ -77,10 +74,10 @@ public class LoginFragment extends Fragment {
     }
 
     private void bindViews(View view) {
-        btnTabLogin = view.findViewById(R.id.btnTabLogin);
-        btnTabRegister = view.findViewById(R.id.btnTabRegister);
         tvAuthTitle = view.findViewById(R.id.tvAuthTitle);
         tvAuthSubtitle = view.findViewById(R.id.tvAuthSubtitle);
+        tvSwitchPrompt = view.findViewById(R.id.tvSwitchPrompt);
+        tvSwitchAction = view.findViewById(R.id.tvSwitchAction);
         tilFullName = view.findViewById(R.id.tilFullName);
         etFullName = view.findViewById(R.id.etFullName);
         tilEmail = view.findViewById(R.id.tilEmail);
@@ -91,7 +88,6 @@ public class LoginFragment extends Fragment {
         etConfirmPassword = view.findViewById(R.id.etConfirmPassword);
         pbAuthLoading = view.findViewById(R.id.pbAuthLoading);
         btnAuthAction = view.findViewById(R.id.btnAuthAction);
-        btnSkipLogin = view.findViewById(R.id.btnSkipLogin);
     }
 
     // ==========================================
@@ -99,8 +95,8 @@ public class LoginFragment extends Fragment {
     // ==========================================
 
     private void setupTabToggle() {
-        btnTabLogin.setOnClickListener(v -> switchToMode(true));
-        btnTabRegister.setOnClickListener(v -> switchToMode(false));
+        tvSwitchAction.setOnClickListener(v -> switchToMode(!isLoginMode));
+        switchToMode(true);
     }
 
     private void switchToMode(boolean loginMode) {
@@ -108,36 +104,20 @@ public class LoginFragment extends Fragment {
         clearAllErrors();
 
         if (loginMode) {
-            // --- Login mode ---
-            btnTabLogin.setBackgroundTintList(
-                    android.content.res.ColorStateList.valueOf(
-                            requireContext().getColor(R.color.primary)));
-            btnTabLogin.setTextColor(requireContext().getColor(R.color.white));
-            btnTabRegister.setBackgroundTintList(
-                    android.content.res.ColorStateList.valueOf(
-                            android.graphics.Color.TRANSPARENT));
-            btnTabRegister.setTextColor(requireContext().getColor(R.color.text_secondary));
-
-            tvAuthTitle.setText("Đăng nhập tài khoản");
-            tvAuthSubtitle.setText("Quản lý chi tiêu quỹ chung cùng hội bạn");
+            tvAuthTitle.setText("Chào mừng trở lại");
+            tvAuthSubtitle.setText("Đăng nhập để tiếp tục quản lý quỹ cùng bạn bè");
             btnAuthAction.setText("Đăng nhập");
+            tvSwitchPrompt.setText("Chưa có tài khoản? ");
+            tvSwitchAction.setText("Đăng ký miễn phí");
 
             tilFullName.setVisibility(View.GONE);
             tilConfirmPassword.setVisibility(View.GONE);
         } else {
-            // --- Register mode ---
-            btnTabRegister.setBackgroundTintList(
-                    android.content.res.ColorStateList.valueOf(
-                            requireContext().getColor(R.color.primary)));
-            btnTabRegister.setTextColor(requireContext().getColor(R.color.white));
-            btnTabLogin.setBackgroundTintList(
-                    android.content.res.ColorStateList.valueOf(
-                            android.graphics.Color.TRANSPARENT));
-            btnTabLogin.setTextColor(requireContext().getColor(R.color.text_secondary));
-
             tvAuthTitle.setText("Tạo tài khoản mới");
-            tvAuthSubtitle.setText("Đăng ký để bắt đầu quản lý quỹ nhóm");
+            tvAuthSubtitle.setText("Tham gia cùng bạn bè để quản lý quỹ chung");
             btnAuthAction.setText("Đăng ký");
+            tvSwitchPrompt.setText("Đã có tài khoản? ");
+            tvSwitchAction.setText("Đăng nhập");
 
             tilFullName.setVisibility(View.VISIBLE);
             tilConfirmPassword.setVisibility(View.VISIBLE);
@@ -178,8 +158,6 @@ public class LoginFragment extends Fragment {
             }
         });
 
-        // Không hỗ trợ đăng nhập khách: mọi dữ liệu phải gắn với user Supabase đã xác thực.
-        btnSkipLogin.setVisibility(View.GONE);
     }
 
     // ==========================================
@@ -343,9 +321,7 @@ public class LoginFragment extends Fragment {
     private void setLoadingState(boolean loading) {
         pbAuthLoading.setVisibility(loading ? View.VISIBLE : View.GONE);
         btnAuthAction.setEnabled(!loading);
-        btnSkipLogin.setEnabled(!loading);
-        btnTabLogin.setEnabled(!loading);
-        btnTabRegister.setEnabled(!loading);
+        tvSwitchAction.setEnabled(!loading);
     }
 
     private void clearAllErrors() {

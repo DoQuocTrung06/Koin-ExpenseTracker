@@ -6,11 +6,7 @@ import android.content.ClipboardManager;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.Paint;
-import android.graphics.RectF;
-import android.graphics.Typeface;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -234,7 +230,9 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
         }
 
         if (isWalletDeposit()) {
-            Toast.makeText(requireContext(), "Schema Supabase hiện không có bảng ví cá nhân.", Toast.LENGTH_LONG).show();
+            Toast.makeText(requireContext(),
+                    "Nạp ví qua SePay chưa được nối webhook; hiện chỉ hỗ trợ QR nạp trực tiếp vào quỹ.",
+                    Toast.LENGTH_LONG).show();
             return;
         }
         pendingAmount = amount;
@@ -303,17 +301,22 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
             } catch (Exception ignored) {
             }
 
-            final Bitmap finalBitmap = (downloadedBitmap != null)
-                    ? downloadedBitmap
-                    : generateQrPlaceholderBitmap(accountNumber, formattedAmount, transferContent);
-
             if (getActivity() != null) {
                 getActivity().runOnUiThread(() -> {
                     if (!isAdded()) return;
                     pbDepositLoading.setVisibility(View.GONE);
                     btnGenerateQr.setEnabled(true);
 
-                    ivQrCode.setImageBitmap(finalBitmap);
+                    if (downloadedBitmap == null) {
+                        layoutQrSection.setVisibility(View.GONE);
+                        btnDoneDeposit.setVisibility(View.GONE);
+                        Toast.makeText(requireContext(),
+                                "Không tải được mã QR thật từ VietQR. Vui lòng kiểm tra kết nối và thử lại.",
+                                Toast.LENGTH_LONG).show();
+                        return;
+                    }
+
+                    ivQrCode.setImageBitmap(downloadedBitmap);
                     ivQrCode.setBackgroundColor(Color.WHITE);
                     ivQrCode.setScaleType(ImageView.ScaleType.FIT_CENTER);
 
@@ -326,97 +329,6 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
                 });
             }
         });
-    }
-
-    /**
-     * Tạo ảnh QR placeholder hiển thị thông tin chuyển khoản
-     * Giai đoạn sau: thay bằng ảnh QR thật từ VietQR API
-     */
-    private Bitmap generateQrPlaceholderBitmap(String accountNumber, String amount, String content) {
-        int size = 480;
-        Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(bitmap);
-
-        // Nền trắng bo góc
-        Paint bgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        bgPaint.setColor(Color.WHITE);
-        canvas.drawRoundRect(new RectF(0, 0, size, size), 20, 20, bgPaint);
-
-        // Border xanh nhạt
-        Paint borderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        borderPaint.setStyle(Paint.Style.STROKE);
-        borderPaint.setColor(Color.parseColor("#4F46E5"));
-        borderPaint.setStrokeWidth(4);
-        canvas.drawRoundRect(new RectF(4, 4, size - 4, size - 4), 18, 18, borderPaint);
-
-        // Tiêu đề "VietQR"
-        Paint titlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        titlePaint.setColor(Color.parseColor("#4F46E5"));
-        titlePaint.setTextSize(32);
-        titlePaint.setTypeface(Typeface.DEFAULT_BOLD);
-        titlePaint.setTextAlign(Paint.Align.CENTER);
-        canvas.drawText("VietQR - SharedFund", size / 2f, 50, titlePaint);
-
-        // Divider
-        Paint linePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        linePaint.setColor(Color.parseColor("#E2E8F0"));
-        linePaint.setStrokeWidth(2);
-        canvas.drawLine(30, 70, size - 30, 70, linePaint);
-
-        // Vùng QR giả (grid pattern)
-        Paint qrDotPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        qrDotPaint.setColor(Color.parseColor("#1E293B"));
-        int qrSize = 250;
-        int qrAreaX = (size - qrSize) / 2;
-        int qrAreaY = 85;
-        int cellSize = 10;
-        java.util.Random rand = new java.util.Random(accountNumber.hashCode());
-        // Vẽ corner anchors
-        drawQrAnchor(canvas, qrDotPaint, qrAreaX, qrAreaY, 56);
-        drawQrAnchor(canvas, qrDotPaint, qrAreaX + qrSize - 56, qrAreaY, 56);
-        drawQrAnchor(canvas, qrDotPaint, qrAreaX, qrAreaY + qrSize - 56, 56);
-        // Vẽ random dots cho phần giữa
-        for (int x = qrAreaX + 64; x < qrAreaX + qrSize - 64; x += cellSize) {
-            for (int y = qrAreaY + 64; y < qrAreaY + qrSize - 64; y += cellSize) {
-                if (rand.nextBoolean()) {
-                    canvas.drawRect(x, y, x + cellSize - 2, y + cellSize - 2, qrDotPaint);
-                }
-            }
-        }
-
-        // Thông tin bên dưới QR
-        Paint infoPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        infoPaint.setColor(Color.parseColor("#0F172A"));
-        infoPaint.setTextSize(20);
-        infoPaint.setTextAlign(Paint.Align.CENTER);
-        canvas.drawText("STK: " + accountNumber, size / 2f, qrAreaY + qrSize + 32, infoPaint);
-
-        Paint amountPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        amountPaint.setColor(Color.parseColor("#10B981"));
-        amountPaint.setTextSize(26);
-        amountPaint.setTypeface(Typeface.DEFAULT_BOLD);
-        amountPaint.setTextAlign(Paint.Align.CENTER);
-        canvas.drawText(amount, size / 2f, qrAreaY + qrSize + 66, amountPaint);
-
-        Paint contentPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        contentPaint.setColor(Color.parseColor("#64748B"));
-        contentPaint.setTextSize(16);
-        contentPaint.setTextAlign(Paint.Align.CENTER);
-        canvas.drawText("ND: " + content, size / 2f, qrAreaY + qrSize + 96, contentPaint);
-
-        return bitmap;
-    }
-
-    /** Vẽ anchor cho góc QR code */
-    private void drawQrAnchor(Canvas canvas, Paint paint, int x, int y, int size) {
-        // Outer square
-        Paint outerPaint = new Paint(paint);
-        outerPaint.setStyle(Paint.Style.STROKE);
-        outerPaint.setStrokeWidth(6);
-        canvas.drawRect(x, y, x + size, y + size, outerPaint);
-        // Inner solid square
-        int inset = size / 4;
-        canvas.drawRect(x + inset, y + inset, x + size - inset, y + size - inset, paint);
     }
 
     private void confirmDeposit() {

@@ -25,7 +25,6 @@ import com.sharedfund.app.data.RoomRepository;
 import com.sharedfund.app.data.TransactionRepository;
 import com.sharedfund.app.data.UserSessionManager;
 import com.sharedfund.app.model.Room;
-import com.sharedfund.app.model.Transaction;
 
 import java.text.DecimalFormat;
 
@@ -210,29 +209,38 @@ public class ContributeDialogFragment extends BottomSheetDialogFragment {
             Toast.makeText(requireContext(), "Không tìm thấy quỹ đã tải từ Supabase.", Toast.LENGTH_LONG).show();
             return;
         }
-        Transaction transaction = new Transaction();
-        transaction.setRoomId(roomId);
-        transaction.setUserId(session.getUserId());
-        transaction.setCreatedBy(session.getFullName());
-        transaction.setType("income");
-        transaction.setAmount(amount);
-        transaction.setCategory("Đóng quỹ");
-        transaction.setNote(note.isEmpty() ? "Đóng quỹ" : note);
-        transaction.setTransactionDate(java.time.LocalDate.now().toString());
-        transaction.setBalanceAfter(room.getBalance() + amount);
         btnConfirmContribute.setEnabled(false);
 
         TransactionRepository transactions = new TransactionRepository();
         transactions.setAccessToken(session.getAccessToken());
-        transactions.createTransaction(transaction, new TransactionRepository.DataCallback<Transaction>() {
-            @Override public void onSuccess(Transaction created) {
+        transactions.contributeFromWallet(session.getUserId(), roomId, amount, note.isEmpty() ? "Đóng quỹ" : note,
+                new TransactionRepository.DataCallback<com.google.gson.JsonObject>() {
+            @Override public void onSuccess(com.google.gson.JsonObject result) {
                 if (!isAdded()) return;
                 requireActivity().runOnUiThread(() -> {
                     if (!isAdded()) return;
-                    RoomRepository.getInstance().onRemoteTransactionReceived(created);
-                    Toast.makeText(requireContext(), "Đã lưu khoản đóng quỹ lên Supabase.", Toast.LENGTH_SHORT).show();
-                    if (listener != null) listener.onContributeComplete(amount);
-                    dismiss();
+                    transactions.refreshRoomTransactions(roomId,
+                            new TransactionRepository.DataCallback<java.util.List<com.sharedfund.app.model.Transaction>>() {
+                        @Override public void onSuccess(java.util.List<com.sharedfund.app.model.Transaction> rows) {
+                            if (!isAdded()) return;
+                            requireActivity().runOnUiThread(() -> {
+                                for (com.sharedfund.app.model.Transaction row : rows)
+                                    RoomRepository.getInstance().onRemoteTransactionReceived(row);
+                                Toast.makeText(requireContext(), "Đã chuyển tiền từ ví cá nhân vào quỹ.", Toast.LENGTH_SHORT).show();
+                                if (listener != null) listener.onContributeComplete(amount);
+                                dismiss();
+                            });
+                        }
+                        @Override public void onError(String message) {
+                            if (!isAdded()) return;
+                            requireActivity().runOnUiThread(() -> {
+                                btnConfirmContribute.setEnabled(true);
+                                Toast.makeText(requireContext(),
+                                        "Đã nạp vào quỹ nhưng không tải lại được lịch sử: " + message,
+                                        Toast.LENGTH_LONG).show();
+                            });
+                        }
+                    });
                 });
             }
             @Override public void onError(String message) {

@@ -36,6 +36,12 @@ public class Transaction implements Serializable {
     private double balanceAfter;
     @SerializedName("status")
     private String status;
+    @SerializedName("rejection_reason")
+    private String rejectionReason;
+    @SerializedName("approved_by")
+    private String approvedBy;
+    @SerializedName("approved_at")
+    private String approvedAt;
 
     public Transaction() {
     }
@@ -121,6 +127,12 @@ public class Transaction implements Serializable {
     public void setBalanceAfter(double balanceAfter) { this.balanceAfter = balanceAfter; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+    public String getRejectionReason() { return rejectionReason; }
+    public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
+    public String getApprovedBy() { return approvedBy; }
+    public void setApprovedBy(String approvedBy) { this.approvedBy = approvedBy; }
+    public String getApprovedAt() { return approvedAt; }
+    public void setApprovedAt(String approvedAt) { this.approvedAt = approvedAt; }
 
     public String getCreatedAt() {
         return createdAt;

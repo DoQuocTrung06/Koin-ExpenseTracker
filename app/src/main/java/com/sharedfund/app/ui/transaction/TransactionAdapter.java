@@ -82,7 +82,10 @@ public class TransactionAdapter extends RecyclerView.Adapter<TransactionAdapter.
             tvTxCreator.setText(tx.getCreatedBy());
             tvTxTime.setText(tx.getCreatedAt());
             tvTxAmount.setText(tx.getFormattedAmount());
-            tvTxCategory.setText(tx.getCategory() != null ? tx.getCategory() : "Khác");
+            String categoryLabel = tx.getCategory() != null ? tx.getCategory() : "Khác";
+            if ("PENDING".equalsIgnoreCase(tx.getStatus())) categoryLabel += " · Chờ duyệt";
+            else if ("REJECTED".equalsIgnoreCase(tx.getStatus())) categoryLabel += " · Đã từ chối";
+            tvTxCategory.setText(categoryLabel);
 
             int contextColor;
             if (tx.isIncome()) {

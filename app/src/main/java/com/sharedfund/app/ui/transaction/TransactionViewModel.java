@@ -74,6 +74,15 @@ public class TransactionViewModel extends ViewModel {
         return roomId;
     }
 
+    public boolean isCurrentUserOwner() {
+        com.sharedfund.app.model.Room room = repository.getRoomSync(roomId);
+        if (room == null) return false;
+        String role = room.getCurrentUserRole();
+        if (role != null) return "ADMIN".equalsIgnoreCase(role) || "OWNER".equalsIgnoreCase(role);
+        return repository.getCurrentUserId() != null
+                && repository.getCurrentUserId().equals(room.getCreatedBy());
+    }
+
     public void setFilter(FilterType filter) {
         this.currentFilter = filter;
         applyFilter(filter);
@@ -124,7 +133,7 @@ public class TransactionViewModel extends ViewModel {
     /**
      * Kiểm tra dữ liệu nhập (Validation) và thêm giao dịch mới
      */
-    public boolean submitTransaction(String targetRoomId, String type, String amountStr, String category, String note, String createdBy) {
+    public boolean submitTransaction(String targetRoomId, String type, String amountStr, String category, String note) {
         // 1. Kiểm tra số tiền
         if (amountStr == null || amountStr.trim().isEmpty()) {
             errorMessage.setValue("Vui lòng nhập số tiền!");
@@ -156,29 +165,23 @@ public class TransactionViewModel extends ViewModel {
             return false;
         }
 
-        // 4. Kiểm tra người tạo
-        if (createdBy == null || createdBy.trim().isEmpty()) {
-            createdBy = "Bạn";
+        final String operationRoomId = targetRoomId != null ? targetRoomId : this.roomId;
+        if (operationRoomId == null || operationRoomId.trim().isEmpty()) {
+            errorMessage.setValue("Không xác định được quỹ.");
+            return false;
         }
-
-        // Tạo Transaction model
-        Transaction tx = new Transaction();
-        tx.setRoomId(targetRoomId != null ? targetRoomId : this.roomId);
-        tx.setUserId(repository.getCurrentUserId());
-        tx.setType(Transaction.TYPE_INCOME.equalsIgnoreCase(type) || "INCOME".equalsIgnoreCase(type)
-                ? "income" : "expense");
-        tx.setAmount(amount);
-        tx.setCategory(category.trim());
-        tx.setNote(note.trim());
-        tx.setCreatedBy(createdBy.trim());
-        tx.setTransactionDate(java.time.LocalDate.now().toString());
-        com.sharedfund.app.model.Room room = repository.getRoomSync(tx.getRoomId());
-        if (room != null) {
-            tx.setBalanceAfter(room.getBalance() + ("income".equals(tx.getType()) ? amount : -amount));
+        final boolean income = Transaction.TYPE_INCOME.equalsIgnoreCase(type) || "INCOME".equalsIgnoreCase(type);
+        final boolean owner = isCurrentUserOwner();
+        if (!income && owner) {
+            com.sharedfund.app.model.Room room = repository.getRoomSync(operationRoomId);
+            if (room == null || room.getBalance() < amount) {
+                errorMessage.setValue("Số dư quỹ không đủ để thực hiện khoản chi.");
+                return false;
+            }
         }
 
         isLoading.setValue(true);
-        remoteRepository.createTransaction(tx, new TransactionRepository.DataCallback<Transaction>() {
+        TransactionRepository.DataCallback<Transaction> transactionCallback = new TransactionRepository.DataCallback<Transaction>() {
             @Override public void onSuccess(Transaction created) {
                 repository.onRemoteTransactionReceived(created);
                 isLoading.postValue(false);
@@ -188,7 +191,35 @@ public class TransactionViewModel extends ViewModel {
                 isLoading.postValue(false);
                 errorMessage.postValue("Không thể lưu giao dịch lên Supabase: " + message);
             }
-        });
+        };
+        if (income) {
+            String userId = repository.getCurrentUserId();
+            remoteRepository.contributeFromWallet(userId, operationRoomId, amount, note.trim(),
+                    new TransactionRepository.DataCallback<com.google.gson.JsonObject>() {
+                        @Override public void onSuccess(com.google.gson.JsonObject result) {
+                            remoteRepository.refreshRoomTransactions(operationRoomId,
+                                    new TransactionRepository.DataCallback<List<Transaction>>() {
+                                        @Override public void onSuccess(List<Transaction> transactions) {
+                                            if (transactions != null) for (Transaction tx : transactions)
+                                                repository.onRemoteTransactionReceived(tx);
+                                            isLoading.postValue(false);
+                                            addSuccessEvent.postValue(true);
+                                        }
+                                        @Override public void onError(String message) {
+                                            isLoading.postValue(false);
+                                            errorMessage.postValue("Đã nạp ví vào quỹ nhưng không tải lại được lịch sử: " + message);
+                                        }
+                                    });
+                        }
+                        @Override public void onError(String message) {
+                            isLoading.postValue(false);
+                            errorMessage.postValue("Không thể nạp từ ví cá nhân: " + message);
+                        }
+                    });
+        } else {
+            remoteRepository.submitWithdrawal(repository.getCurrentUserId(), repository.getCurrentUserName(), operationRoomId, amount,
+                    category.trim(), note.trim(), owner, transactionCallback);
+        }
         return true;
     }
 

@@ -364,7 +364,7 @@ public class RoomRepository {
             double income = 0;
             double expense = 0;
             for (Transaction tx : transactionList) {
-                if (tx.getRoomId().equals(r.getId())) {
+                if (r.getId().equals(tx.getRoomId()) && affectsBalance(tx)) {
                     if (tx.isIncome()) {
                         income += tx.getAmount();
                     } else {
@@ -455,7 +455,7 @@ public class RoomRepository {
         double sum = 0;
         if (roomId == null) return sum;
         for (Transaction tx : transactionList) {
-            if (roomId.equals(tx.getRoomId()) && tx.isIncome()) {
+            if (roomId.equals(tx.getRoomId()) && affectsBalance(tx) && tx.isIncome()) {
                 sum += tx.getAmount();
             }
         }
@@ -466,7 +466,7 @@ public class RoomRepository {
         double sum = 0;
         if (roomId == null) return sum;
         for (Transaction tx : transactionList) {
-            if (roomId.equals(tx.getRoomId()) && tx.isExpense()) {
+            if (roomId.equals(tx.getRoomId()) && affectsBalance(tx) && tx.isExpense()) {
                 sum += tx.getAmount();
             }
         }
@@ -477,13 +477,24 @@ public class RoomRepository {
         Map<String, Double> map = new HashMap<>();
         if (roomId == null) return map;
         for (Transaction tx : transactionList) {
-            if (roomId.equals(tx.getRoomId()) && tx.isExpense()) {
+            if (roomId.equals(tx.getRoomId()) && affectsBalance(tx) && tx.isExpense()) {
                 String cat = tx.getCategory() != null ? tx.getCategory() : "Khác";
                 Double current = map.get(cat);
                 map.put(cat, (current != null ? current : 0.0) + tx.getAmount());
             }
         }
         return map;
+    }
+
+    private boolean affectsBalance(Transaction transaction) {
+        if (transaction == null) return false;
+        String status = transaction.getStatus();
+        return status == null || status.trim().isEmpty()
+                || "APPROVED".equalsIgnoreCase(status)
+                || "SUCCESS".equalsIgnoreCase(status)
+                || "COMPLETED".equalsIgnoreCase(status)
+                || "CONFIRMED".equalsIgnoreCase(status)
+                || "PAID".equalsIgnoreCase(status);
     }
 
     // ==========================================

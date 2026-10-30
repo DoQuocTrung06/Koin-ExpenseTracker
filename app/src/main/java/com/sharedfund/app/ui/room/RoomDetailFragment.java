@@ -231,14 +231,8 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
             }
         });
 
-        // Chi tiền: chỉ Admin mới thao tác được
+        // Mọi thành viên mở form; yêu cầu rút của thành viên sẽ chờ chủ quỹ duyệt.
         btnNavAddTransaction.setOnClickListener(v -> {
-            boolean isAdmin = isCurrentUserAdmin();
-            if (!isAdmin) {
-                Toast.makeText(requireContext(),
-                        "Chỉ Trưởng quỹ mới có thể thêm khoản chi!", Toast.LENGTH_SHORT).show();
-                return;
-            }
             if (getActivity() instanceof MainActivity) {
                 ((MainActivity) getActivity()).openAddTransaction(roomId);
             }
@@ -257,11 +251,8 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
         if (btnEmptyAddTx != null) {
             btnEmptyAddTx.setOnClickListener(v -> {
-                if (isCurrentUserAdmin() && getActivity() instanceof MainActivity) {
+                if (getActivity() instanceof MainActivity) {
                     ((MainActivity) getActivity()).openAddTransaction(roomId);
-                } else if (!isCurrentUserAdmin()) {
-                    Toast.makeText(requireContext(),
-                            "Chỉ Trưởng quỹ mới có thể thêm khoản chi!", Toast.LENGTH_SHORT).show();
                 }
             });
         }
@@ -280,17 +271,14 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
     }
 
     /**
-     * Áp dụng phân quyền giao diện dựa trên vai trò của người dùng hiện tại theo tài liệu:
-     * - Trưởng quỹ (Admin): Mở nút Chi tiền (Rút quỹ), nút Chỉnh sửa quỹ.
-     * - Thành viên (Member): Ẩn nút Chi tiền, chỉ giữ nút Nạp tiền và xem sao kê.
+     * Mọi thành viên được mở form giao dịch; nghiệp vụ chi/rút được phân tuyến và kiểm tra ở Supabase.
      */
     private void applyRoleBasedUi(Room room) {
-        boolean isAdmin = isCurrentUserAdmin();
         if (btnNavAddTransaction != null) {
-            btnNavAddTransaction.setVisibility(isAdmin ? View.VISIBLE : View.GONE);
+            btnNavAddTransaction.setVisibility(View.VISIBLE);
         }
         if (btnEmptyAddTx != null) {
-            btnEmptyAddTx.setVisibility(isAdmin ? View.VISIBLE : View.GONE);
+            btnEmptyAddTx.setVisibility(View.VISIBLE);
         }
     }
 
