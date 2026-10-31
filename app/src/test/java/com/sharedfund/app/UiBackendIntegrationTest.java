@@ -358,24 +358,18 @@ public class UiBackendIntegrationTest {
         String targetCode = allRooms.get(0).getJoinCode();
         assertNotNull(targetCode);
 
-        java.util.List<Room> matchedByName = new java.util.ArrayList<>();
-        for (Room r : allRooms) {
-            if (r.getName() != null && r.getName().toLowerCase().contains("đà nẵng")) {
-                matchedByName.add(r);
-            }
-        }
-        assertEquals(1, matchedByName.size());
-        assertEquals("Quỹ Du Lịch Đà Nẵng", matchedByName.get(0).getName());
+        List<Room> matchedUnaccented = com.sharedfund.app.data.SearchHelper.filterRooms(allRooms, "da nang");
+        assertEquals(1, matchedUnaccented.size());
+        assertEquals("Quỹ Du Lịch Đà Nẵng", matchedUnaccented.get(0).getName());
 
-        java.util.List<Room> matchedByCode = new java.util.ArrayList<>();
+        List<Room> matchedAccented = com.sharedfund.app.data.SearchHelper.filterRooms(allRooms, "đà nẵng");
+        assertEquals(1, matchedAccented.size());
+        assertEquals("Quỹ Du Lịch Đà Nẵng", matchedAccented.get(0).getName());
+
         String partialCode = targetCode.substring(0, Math.min(3, targetCode.length())).toLowerCase();
-        for (Room r : allRooms) {
-            if (r.getJoinCode() != null && r.getJoinCode().toLowerCase().contains(partialCode)) {
-                matchedByCode.add(r);
-            }
-        }
-        assertTrue(matchedByCode.size() >= 1);
-        assertTrue(matchedByCode.contains(allRooms.get(0)));
+        List<Room> matchedCode = com.sharedfund.app.data.SearchHelper.filterRooms(allRooms, partialCode);
+        assertTrue(matchedCode.size() >= 1);
+        assertTrue(matchedCode.contains(allRooms.get(0)));
     }
 
     @Test

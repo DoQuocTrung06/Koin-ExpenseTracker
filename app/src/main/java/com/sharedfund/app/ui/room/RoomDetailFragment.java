@@ -205,11 +205,12 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
         if (layoutRoomDetailHeader != null) {
             androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(layoutRoomDetailHeader, (v, insets) -> {
                 androidx.core.graphics.Insets statusBars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.statusBars());
-                int extraTop = Math.round(16 * getResources().getDisplayMetrics().density);
-                int padBottom = Math.round(12 * getResources().getDisplayMetrics().density);
+                int extraTop = Math.round(18 * getResources().getDisplayMetrics().density);
+                int padBottom = Math.round(14 * getResources().getDisplayMetrics().density);
                 v.setPadding(v.getPaddingLeft(), statusBars.top + extraTop, v.getPaddingRight(), padBottom);
                 return insets;
             });
+            androidx.core.view.ViewCompat.requestApplyInsets(layoutRoomDetailHeader);
         }
         btnBack = view.findViewById(R.id.btnBack);
         tvHeaderRoomName = view.findViewById(R.id.tvHeaderRoomName);

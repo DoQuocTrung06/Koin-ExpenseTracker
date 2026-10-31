@@ -188,7 +188,7 @@ public class ProfileFragment extends Fragment {
         tilEmail.setLayoutParams(lp);
         com.google.android.material.textfield.TextInputEditText etEmail = new com.google.android.material.textfield.TextInputEditText(tilEmail.getContext());
         etEmail.setText(currentEmail);
-        etEmail.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+        etEmail.setInputType(InputType.TYPE_CLASS_TEXT);
         tilEmail.addView(etEmail);
         layout.addView(tilEmail);
 
@@ -207,6 +207,12 @@ public class ProfileFragment extends Fragment {
                     RoomRepository.getInstance().setCurrentUser(session.getUserId(), newName);
                     loadProfileData();
                     AppToaster.success(requireActivity(), "Đã cập nhật thông tin cá nhân thành công!");
+                    String token = session.getAccessToken();
+                    if (token != null && !token.trim().isEmpty()) {
+                        com.sharedfund.app.data.AuthRepository authRepo = new com.sharedfund.app.data.AuthRepository(requireContext());
+                        Profile updated = new Profile(session.getUserId(), newEmail, newName, session.getAvatarUrl());
+                        authRepo.updateProfile(updated, token, null);
+                    }
                 })
                 .show();
     }

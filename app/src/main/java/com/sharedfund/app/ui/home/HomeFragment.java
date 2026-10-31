@@ -409,6 +409,7 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
         if (query == null || query.trim().isEmpty()) {
             if (btnClearSearch != null) btnClearSearch.setVisibility(View.GONE);
             roomAdapter.setRooms(allRoomsList);
+            if (btnEmptyCreateRoom != null) btnEmptyCreateRoom.setVisibility(View.VISIBLE);
             if (allRoomsList.isEmpty()) {
                 layoutEmptyState.setVisibility(View.VISIBLE);
                 rvRooms.setVisibility(View.GONE);
@@ -424,25 +425,19 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
         }
 
         if (btnClearSearch != null) btnClearSearch.setVisibility(View.VISIBLE);
-        String lowerQuery = query.trim().toLowerCase(Locale.ROOT);
-        List<Room> filtered = new ArrayList<>();
-        for (Room r : allRoomsList) {
-            boolean nameMatch = r.getName() != null && r.getName().toLowerCase(Locale.ROOT).contains(lowerQuery);
-            boolean codeMatch = r.getJoinCode() != null && r.getJoinCode().toLowerCase(Locale.ROOT).contains(lowerQuery);
-            if (nameMatch || codeMatch) {
-                filtered.add(r);
-            }
-        }
+        List<Room> filtered = com.sharedfund.app.data.SearchHelper.filterRooms(allRoomsList, query);
 
         roomAdapter.setRooms(filtered);
         if (filtered.isEmpty()) {
             layoutEmptyState.setVisibility(View.VISIBLE);
             rvRooms.setVisibility(View.GONE);
+            if (btnEmptyCreateRoom != null) btnEmptyCreateRoom.setVisibility(View.GONE);
             tvRoomCountBadge.setText("0 quỹ");
             tvRoomCountSubtitle.setText("0/" + allRoomsList.size() + " quỹ khớp");
         } else {
             layoutEmptyState.setVisibility(View.GONE);
             rvRooms.setVisibility(View.VISIBLE);
+            if (btnEmptyCreateRoom != null) btnEmptyCreateRoom.setVisibility(View.VISIBLE);
             tvRoomCountBadge.setText(filtered.size() + " quỹ");
             tvRoomCountSubtitle.setText(filtered.size() + "/" + allRoomsList.size() + " quỹ khớp");
         }

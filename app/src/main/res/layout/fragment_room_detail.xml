@@ -13,12 +13,12 @@
         android:background="@color/surface"
         android:elevation="2dp"
         android:gravity="center_vertical"
-        android:minHeight="64dp"
+        android:minHeight="68dp"
         android:orientation="horizontal"
         android:paddingStart="12dp"
-        android:paddingTop="12dp"
+        android:paddingTop="18dp"
         android:paddingEnd="16dp"
-        android:paddingBottom="12dp">
+        android:paddingBottom="14dp">
 
         <ImageButton
             android:id="@+id/btnBack"
@@ -306,7 +306,7 @@
                                 android:textSize="12sp"
                                 android:textStyle="bold"
                                 app:cornerRadius="12dp"
-                                app:icon="@drawable/ic_share"
+                                app:icon="@drawable/ic_transfer"
                                 app:iconGravity="textStart"
                                 app:iconSize="16dp"
                                 app:iconTint="@color/primary" />

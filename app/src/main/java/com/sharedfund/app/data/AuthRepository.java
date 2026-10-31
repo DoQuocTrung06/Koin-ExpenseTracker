@@ -226,4 +226,32 @@ public class AuthRepository {
             }
         });
     }
+
+    public void updateProfile(Profile profile, String token, AuthCallback callback) {
+        if (profile == null || profile.getId() == null) return;
+        RequestBody body = RequestBody.create(gson.toJson(profile), JSON_MEDIA_TYPE);
+        Request request = new Request.Builder()
+                .url(SupabaseConfig.REST_URL + "/profiles?id=eq." + profile.getId())
+                .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
+                .addHeader("Authorization", "Bearer " + token)
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Prefer", "resolution=merge-duplicates")
+                .patch(body)
+                .build();
+        httpClient.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                if (callback != null) callback.onError(e.getMessage());
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) {
+                if (response.isSuccessful()) {
+                    if (callback != null) callback.onSuccess(profile);
+                } else {
+                    if (callback != null) callback.onError("Update failed: " + response.code());
+                }
+            }
+        });
+    }
 }
