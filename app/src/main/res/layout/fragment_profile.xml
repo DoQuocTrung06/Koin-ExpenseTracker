@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/scrollProfileRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/background">
@@ -37,11 +38,10 @@
                 <FrameLayout
                     android:id="@+id/layoutProfileTopBar"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                    android:layout_height="56dp"
+                    android:layout_marginTop="28dp"
                     android:paddingStart="16dp"
-                    android:paddingTop="48dp"
-                    android:paddingEnd="16dp"
-                    android:paddingBottom="12dp">
+                    android:paddingEnd="16dp">
 
                     <ImageButton
                         android:id="@+id/btnProfileBack"
@@ -103,7 +103,7 @@
                             android:layout_width="28dp"
                             android:layout_height="28dp"
                             android:layout_gravity="bottom|end"
-                            android:background="@drawable/bg_avatar_circle"
+                            android:background="@drawable/bg_cover_button_circle"
                             android:contentDescription="Chỉnh sửa ảnh đại diện"
                             android:padding="6dp"
                             android:src="@drawable/ic_edit"
@@ -176,6 +176,18 @@
                         android:textStyle="bold" />
 
                     <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnCancelEditProfileInfo"
+                        style="@style/Widget.Material3.Button.TextButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:layout_marginEnd="4dp"
+                        android:padding="0dp"
+                        android:text="Hủy"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="13sp"
+                        android:visibility="gone" />
+
+                    <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnEditProfileInfo"
                         style="@style/Widget.Material3.Button.TextButton"
                         android:layout_width="wrap_content"
@@ -227,6 +239,20 @@
                             android:textColor="@color/text_primary"
                             android:textSize="14sp"
                             android:textStyle="bold" />
+
+                        <EditText
+                            android:id="@+id/etProfileNickname"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:background="@drawable/bg_edit_text_inline"
+                            android:hint="Nhập biệt danh (tên thường gọi)"
+                            android:inputType="textPersonName|textCapWords"
+                            android:singleLine="true"
+                            android:textColor="@color/text_primary"
+                            android:textColorHint="@color/text_tertiary"
+                            android:textSize="14sp"
+                            android:visibility="gone" />
                     </LinearLayout>
                 </LinearLayout>
 
@@ -272,6 +298,20 @@
                             android:text="Chưa thiết lập"
                             android:textColor="@color/text_primary"
                             android:textSize="14sp" />
+
+                        <EditText
+                            android:id="@+id/etProfileOccupation"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:background="@drawable/bg_edit_text_inline"
+                            android:hint="Nhập nghề nghiệp"
+                            android:inputType="text|textCapSentences"
+                            android:singleLine="true"
+                            android:textColor="@color/text_primary"
+                            android:textColorHint="@color/text_tertiary"
+                            android:textSize="14sp"
+                            android:visibility="gone" />
                     </LinearLayout>
                 </LinearLayout>
 
@@ -317,6 +357,20 @@
                             android:text="Chưa thiết lập"
                             android:textColor="@color/text_primary"
                             android:textSize="14sp" />
+
+                        <EditText
+                            android:id="@+id/etProfileEducation"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:background="@drawable/bg_edit_text_inline"
+                            android:hint="Nhập học vấn / trường"
+                            android:inputType="text|textCapSentences"
+                            android:singleLine="true"
+                            android:textColor="@color/text_primary"
+                            android:textColorHint="@color/text_tertiary"
+                            android:textSize="14sp"
+                            android:visibility="gone" />
                     </LinearLayout>
                 </LinearLayout>
 
@@ -362,6 +416,20 @@
                             android:text="Chưa thiết lập"
                             android:textColor="@color/text_primary"
                             android:textSize="14sp" />
+
+                        <EditText
+                            android:id="@+id/etProfileBio"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:background="@drawable/bg_edit_text_inline"
+                            android:hint="Nhập tiểu sử / lời giới thiệu"
+                            android:inputType="textMultiLine|textCapSentences"
+                            android:maxLines="3"
+                            android:textColor="@color/text_primary"
+                            android:textColorHint="@color/text_tertiary"
+                            android:textSize="14sp"
+                            android:visibility="gone" />
                     </LinearLayout>
                 </LinearLayout>
             </LinearLayout>

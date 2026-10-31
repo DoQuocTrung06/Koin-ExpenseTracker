@@ -6,16 +6,14 @@ import android.content.Context;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
-import android.text.InputType;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.ProgressBar;
-import android.widget.ScrollView;
 import android.widget.TextView;
 import com.sharedfund.app.MainActivity;
 import com.sharedfund.app.ui.widget.AppToaster;
@@ -24,6 +22,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
@@ -31,9 +30,8 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.fragment.app.Fragment;
 
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-import com.google.android.material.textfield.TextInputEditText;
-import com.google.android.material.textfield.TextInputLayout;
 import com.sharedfund.app.R;
 import com.sharedfund.app.data.ProfileRepository;
 import com.sharedfund.app.data.RoomRepository;
@@ -58,13 +56,18 @@ public class ProfileFragment extends Fragment {
     private TextView tvProfileOccupation;
     private TextView tvProfileEducation;
     private TextView tvProfileBio;
+    private EditText etProfileNickname;
+    private EditText etProfileOccupation;
+    private EditText etProfileEducation;
+    private EditText etProfileBio;
     private TextView tvProfileRoomCount;
     private TextView tvProfileTxCount;
     private View layoutProfileTopBar;
     private View rowProfileUserId;
     private View cardPersonalDetails;
     private ImageButton btnProfileBack;
-    private View btnEditProfileInfo;
+    private MaterialButton btnEditProfileInfo;
+    private MaterialButton btnCancelEditProfileInfo;
     private ImageView ivProfileCover;
     private ImageButton btnEditCover;
     private ImageButton btnEditAvatar;
@@ -72,6 +75,8 @@ public class ProfileFragment extends Fragment {
     private ProgressBar pbAvatarUpload;
     private ActivityResultLauncher<String> avatarPicker;
     private ActivityResultLauncher<String> coverPicker;
+
+    private boolean isEditingProfile = false;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -96,7 +101,7 @@ public class ProfileFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         bindViews(view);
-        setupWindowInsets();
+        setupWindowInsets(view);
         loadProfileCover();
         loadProfileData();
         setupClickListeners();
@@ -105,33 +110,38 @@ public class ProfileFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        setStatusBarLightIcons(true);
+        if (getActivity() != null && getActivity().getWindow() != null) {
+            android.view.Window window = getActivity().getWindow();
+            window.setStatusBarColor(ContextCompat.getColor(requireContext(), R.color.primary));
+            WindowInsetsControllerCompat controller =
+                    WindowCompat.getInsetsController(window, window.getDecorView());
+            if (controller != null) {
+                controller.setAppearanceLightStatusBars(false);
+            }
+        }
     }
 
     @Override
     public void onStop() {
         super.onStop();
-        boolean isDark = false;
-        if (getActivity() instanceof MainActivity) {
-            isDark = ((MainActivity) getActivity()).isDarkTheme();
-        }
-        setStatusBarLightIcons(isDark);
-    }
-
-    private void setStatusBarLightIcons(boolean lightIcons) {
         if (getActivity() != null && getActivity().getWindow() != null) {
+            android.view.Window window = getActivity().getWindow();
+            window.setStatusBarColor(ContextCompat.getColor(requireContext(), R.color.surface));
+            boolean isDark = false;
+            if (getActivity() instanceof MainActivity) {
+                isDark = ((MainActivity) getActivity()).isDarkTheme();
+            }
             WindowInsetsControllerCompat controller =
-                    WindowCompat.getInsetsController(
-                            getActivity().getWindow(), getActivity().getWindow().getDecorView());
+                    WindowCompat.getInsetsController(window, window.getDecorView());
             if (controller != null) {
-                controller.setAppearanceLightStatusBars(!lightIcons);
+                controller.setAppearanceLightStatusBars(!isDark);
             }
         }
     }
 
-    private void setupWindowInsets() {
+    private void setupWindowInsets(View view) {
         if (layoutProfileTopBar != null) {
-            ViewCompat.setOnApplyWindowInsetsListener(layoutProfileTopBar, (v, insets) -> {
+            ViewCompat.setOnApplyWindowInsetsListener(view, (v, insets) -> {
                 Insets statusBars = insets.getInsets(WindowInsetsCompat.Type.statusBars());
                 Insets cutouts = insets.getInsets(WindowInsetsCompat.Type.displayCutout());
                 int statusBarHeight = Math.max(statusBars.top, cutouts.top);
@@ -144,11 +154,14 @@ public class ProfileFragment extends Fragment {
                 if (statusBarHeight <= 0) {
                     statusBarHeight = Math.round(24 * getResources().getDisplayMetrics().density);
                 }
-                int extraTop = Math.round(16 * getResources().getDisplayMetrics().density);
-                v.setPadding(v.getPaddingLeft(), statusBarHeight + extraTop, v.getPaddingRight(), v.getPaddingBottom());
+                ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) layoutProfileTopBar.getLayoutParams();
+                if (lp != null) {
+                    lp.topMargin = statusBarHeight + Math.round(4 * getResources().getDisplayMetrics().density);
+                    layoutProfileTopBar.setLayoutParams(lp);
+                }
                 return insets;
             });
-            ViewCompat.requestApplyInsets(layoutProfileTopBar);
+            ViewCompat.requestApplyInsets(view);
         }
     }
 
@@ -166,10 +179,15 @@ public class ProfileFragment extends Fragment {
         tvProfileOccupation = view.findViewById(R.id.tvProfileOccupation);
         tvProfileEducation = view.findViewById(R.id.tvProfileEducation);
         tvProfileBio = view.findViewById(R.id.tvProfileBio);
+        etProfileNickname = view.findViewById(R.id.etProfileNickname);
+        etProfileOccupation = view.findViewById(R.id.etProfileOccupation);
+        etProfileEducation = view.findViewById(R.id.etProfileEducation);
+        etProfileBio = view.findViewById(R.id.etProfileBio);
         tvProfileRoomCount = view.findViewById(R.id.tvProfileRoomCount);
         tvProfileTxCount = view.findViewById(R.id.tvProfileTxCount);
         btnProfileBack = view.findViewById(R.id.btnProfileBack);
         btnEditProfileInfo = view.findViewById(R.id.btnEditProfileInfo);
+        btnCancelEditProfileInfo = view.findViewById(R.id.btnCancelEditProfileInfo);
         cardPersonalDetails = view.findViewById(R.id.cardPersonalDetails);
         btnEditAvatar = view.findViewById(R.id.btnEditAvatar);
         ivProfileCover = view.findViewById(R.id.ivProfileCover);
@@ -261,18 +279,134 @@ public class ProfileFragment extends Fragment {
                 getActivity().onBackPressed();
             }
         });
+
         if (btnEditProfileInfo != null) {
-            btnEditProfileInfo.setOnClickListener(v -> showEditProfileDialog());
+            btnEditProfileInfo.setOnClickListener(v -> toggleInlineProfileEdit());
         }
-        if (cardPersonalDetails != null) {
-            cardPersonalDetails.setOnClickListener(v -> showEditProfileDialog());
+
+        if (btnCancelEditProfileInfo != null) {
+            btnCancelEditProfileInfo.setOnClickListener(v -> cancelInlineProfileEdit());
         }
+
         btnEditAvatar.setOnClickListener(v -> showAvatarOptions());
         if (btnEditCover != null) {
             btnEditCover.setOnClickListener(v -> showCoverOptions());
         }
         if (rowProfileUserId != null) {
             rowProfileUserId.setOnClickListener(v -> copyUserIdToClipboard());
+        }
+    }
+
+    private void toggleInlineProfileEdit() {
+        if (!isEditingProfile) {
+            startInlineProfileEdit();
+        } else {
+            saveInlineProfileEdit();
+        }
+    }
+
+    private void startInlineProfileEdit() {
+        isEditingProfile = true;
+        UserSessionManager session = UserSessionManager.getInstance(requireContext());
+
+        String nick = session.getNickname();
+        String occ = session.getOccupation();
+        String edu = session.getEducation();
+        String bio = session.getBio();
+
+        if (etProfileNickname != null) etProfileNickname.setText(nick != null ? nick : "");
+        if (etProfileOccupation != null) etProfileOccupation.setText(occ != null ? occ : "");
+        if (etProfileEducation != null) etProfileEducation.setText(edu != null ? edu : "");
+        if (etProfileBio != null) etProfileBio.setText(bio != null ? bio : "");
+
+        setFieldVisibility(true);
+
+        if (btnEditProfileInfo != null) {
+            btnEditProfileInfo.setText("Lưu thay đổi");
+            btnEditProfileInfo.setIconResource(R.drawable.ic_check);
+        }
+        if (btnCancelEditProfileInfo != null) {
+            btnCancelEditProfileInfo.setVisibility(View.VISIBLE);
+        }
+
+        if (etProfileNickname != null) {
+            etProfileNickname.requestFocus();
+            etProfileNickname.setSelection(etProfileNickname.getText().length());
+            showKeyboard(etProfileNickname);
+        }
+    }
+
+    private void saveInlineProfileEdit() {
+        UserSessionManager session = UserSessionManager.getInstance(requireContext());
+
+        String nickname = etProfileNickname != null ? etProfileNickname.getText().toString().trim() : "";
+        String occupation = etProfileOccupation != null ? etProfileOccupation.getText().toString().trim() : "";
+        String education = etProfileEducation != null ? etProfileEducation.getText().toString().trim() : "";
+        String bio = etProfileBio != null ? etProfileBio.getText().toString().trim() : "";
+
+        session.updateCustomProfile(nickname, occupation, education, bio);
+
+        isEditingProfile = false;
+        setFieldVisibility(false);
+
+        if (btnEditProfileInfo != null) {
+            btnEditProfileInfo.setText("Chỉnh sửa");
+            btnEditProfileInfo.setIconResource(R.drawable.ic_edit);
+        }
+        if (btnCancelEditProfileInfo != null) {
+            btnCancelEditProfileInfo.setVisibility(View.GONE);
+        }
+
+        hideKeyboard();
+        loadProfileData();
+        AppToaster.success(requireActivity(), "Đã lưu thay đổi thông tin cá nhân!");
+    }
+
+    private void cancelInlineProfileEdit() {
+        isEditingProfile = false;
+        setFieldVisibility(false);
+
+        if (btnEditProfileInfo != null) {
+            btnEditProfileInfo.setText("Chỉnh sửa");
+            btnEditProfileInfo.setIconResource(R.drawable.ic_edit);
+        }
+        if (btnCancelEditProfileInfo != null) {
+            btnCancelEditProfileInfo.setVisibility(View.GONE);
+        }
+
+        hideKeyboard();
+        loadProfileData();
+    }
+
+    private void setFieldVisibility(boolean isEditing) {
+        if (tvProfileNickname != null) tvProfileNickname.setVisibility(isEditing ? View.GONE : View.VISIBLE);
+        if (etProfileNickname != null) etProfileNickname.setVisibility(isEditing ? View.VISIBLE : View.GONE);
+
+        if (tvProfileOccupation != null) tvProfileOccupation.setVisibility(isEditing ? View.GONE : View.VISIBLE);
+        if (etProfileOccupation != null) etProfileOccupation.setVisibility(isEditing ? View.VISIBLE : View.GONE);
+
+        if (tvProfileEducation != null) tvProfileEducation.setVisibility(isEditing ? View.GONE : View.VISIBLE);
+        if (etProfileEducation != null) etProfileEducation.setVisibility(isEditing ? View.VISIBLE : View.GONE);
+
+        if (tvProfileBio != null) tvProfileBio.setVisibility(isEditing ? View.GONE : View.VISIBLE);
+        if (etProfileBio != null) etProfileBio.setVisibility(isEditing ? View.VISIBLE : View.GONE);
+    }
+
+    private void showKeyboard(View view) {
+        if (view != null && getContext() != null) {
+            InputMethodManager imm = (InputMethodManager) requireContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+            if (imm != null) {
+                imm.showSoftInput(view, InputMethodManager.SHOW_IMPLICIT);
+            }
+        }
+    }
+
+    private void hideKeyboard() {
+        if (getActivity() != null && getActivity().getCurrentFocus() != null) {
+            InputMethodManager imm = (InputMethodManager) requireActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
+            if (imm != null) {
+                imm.hideSoftInputFromWindow(getActivity().getCurrentFocus().getWindowToken(), 0);
+            }
         }
     }
 
@@ -289,109 +423,32 @@ public class ProfileFragment extends Fragment {
         }
     }
 
-    private void showEditProfileDialog() {
-        UserSessionManager session = UserSessionManager.getInstance(requireContext());
-        String currentNickname = session.getNickname();
-        String currentOccupation = session.getOccupation();
-        String currentEducation = session.getEducation();
-        String currentBio = session.getBio();
-
-        ScrollView scrollView = new ScrollView(requireContext());
-        LinearLayout layout = new LinearLayout(requireContext());
-        layout.setOrientation(LinearLayout.VERTICAL);
-        int pad = Math.round(20 * getResources().getDisplayMetrics().density);
-        layout.setPadding(pad, pad / 2, pad, pad / 2);
-        scrollView.addView(layout);
-
-        TextInputLayout tilNickname = new TextInputLayout(
-                requireContext(), null, com.google.android.material.R.style.Widget_MaterialComponents_TextInputLayout_OutlinedBox);
-        tilNickname.setHint("Biệt danh (Tên thường gọi)");
-        TextInputEditText etNickname = new TextInputEditText(tilNickname.getContext());
-        etNickname.setText(currentNickname);
-        etNickname.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_WORDS);
-        tilNickname.addView(etNickname);
-        layout.addView(tilNickname);
-
-        TextInputLayout tilOccupation = new TextInputLayout(
-                requireContext(), null, com.google.android.material.R.style.Widget_MaterialComponents_TextInputLayout_OutlinedBox);
-        tilOccupation.setHint("Nghề nghiệp");
-        LinearLayout.LayoutParams lpOccupation = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        lpOccupation.topMargin = Math.round(12 * getResources().getDisplayMetrics().density);
-        tilOccupation.setLayoutParams(lpOccupation);
-        TextInputEditText etOccupation = new TextInputEditText(tilOccupation.getContext());
-        etOccupation.setText(currentOccupation);
-        etOccupation.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
-        tilOccupation.addView(etOccupation);
-        layout.addView(tilOccupation);
-
-        TextInputLayout tilEducation = new TextInputLayout(
-                requireContext(), null, com.google.android.material.R.style.Widget_MaterialComponents_TextInputLayout_OutlinedBox);
-        tilEducation.setHint("Học vấn");
-        LinearLayout.LayoutParams lpEducation = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        lpEducation.topMargin = Math.round(12 * getResources().getDisplayMetrics().density);
-        tilEducation.setLayoutParams(lpEducation);
-        TextInputEditText etEducation = new TextInputEditText(tilEducation.getContext());
-        etEducation.setText(currentEducation);
-        etEducation.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
-        tilEducation.addView(etEducation);
-        layout.addView(tilEducation);
-
-        TextInputLayout tilBio = new TextInputLayout(
-                requireContext(), null, com.google.android.material.R.style.Widget_MaterialComponents_TextInputLayout_OutlinedBox);
-        tilBio.setHint("Tiểu sử / Lời giới thiệu");
-        LinearLayout.LayoutParams lpBio = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        lpBio.topMargin = Math.round(12 * getResources().getDisplayMetrics().density);
-        tilBio.setLayoutParams(lpBio);
-        TextInputEditText etBio = new TextInputEditText(tilBio.getContext());
-        etBio.setText(currentBio);
-        etBio.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
-        etBio.setMaxLines(3);
-        tilBio.addView(etBio);
-        layout.addView(tilBio);
-
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Chỉnh sửa thông tin cá nhân")
-                .setView(scrollView)
-                .setNegativeButton("Hủy", null)
-                .setPositiveButton("Lưu thay đổi", (dialog, which) -> {
-                    String nickname = etNickname.getText() != null ? etNickname.getText().toString().trim() : "";
-                    String occupation = etOccupation.getText() != null ? etOccupation.getText().toString().trim() : "";
-                    String education = etEducation.getText() != null ? etEducation.getText().toString().trim() : "";
-                    String bio = etBio.getText() != null ? etBio.getText().toString().trim() : "";
-
-                    session.updateCustomProfile(nickname, occupation, education, bio);
-                    loadProfileData();
-                    AppToaster.success(requireActivity(), "Đã cập nhật thông tin cá nhân thành công!");
-                })
-                .show();
-    }
-
     private void showCoverOptions() {
         new MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Ảnh bìa cá nhân")
+                .setTitle("Đổi ảnh bìa")
                 .setItems(new String[]{"Chọn ảnh từ thiết bị", "Dán link ảnh"}, (dialog, which) -> {
-                    if (which == 0) coverPicker.launch("image/*");
-                    else showCoverUrlInput();
+                    if (which == 0) {
+                        coverPicker.launch("image/*");
+                    } else {
+                        showCoverUrlDialog();
+                    }
                 })
                 .show();
     }
 
-    private void showCoverUrlInput() {
-        EditText input = new EditText(requireContext());
-        input.setSingleLine(true);
-        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
+    private void showCoverUrlDialog() {
+        final EditText input = new EditText(requireContext());
         input.setHint("https://.../cover.jpg");
-        int padding = Math.round(20 * getResources().getDisplayMetrics().density);
-        input.setPadding(padding, padding, padding, padding);
+        input.setSingleLine(true);
+        int pad = Math.round(16 * getResources().getDisplayMetrics().density);
+        input.setPadding(pad, pad, pad, pad);
+
         new MaterialAlertDialogBuilder(requireContext())
                 .setTitle("Dán link ảnh bìa")
                 .setView(input)
                 .setNegativeButton("Hủy", null)
                 .setPositiveButton("Lưu", (dialog, which) -> {
-                    String url = input.getText() != null ? input.getText().toString().trim() : "";
+                    String url = input.getText().toString().trim();
                     if (!url.isEmpty()) {
                         saveProfileCoverUrl(url);
                     }
@@ -400,21 +457,43 @@ public class ProfileFragment extends Fragment {
     }
 
     private void saveProfileCoverUrl(String url) {
-        requireContext().getSharedPreferences("shared_fund_profile_bg", Context.MODE_PRIVATE)
+        if (getContext() == null) return;
+        requireContext().getSharedPreferences("koin_profile_prefs", Context.MODE_PRIVATE)
                 .edit()
                 .putString("profile_cover_url", url)
                 .apply();
         loadProfileCover();
-        AppToaster.success(requireActivity(), "Đã cập nhật ảnh bìa cá nhân.");
+        AppToaster.success(requireActivity(), "Đã cập nhật ảnh bìa thành công!");
     }
 
     private void loadProfileCover() {
-        if (ivProfileCover == null || getContext() == null) return;
-        String url = requireContext().getSharedPreferences("shared_fund_profile_bg", Context.MODE_PRIVATE)
-                .getString("profile_cover_url", "");
+        if (getContext() == null || ivProfileCover == null) return;
+        String url = requireContext().getSharedPreferences("koin_profile_prefs", Context.MODE_PRIVATE)
+                .getString("profile_cover_url", null);
         if (url != null && !url.trim().isEmpty()) {
             ivProfileCover.setVisibility(View.VISIBLE);
-            AvatarImageLoader.load(ivProfileCover, null, url);
+            new Thread(() -> {
+                try {
+                    android.graphics.Bitmap bmp = null;
+                    if (url.startsWith("content://") || url.startsWith("file://")) {
+                        android.content.ContentResolver cr = requireContext().getContentResolver();
+                        java.io.InputStream is = cr.openInputStream(Uri.parse(url));
+                        bmp = android.graphics.BitmapFactory.decodeStream(is);
+                        if (is != null) is.close();
+                    } else if (url.startsWith("http://") || url.startsWith("https://")) {
+                        java.io.InputStream in = new java.net.URL(url).openStream();
+                        bmp = android.graphics.BitmapFactory.decodeStream(in);
+                        if (in != null) in.close();
+                    }
+                    if (bmp != null) {
+                        final android.graphics.Bitmap finalBmp = bmp;
+                        if (getActivity() != null) {
+                            getActivity().runOnUiThread(() -> ivProfileCover.setImageBitmap(finalBmp));
+                        }
+                    }
+                } catch (Exception ignored) {
+                }
+            }).start();
         } else {
             ivProfileCover.setVisibility(View.GONE);
         }
@@ -422,33 +501,32 @@ public class ProfileFragment extends Fragment {
 
     private void showAvatarOptions() {
         new MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Ảnh đại diện")
+                .setTitle("Đổi ảnh đại diện")
                 .setItems(new String[]{"Chọn ảnh từ thiết bị", "Dán link ảnh"}, (dialog, which) -> {
-                    if (which == 0) avatarPicker.launch("image/*");
-                    else showAvatarUrlInput();
+                    if (which == 0) {
+                        avatarPicker.launch("image/*");
+                    } else {
+                        showAvatarUrlDialog();
+                    }
                 })
                 .show();
     }
 
-    private void showAvatarUrlInput() {
-        EditText input = new EditText(requireContext());
-        input.setSingleLine(true);
-        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
+    private void showAvatarUrlDialog() {
+        final EditText input = new EditText(requireContext());
         input.setHint("https://.../avatar.jpg");
-        int padding = Math.round(20 * getResources().getDisplayMetrics().density);
-        input.setPadding(padding, padding, padding, padding);
+        input.setSingleLine(true);
+        int pad = Math.round(16 * getResources().getDisplayMetrics().density);
+        input.setPadding(pad, pad, pad, pad);
+
         new MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Dán link ảnh")
+                .setTitle("Dán link ảnh đại diện")
                 .setView(input)
                 .setNegativeButton("Hủy", null)
                 .setPositiveButton("Lưu", (dialog, which) -> {
-                    String url = input.getText() != null ? input.getText().toString().trim() : "";
-                    Uri parsed = Uri.parse(url);
-                    if (("https".equalsIgnoreCase(parsed.getScheme()) || "http".equalsIgnoreCase(parsed.getScheme()))
-                            && parsed.getHost() != null) {
+                    String url = input.getText().toString().trim();
+                    if (!url.isEmpty()) {
                         persistAvatarUrl(url);
-                    } else {
-                        AppToaster.error(requireActivity(), "Link ảnh phải bắt đầu bằng http:// hoặc https://");
                     }
                 })
                 .show();
@@ -498,12 +576,11 @@ public class ProfileFragment extends Fragment {
     }
 
     private String getInitials(String name) {
-        if (name == null || name.isEmpty()) return "?";
-        String[] parts = name.trim().split(" ");
-        if (parts.length >= 2) {
-            return String.valueOf(parts[0].charAt(0)).toUpperCase()
-                    + String.valueOf(parts[parts.length - 1].charAt(0)).toUpperCase();
+        if (name == null || name.trim().isEmpty()) return "U";
+        String[] parts = name.trim().split("\\s+");
+        if (parts.length == 1) {
+            return parts[0].substring(0, Math.min(2, parts[0].length())).toUpperCase();
         }
-        return String.valueOf(name.charAt(0)).toUpperCase();
+        return (parts[0].substring(0, 1) + parts[parts.length - 1].substring(0, 1)).toUpperCase();
     }
 }
