@@ -19,6 +19,10 @@ public class UserSessionManager {
     private static final String KEY_ACCESS_TOKEN = "access_token";
     private static final String KEY_REFRESH_TOKEN = "refresh_token";
     private static final String KEY_EXPIRES_AT = "expires_at";
+    private static final String KEY_NICKNAME = "nickname";
+    private static final String KEY_OCCUPATION = "occupation";
+    private static final String KEY_EDUCATION = "education";
+    private static final String KEY_BIO = "bio";
 
     private static volatile UserSessionManager instance;
     private final SharedPreferences preferences;
@@ -163,11 +167,49 @@ public class UserSessionManager {
         return preferences.getString(KEY_REFRESH_TOKEN, "");
     }
 
+    public String getNickname() {
+        return preferences.getString(KEY_NICKNAME, "");
+    }
+
+    public String getOccupation() {
+        return preferences.getString(KEY_OCCUPATION, "");
+    }
+
+    public String getEducation() {
+        return preferences.getString(KEY_EDUCATION, "");
+    }
+
+    public String getBio() {
+        return preferences.getString(KEY_BIO, "");
+    }
+
+    public void updateCustomProfile(String nickname, String occupation, String education, String bio) {
+        SharedPreferences.Editor editor = preferences.edit();
+        if (nickname != null) {
+            editor.putString(KEY_NICKNAME, nickname);
+        }
+        if (occupation != null) {
+            editor.putString(KEY_OCCUPATION, occupation);
+        }
+        if (education != null) {
+            editor.putString(KEY_EDUCATION, education);
+        }
+        if (bio != null) {
+            editor.putString(KEY_BIO, bio);
+        }
+        editor.apply();
+    }
+
     public Profile getCurrentProfile() {
         if (!isLoggedIn()) {
             return null;
         }
-        return new Profile(getUserId(), getEmail(), getFullName(), getAvatarUrl());
+        Profile profile = new Profile(getUserId(), getEmail(), getFullName(), getAvatarUrl());
+        profile.setNickname(getNickname());
+        profile.setOccupation(getOccupation());
+        profile.setEducation(getEducation());
+        profile.setBio(getBio());
+        return profile;
     }
 
     public Profile getCurrentUser() {

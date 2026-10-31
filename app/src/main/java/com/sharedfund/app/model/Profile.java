@@ -20,6 +20,18 @@ public class Profile implements Serializable {
     @SerializedName("wallet_balance")
     private double walletBalance;
 
+    @SerializedName("nickname")
+    private String nickname;
+
+    @SerializedName("occupation")
+    private String occupation;
+
+    @SerializedName("education")
+    private String education;
+
+    @SerializedName("bio")
+    private String bio;
+
     public Profile() {
     }
 
@@ -73,5 +85,37 @@ public class Profile implements Serializable {
 
     public void setWalletBalance(double walletBalance) {
         this.walletBalance = walletBalance;
+    }
+
+    public String getNickname() {
+        return nickname;
+    }
+
+    public void setNickname(String nickname) {
+        this.nickname = nickname;
+    }
+
+    public String getOccupation() {
+        return occupation;
+    }
+
+    public void setOccupation(String occupation) {
+        this.occupation = occupation;
+    }
+
+    public String getEducation() {
+        return education;
+    }
+
+    public void setEducation(String education) {
+        this.education = education;
+    }
+
+    public String getBio() {
+        return bio;
+    }
+
+    public void setBio(String bio) {
+        this.bio = bio;
     }
 }

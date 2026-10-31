@@ -413,27 +413,29 @@ public class AppToaster {
     private static int getCalculatedTopMargin(Context context, ViewGroup root) {
         int baseMargin = dpToPx(context, 16);
         Activity activity = getActivity(context);
-        if (activity == null || root == null) return baseMargin;
-
-        if (root.getId() == android.R.id.content) {
-            return baseMargin;
-        }
+        if (activity == null) return baseMargin;
 
         int statusBarHeight = 0;
-        int resId = context.getResources().getIdentifier("status_bar_height", "dimen", "android");
-        if (resId > 0) {
-            statusBarHeight = context.getResources().getDimensionPixelSize(resId);
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && activity.getWindow() != null) {
-            View decor = activity.getWindow().getDecorView();
-            WindowInsets insets = decor.getRootWindowInsets();
+        View decor = activity.getWindow() != null ? activity.getWindow().getDecorView() : null;
+        if (decor != null) {
+            androidx.core.view.WindowInsetsCompat insets = androidx.core.view.ViewCompat.getRootWindowInsets(decor);
             if (insets != null) {
-                DisplayCutout cutout = insets.getDisplayCutout();
-                if (cutout != null && cutout.getSafeInsetTop() > statusBarHeight) {
-                    statusBarHeight = cutout.getSafeInsetTop();
+                androidx.core.graphics.Insets sb = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.statusBars());
+                statusBarHeight = sb.top;
+                androidx.core.graphics.Insets cutout = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.displayCutout());
+                if (cutout.top > statusBarHeight) {
+                    statusBarHeight = cutout.top;
                 }
             }
+        }
+        if (statusBarHeight <= 0) {
+            int resId = context.getResources().getIdentifier("status_bar_height", "dimen", "android");
+            if (resId > 0) {
+                statusBarHeight = context.getResources().getDimensionPixelSize(resId);
+            }
+        }
+        if (statusBarHeight <= 0) {
+            statusBarHeight = dpToPx(context, 24);
         }
 
         return statusBarHeight + baseMargin;
