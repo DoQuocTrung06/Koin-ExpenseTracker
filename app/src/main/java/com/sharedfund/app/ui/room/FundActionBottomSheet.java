@@ -16,14 +16,17 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
+import com.google.gson.JsonObject;
 import com.sharedfund.app.R;
 import com.sharedfund.app.data.RoomRepository;
 import com.sharedfund.app.data.TransactionRepository;
 import com.sharedfund.app.data.UserSessionManager;
+import com.sharedfund.app.model.Room;
 import com.sharedfund.app.model.Transaction;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
+import java.util.List;
 import java.util.Locale;
 
 public class FundActionBottomSheet extends BottomSheetDialogFragment {
@@ -42,6 +45,9 @@ public class FundActionBottomSheet extends BottomSheetDialogFragment {
 
     private TextView tvFundActionRoomBalance;
     private TextView tvWalletAvailableBalance;
+    private TextView tvWithdrawRoleHint;
+    private MaterialButton btnQuickDepositWallet;
+    private MaterialButton btnDepositRoomViaSePayQr;
     private TabLayout tabLayoutFundAction;
     private LinearLayout layoutContributeTab;
     private LinearLayout layoutWithdrawTab;
@@ -114,11 +120,23 @@ public class FundActionBottomSheet extends BottomSheetDialogFragment {
         initViews(view);
         setupTabs();
         setupListeners();
+
+        RoomRepository.getInstance().getUserWalletLiveData().observe(getViewLifecycleOwner(), balance -> {
+            if (balance != null) {
+                walletBalance = balance;
+                if (tvWalletAvailableBalance != null) {
+                    tvWalletAvailableBalance.setText("Số dư Ví Koin khả dụng: " + df.format(walletBalance) + " ₫");
+                }
+            }
+        });
     }
 
     private void initViews(View view) {
         tvFundActionRoomBalance = view.findViewById(R.id.tvFundActionRoomBalance);
         tvWalletAvailableBalance = view.findViewById(R.id.tvWalletAvailableBalance);
+        tvWithdrawRoleHint = view.findViewById(R.id.tvWithdrawRoleHint);
+        btnQuickDepositWallet = view.findViewById(R.id.btnQuickDepositWallet);
+        btnDepositRoomViaSePayQr = view.findViewById(R.id.btnDepositRoomViaSePayQr);
         tabLayoutFundAction = view.findViewById(R.id.tabLayoutFundAction);
         layoutContributeTab = view.findViewById(R.id.layoutContributeTab);
         layoutWithdrawTab = view.findViewById(R.id.layoutWithdrawTab);
@@ -146,6 +164,32 @@ public class FundActionBottomSheet extends BottomSheetDialogFragment {
         walletBalance = RoomRepository.getInstance().getUserWalletBalance();
         tvFundActionRoomBalance.setText("Số dư quỹ hiện tại: " + df.format(roomBalance) + " ₫");
         tvWalletAvailableBalance.setText("Số dư Ví Koin khả dụng: " + df.format(walletBalance) + " ₫");
+
+        String currentUserName = UserSessionManager.getInstance(requireContext()).getCurrentUserName();
+        if (currentUserName != null && !currentUserName.trim().isEmpty()) {
+            etContributeNote.setText("Đóng quỹ - " + currentUserName);
+        }
+
+        boolean isOwner = isCurrentUserOwner();
+        if (tvWithdrawRoleHint != null) {
+            tvWithdrawRoleHint.setText(isOwner
+                    ? "Trưởng quỹ: Rút tiền từ quỹ chuyển thẳng về ví cá nhân Koin"
+                    : "Thành viên: Gửi yêu cầu rút tiền về ví (Chờ Trưởng quỹ phê duyệt)");
+        }
+        if (btnConfirmWithdraw != null) {
+            btnConfirmWithdraw.setText(isOwner
+                    ? "Xác nhận rút về Ví Koin"
+                    : "Gửi yêu cầu rút về Ví (Chờ duyệt)");
+        }
+    }
+
+    private boolean isCurrentUserOwner() {
+        Room room = RoomRepository.getInstance().getRoomSync(roomId);
+        if (room == null) return false;
+        String role = room.getCurrentUserRole();
+        if (role != null) return "ADMIN".equalsIgnoreCase(role) || "OWNER".equalsIgnoreCase(role);
+        String userId = UserSessionManager.getInstance(requireContext()).getUserId();
+        return userId != null && userId.equals(room.getCreatedBy());
     }
 
     private void setupTabs() {
@@ -163,20 +207,49 @@ public class FundActionBottomSheet extends BottomSheetDialogFragment {
     }
 
     private void setupListeners() {
-        btnQuickContribute50k.setOnClickListener(v -> etContributeAmount.setText("50000"));
-        btnQuickContribute100k.setOnClickListener(v -> etContributeAmount.setText("100000"));
-        btnQuickContribute200k.setOnClickListener(v -> etContributeAmount.setText("200000"));
+        btnQuickContribute50k.setOnClickListener(v -> { etContributeAmount.setText("50000"); tilContributeAmount.setError(null); });
+        btnQuickContribute100k.setOnClickListener(v -> { etContributeAmount.setText("100000"); tilContributeAmount.setError(null); });
+        btnQuickContribute200k.setOnClickListener(v -> { etContributeAmount.setText("200000"); tilContributeAmount.setError(null); });
         btnQuickContributeAll.setOnClickListener(v -> {
             long maxWhole = (long) Math.floor(walletBalance);
-            if (maxWhole > 0) etContributeAmount.setText(String.valueOf(maxWhole));
+            if (maxWhole > 0) {
+                etContributeAmount.setText(String.valueOf(maxWhole));
+                tilContributeAmount.setError(null);
+            } else {
+                Toast.makeText(requireContext(), "Số dư ví hiện tại là 0 ₫. Vui lòng nạp thêm vào ví!", Toast.LENGTH_SHORT).show();
+            }
         });
 
-        btnQuickWithdraw50k.setOnClickListener(v -> etWithdrawAmount.setText("50000"));
-        btnQuickWithdraw100k.setOnClickListener(v -> etWithdrawAmount.setText("100000"));
-        btnQuickWithdraw200k.setOnClickListener(v -> etWithdrawAmount.setText("200000"));
+        if (btnQuickDepositWallet != null) {
+            btnQuickDepositWallet.setOnClickListener(v -> {
+                DepositDialogFragment depositDialog = DepositDialogFragment.newWalletInstance();
+                depositDialog.setOnDepositCompleteListener(amount -> {
+                    RoomRepository.getInstance().loadUserProfile();
+                });
+                depositDialog.show(getParentFragmentManager(), "wallet_deposit_from_fund");
+            });
+        }
+
+        if (btnDepositRoomViaSePayQr != null) {
+            btnDepositRoomViaSePayQr.setOnClickListener(v -> {
+                DepositDialogFragment roomDepositDialog = DepositDialogFragment.newInstance(roomId);
+                roomDepositDialog.setOnDepositCompleteListener(amount -> {
+                    if (listener != null) listener.onActionSuccess();
+                    dismiss();
+                });
+                roomDepositDialog.show(getParentFragmentManager(), "room_sepay_deposit");
+            });
+        }
+
+        btnQuickWithdraw50k.setOnClickListener(v -> { etWithdrawAmount.setText("50000"); tilWithdrawAmount.setError(null); });
+        btnQuickWithdraw100k.setOnClickListener(v -> { etWithdrawAmount.setText("100000"); tilWithdrawAmount.setError(null); });
+        btnQuickWithdraw200k.setOnClickListener(v -> { etWithdrawAmount.setText("200000"); tilWithdrawAmount.setError(null); });
         btnQuickWithdrawAll.setOnClickListener(v -> {
             long maxWhole = (long) Math.floor(roomBalance);
-            if (maxWhole > 0) etWithdrawAmount.setText(String.valueOf(maxWhole));
+            if (maxWhole > 0) {
+                etWithdrawAmount.setText(String.valueOf(maxWhole));
+                tilWithdrawAmount.setError(null);
+            }
         });
 
         btnConfirmContribute.setOnClickListener(v -> processContribute());
@@ -199,48 +272,95 @@ public class FundActionBottomSheet extends BottomSheetDialogFragment {
             return;
         }
 
-        if (amount <= 0) {
-            tilContributeAmount.setError("Số tiền phải lớn hơn 0");
+        if (amount < 1000) {
+            tilContributeAmount.setError("Số tiền tối thiểu là 1.000 ₫");
             return;
         }
 
         if (amount > walletBalance) {
-            tilContributeAmount.setError("Số dư Ví Koin không đủ (Còn " + df.format(walletBalance) + " ₫)");
+            tilContributeAmount.setError("Số dư Ví Koin không đủ (Còn " + df.format(walletBalance) + " ₫). Hãy bấm '+ Nạp ví nhanh' hoặc góp trực tiếp bằng mã VietQR Ngân hàng!");
             return;
         }
 
         String note = etContributeNote.getText() != null ? etContributeNote.getText().toString().trim() : "";
-        if (note.isEmpty()) note = "Góp quỹ nhóm";
+        if (note.isEmpty()) note = "Đóng quỹ nhóm";
 
         UserSessionManager session = UserSessionManager.getInstance(requireContext());
         String userId = session.getUserId();
         String userName = session.getCurrentUserName();
 
+        if (userId == null || userId.isEmpty() || userId.startsWith("user-") || (roomId != null && roomId.startsWith("room-"))) {
+            Transaction tx = new Transaction();
+            tx.setRoomId(roomId);
+            tx.setUserId(userId);
+            tx.setCreatedBy(userName != null ? userName : "Bạn");
+            tx.setType(Transaction.TYPE_INCOME);
+            tx.setAmount(amount);
+            tx.setCategory("Đóng quỹ");
+            tx.setNote(note);
+            tx.setStatus("APPROVED");
+            RoomRepository.getInstance().addTransaction(tx);
+            RoomRepository.getInstance().setUserWalletBalance(walletBalance - amount);
+            Toast.makeText(requireContext(), "Đã góp " + df.format(amount) + " ₫ vào quỹ từ Ví Koin!", Toast.LENGTH_SHORT).show();
+            if (listener != null) listener.onActionSuccess();
+            dismiss();
+            return;
+        }
+
         btnConfirmContribute.setEnabled(false);
-
-        Transaction tx = new Transaction();
-        tx.setRoomId(roomId);
-        tx.setUserId(userId);
-        tx.setCreatedBy(userName != null ? userName : "Bạn");
-        tx.setType(Transaction.TYPE_INCOME);
-        tx.setAmount(amount);
-        tx.setCategory("Đóng quỹ");
-        tx.setNote(note);
-        tx.setStatus("APPROVED");
-
-        RoomRepository.getInstance().addTransaction(tx);
-        RoomRepository.getInstance().setUserWalletBalance(walletBalance - amount);
+        btnConfirmContribute.setText("Đang xử lý...");
 
         TransactionRepository remote = new TransactionRepository();
         remote.setAccessToken(session.getAccessToken());
-        remote.transferWalletToRoom(userId, roomId, amount, note, new TransactionRepository.DataCallback<com.google.gson.JsonObject>() {
-            @Override public void onSuccess(com.google.gson.JsonObject data) {}
-            @Override public void onError(String errorMessage) {}
-        });
+        remote.transferWalletToRoom(userId, roomId, amount, note, new TransactionRepository.DataCallback<JsonObject>() {
+            @Override
+            public void onSuccess(JsonObject result) {
+                if (!isAdded()) return;
+                requireActivity().runOnUiThread(() -> {
+                    if (!isAdded()) return;
+                    if (result != null && result.has("new_wallet_balance") && !result.get("new_wallet_balance").isJsonNull()) {
+                        RoomRepository.getInstance().setUserWalletBalance(result.get("new_wallet_balance").getAsDouble());
+                    } else {
+                        RoomRepository.getInstance().loadUserProfile();
+                    }
+                    RoomRepository.getInstance().refreshRoomTransactions(roomId, new RoomRepository.DataCallback<List<Transaction>>() {
+                        @Override
+                        public void onSuccess(List<Transaction> rows) {
+                            if (!isAdded()) return;
+                            requireActivity().runOnUiThread(() -> {
+                                if (!isAdded()) return;
+                                Toast.makeText(requireContext(), "Đã góp " + df.format(amount) + " ₫ vào quỹ thành công!", Toast.LENGTH_SHORT).show();
+                                if (listener != null) listener.onActionSuccess();
+                                dismiss();
+                            });
+                        }
 
-        Toast.makeText(requireContext(), "Đã góp " + df.format(amount) + " ₫ vào quỹ từ Ví Koin!", Toast.LENGTH_SHORT).show();
-        if (listener != null) listener.onActionSuccess();
-        dismiss();
+                        @Override
+                        public void onError(String message) {
+                            if (!isAdded()) return;
+                            requireActivity().runOnUiThread(() -> {
+                                if (!isAdded()) return;
+                                Toast.makeText(requireContext(), "Đã góp " + df.format(amount) + " ₫ vào quỹ thành công!", Toast.LENGTH_SHORT).show();
+                                if (listener != null) listener.onActionSuccess();
+                                dismiss();
+                            });
+                        }
+                    });
+                });
+            }
+
+            @Override
+            public void onError(String errorMessage) {
+                if (!isAdded()) return;
+                requireActivity().runOnUiThread(() -> {
+                    if (!isAdded()) return;
+                    btnConfirmContribute.setEnabled(true);
+                    btnConfirmContribute.setText("Xác nhận góp từ Ví Koin");
+                    tilContributeAmount.setError(errorMessage);
+                    Toast.makeText(requireContext(), "Góp quỹ thất bại: " + errorMessage, Toast.LENGTH_LONG).show();
+                });
+            }
+        });
     }
 
     private void processWithdraw() {
@@ -264,6 +384,7 @@ public class FundActionBottomSheet extends BottomSheetDialogFragment {
             return;
         }
 
+        boolean isOwner = isCurrentUserOwner();
         if (amount > roomBalance) {
             tilWithdrawAmount.setError("Số dư quỹ không đủ (Còn " + df.format(roomBalance) + " ₫)");
             return;
@@ -276,30 +397,89 @@ public class FundActionBottomSheet extends BottomSheetDialogFragment {
         String userId = session.getUserId();
         String userName = session.getCurrentUserName();
 
+        if (userId == null || userId.isEmpty() || userId.startsWith("user-") || (roomId != null && roomId.startsWith("room-"))) {
+            Transaction tx = new Transaction();
+            tx.setRoomId(roomId);
+            tx.setUserId(userId);
+            tx.setCreatedBy(userName != null ? userName : "Bạn");
+            tx.setType(Transaction.TYPE_EXPENSE);
+            tx.setAmount(amount);
+            tx.setCategory("Rút về ví");
+            tx.setNote(note);
+            tx.setStatus(isOwner ? "APPROVED" : "PENDING");
+            RoomRepository.getInstance().addTransaction(tx);
+            if (isOwner) {
+                RoomRepository.getInstance().setUserWalletBalance(walletBalance + amount);
+            }
+            Toast.makeText(requireContext(), isOwner
+                    ? "Đã rút " + df.format(amount) + " ₫ về Ví Koin thành công!"
+                    : "Đã gửi yêu cầu rút quỹ. Vui lòng chờ Trưởng quỹ duyệt!", Toast.LENGTH_SHORT).show();
+            if (listener != null) listener.onActionSuccess();
+            dismiss();
+            return;
+        }
+
         btnConfirmWithdraw.setEnabled(false);
-
-        Transaction tx = new Transaction();
-        tx.setRoomId(roomId);
-        tx.setUserId(userId);
-        tx.setCreatedBy(userName != null ? userName : "Bạn");
-        tx.setType(Transaction.TYPE_EXPENSE);
-        tx.setAmount(amount);
-        tx.setCategory("Rút về ví");
-        tx.setNote(note);
-        tx.setStatus("APPROVED");
-
-        RoomRepository.getInstance().addTransaction(tx);
-        RoomRepository.getInstance().setUserWalletBalance(walletBalance + amount);
+        btnConfirmWithdraw.setText("Đang xử lý...");
 
         TransactionRepository remote = new TransactionRepository();
         remote.setAccessToken(session.getAccessToken());
-        remote.submitWithdrawal(userId, userName, roomId, amount, "Rút về ví", note, true, new TransactionRepository.DataCallback<Transaction>() {
-            @Override public void onSuccess(Transaction created) {}
-            @Override public void onError(String errorMessage) {}
-        });
+        remote.submitWithdrawal(userId, userName != null ? userName : "Member", roomId, amount, "Rút về ví", note, isOwner,
+                new TransactionRepository.DataCallback<Transaction>() {
+                    @Override
+                    public void onSuccess(Transaction created) {
+                        if (!isAdded()) return;
+                        requireActivity().runOnUiThread(() -> {
+                            if (!isAdded()) return;
+                            if (created != null) {
+                                RoomRepository.getInstance().onRemoteTransactionReceived(created);
+                            }
+                            if (isOwner) {
+                                RoomRepository.getInstance().loadUserProfile();
+                            }
+                            RoomRepository.getInstance().refreshRoomTransactions(roomId, new RoomRepository.DataCallback<List<Transaction>>() {
+                                @Override
+                                public void onSuccess(List<Transaction> rows) {
+                                    if (!isAdded()) return;
+                                    requireActivity().runOnUiThread(() -> {
+                                        if (!isAdded()) return;
+                                        Toast.makeText(requireContext(), isOwner
+                                                ? "Đã rút " + df.format(amount) + " ₫ về Ví Koin thành công!"
+                                                : "Đã gửi yêu cầu rút quỹ. Vui lòng chờ Trưởng quỹ phê duyệt!", Toast.LENGTH_SHORT).show();
+                                        if (listener != null) listener.onActionSuccess();
+                                        dismiss();
+                                    });
+                                }
 
-        Toast.makeText(requireContext(), "Đã rút " + df.format(amount) + " ₫ về Ví Koin thành công!", Toast.LENGTH_SHORT).show();
-        if (listener != null) listener.onActionSuccess();
-        dismiss();
+                                @Override
+                                public void onError(String errorMessage) {
+                                    if (!isAdded()) return;
+                                    requireActivity().runOnUiThread(() -> {
+                                        if (!isAdded()) return;
+                                        Toast.makeText(requireContext(), isOwner
+                                                ? "Đã rút " + df.format(amount) + " ₫ về Ví Koin thành công!"
+                                                : "Đã gửi yêu cầu rút quỹ. Vui lòng chờ Trưởng quỹ phê duyệt!", Toast.LENGTH_SHORT).show();
+                                        if (listener != null) listener.onActionSuccess();
+                                        dismiss();
+                                    });
+                                }
+                            });
+                        });
+                    }
+
+                    @Override
+                    public void onError(String errorMessage) {
+                        if (!isAdded()) return;
+                        requireActivity().runOnUiThread(() -> {
+                            if (!isAdded()) return;
+                            btnConfirmWithdraw.setEnabled(true);
+                            btnConfirmWithdraw.setText(isOwner
+                                    ? "Xác nhận rút về Ví Koin"
+                                    : "Gửi yêu cầu rút về Ví (Chờ duyệt)");
+                            tilWithdrawAmount.setError(errorMessage);
+                            Toast.makeText(requireContext(), "Rút tiền thất bại: " + errorMessage, Toast.LENGTH_LONG).show();
+                        });
+                    }
+                });
     }
 }

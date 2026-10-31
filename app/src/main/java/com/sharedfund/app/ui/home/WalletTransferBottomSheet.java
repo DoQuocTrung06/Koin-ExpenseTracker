@@ -4,16 +4,13 @@ import android.app.Dialog;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
-import android.content.pm.ApplicationInfo;
 import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.Paint;
-import android.graphics.RectF;
-import android.graphics.Typeface;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
@@ -44,13 +41,12 @@ import com.sharedfund.app.data.RoomRepository;
 import com.sharedfund.app.data.SafeDns;
 import com.sharedfund.app.data.TransactionRepository;
 import com.sharedfund.app.data.UserSessionManager;
+import com.sharedfund.app.model.Transaction;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.time.Instant;
 import java.util.Locale;
-import java.util.Random;
-import java.util.UUID;
 import java.util.concurrent.Executors;
 
 import okhttp3.OkHttpClient;
@@ -86,12 +82,12 @@ public class WalletTransferBottomSheet extends BottomSheetDialogFragment {
     private LinearLayout layoutQrSection;
     private ImageView ivQrCode;
     private TextView tvTransferInfo;
-    private MaterialButton btnDoneDeposit;
-    private MaterialButton btnDemoPaymentSuccess;
 
     private double pendingDepositAmount = 0.0;
     private String depositQrGeneratedAt;
-    private String demoPaymentReference;
+    private final Handler sepayPollHandler = new Handler(Looper.getMainLooper());
+    private Runnable sepayPollRunnable;
+    private boolean isPollingSePay = false;
 
     private TextView tvAvailableBalance;
     private TextInputLayout tilWithdrawAmount;
@@ -157,6 +153,12 @@ public class WalletTransferBottomSheet extends BottomSheetDialogFragment {
         setupWithdrawSection();
     }
 
+    @Override
+    public void onDestroyView() {
+        stopSePayPolling();
+        super.onDestroyView();
+    }
+
     private void initViews(View view) {
         btnTransferClose = view.findViewById(R.id.btnTransferClose);
         btnTabDeposit = view.findViewById(R.id.btnTabDeposit);
@@ -179,8 +181,6 @@ public class WalletTransferBottomSheet extends BottomSheetDialogFragment {
         layoutQrSection = view.findViewById(R.id.layoutQrSection);
         ivQrCode = view.findViewById(R.id.ivQrCode);
         tvTransferInfo = view.findViewById(R.id.tvTransferInfo);
-        btnDoneDeposit = view.findViewById(R.id.btnDoneDeposit);
-        btnDemoPaymentSuccess = view.findViewById(R.id.btnDemoPaymentSuccess);
 
         tvAvailableBalance = view.findViewById(R.id.tvAvailableBalance);
         tilWithdrawAmount = view.findViewById(R.id.tilWithdrawAmount);
@@ -223,6 +223,7 @@ public class WalletTransferBottomSheet extends BottomSheetDialogFragment {
         layoutTabWithdraw.setVisibility(isDeposit ? View.GONE : View.VISIBLE);
 
         if (!isDeposit) {
+            stopSePayPolling();
             loadWalletBalanceForWithdraw();
         }
     }
@@ -237,18 +238,16 @@ public class WalletTransferBottomSheet extends BottomSheetDialogFragment {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
                 if (tilDepositAmount.getError() != null) tilDepositAmount.setError(null);
+                stopSePayPolling();
                 layoutQrSection.setVisibility(View.GONE);
                 pendingDepositAmount = 0.0;
                 depositQrGeneratedAt = null;
-                btnGenerateQr.setText("Quét mã QR");
+                btnGenerateQr.setText("Tạo mã VietQR");
             }
             @Override public void afterTextChanged(Editable s) {}
         });
 
         btnGenerateQr.setOnClickListener(v -> generateDepositQr());
-        btnDoneDeposit.setOnClickListener(v -> confirmDepositPayment());
-        btnDemoPaymentSuccess.setOnClickListener(v -> simulateDemoDeposit());
-        btnDemoPaymentSuccess.setVisibility(isDebugBuild() ? View.VISIBLE : View.GONE);
     }
 
     private void generateDepositQr() {
@@ -260,7 +259,7 @@ public class WalletTransferBottomSheet extends BottomSheetDialogFragment {
 
         double amount;
         try {
-            amount = Double.parseDouble(amountStr);
+            amount = Double.parseDouble(amountStr.replace(".", "").replace(",", ""));
         } catch (NumberFormatException e) {
             tilDepositAmount.setError("Số tiền không hợp lệ");
             return;
@@ -278,9 +277,9 @@ public class WalletTransferBottomSheet extends BottomSheetDialogFragment {
             return;
         }
 
+        stopSePayPolling();
         pendingDepositAmount = amount;
         depositQrGeneratedAt = Instant.now().toString();
-        demoPaymentReference = "DEMO-SEPAY-" + UUID.randomUUID();
 
         pbDepositLoading.setVisibility(View.VISIBLE);
         btnGenerateQr.setEnabled(false);
@@ -297,11 +296,11 @@ public class WalletTransferBottomSheet extends BottomSheetDialogFragment {
         String formattedAmount = df.format(amount) + " ₫";
 
         tvTransferInfo.setText(
-                "🏦 Ngân hàng: " + bankName + "\n"
-                        + "💳 STK: " + accountNumber + "  (📋 Chạm để sao chép)\n"
-                        + "👤 Chủ TK: " + accountName + "\n"
-                        + "💰 Số tiền: " + formattedAmount + "\n"
-                        + "📝 Nội dung: " + transferContent + "  (📋 Chạm để sao chép)"
+                "Ngân hàng: " + bankName + "\n"
+                        + "Số tài khoản: " + accountNumber + " (Chạm để sao chép)\n"
+                        + "Chủ tài khoản: " + accountName + "\n"
+                        + "Số tiền: " + formattedAmount + "\n"
+                        + "Nội dung chuyển khoản: " + transferContent
         );
 
         tvTransferInfo.setOnClickListener(v -> {
@@ -332,10 +331,6 @@ public class WalletTransferBottomSheet extends BottomSheetDialogFragment {
                 }
             } catch (Exception ignored) {}
 
-            if (downloadedBitmap == null) {
-                downloadedBitmap = generateQrPlaceholderBitmap(accountNumber, formattedAmount, transferContent);
-            }
-
             final Bitmap qrBitmap = downloadedBitmap;
             if (getActivity() != null) {
                 getActivity().runOnUiThread(() -> {
@@ -345,7 +340,7 @@ public class WalletTransferBottomSheet extends BottomSheetDialogFragment {
 
                     if (qrBitmap == null) {
                         layoutQrSection.setVisibility(View.GONE);
-                        Toast.makeText(requireContext(), "Không tải được mã QR. Vui lòng thử lại.", Toast.LENGTH_LONG).show();
+                        Toast.makeText(requireContext(), "Không tải được mã VietQR. Vui lòng kiểm tra kết nối mạng.", Toast.LENGTH_LONG).show();
                         return;
                     }
 
@@ -354,163 +349,59 @@ public class WalletTransferBottomSheet extends BottomSheetDialogFragment {
                     ivQrCode.setScaleType(ImageView.ScaleType.FIT_CENTER);
 
                     layoutQrSection.setVisibility(View.VISIBLE);
-                    btnGenerateQr.setText("Quét lại mã QR");
-                    Toast.makeText(requireContext(), "Mã VietQR đã sẵn sàng!", Toast.LENGTH_SHORT).show();
+                    btnGenerateQr.setText("Tạo lại mã VietQR");
+                    startSePayPolling(userId, amount, depositQrGeneratedAt);
                 });
             }
         });
     }
 
-    private Bitmap generateQrPlaceholderBitmap(String accountNumber, String amount, String content) {
-        int size = 480;
-        Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(bitmap);
-
-        Paint bgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        bgPaint.setColor(Color.WHITE);
-        canvas.drawRoundRect(new RectF(0, 0, size, size), 20, 20, bgPaint);
-
-        Paint borderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        borderPaint.setStyle(Paint.Style.STROKE);
-        borderPaint.setColor(Color.parseColor("#0052CC"));
-        borderPaint.setStrokeWidth(4);
-        canvas.drawRoundRect(new RectF(4, 4, size - 4, size - 4), 18, 18, borderPaint);
-
-        Paint titlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        titlePaint.setColor(Color.parseColor("#0052CC"));
-        titlePaint.setTextSize(30);
-        titlePaint.setTypeface(Typeface.DEFAULT_BOLD);
-        titlePaint.setTextAlign(Paint.Align.CENTER);
-        canvas.drawText("VietQR - SharedFund", size / 2f, 48, titlePaint);
-
-        Paint qrDotPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        qrDotPaint.setColor(Color.parseColor("#1E293B"));
-        int qrSize = 250;
-        int qrAreaX = (size - qrSize) / 2;
-        int qrAreaY = 75;
-        int cellSize = 10;
-        Random rand = new Random(accountNumber.hashCode());
-
-        drawQrAnchor(canvas, qrDotPaint, qrAreaX, qrAreaY, 56);
-        drawQrAnchor(canvas, qrDotPaint, qrAreaX + qrSize - 56, qrAreaY, 56);
-        drawQrAnchor(canvas, qrDotPaint, qrAreaX, qrAreaY + qrSize - 56, 56);
-
-        for (int x = qrAreaX + 64; x < qrAreaX + qrSize - 64; x += cellSize) {
-            for (int y = qrAreaY + 64; y < qrAreaY + qrSize - 64; y += cellSize) {
-                if (rand.nextBoolean()) {
-                    canvas.drawRect(x, y, x + cellSize - 2, y + cellSize - 2, qrDotPaint);
-                }
-            }
-        }
-
-        Paint infoPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        infoPaint.setColor(Color.parseColor("#0F172A"));
-        infoPaint.setTextSize(20);
-        infoPaint.setTextAlign(Paint.Align.CENTER);
-        canvas.drawText("STK: " + accountNumber, size / 2f, qrAreaY + qrSize + 36, infoPaint);
-
-        Paint amountPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        amountPaint.setColor(Color.parseColor("#10B981"));
-        amountPaint.setTextSize(26);
-        amountPaint.setTypeface(Typeface.DEFAULT_BOLD);
-        amountPaint.setTextAlign(Paint.Align.CENTER);
-        canvas.drawText(amount, size / 2f, qrAreaY + qrSize + 70, amountPaint);
-
-        Paint contentPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        contentPaint.setColor(Color.parseColor("#64748B"));
-        contentPaint.setTextSize(16);
-        contentPaint.setTextAlign(Paint.Align.CENTER);
-        canvas.drawText("ND: " + content, size / 2f, qrAreaY + qrSize + 100, contentPaint);
-
-        return bitmap;
-    }
-
-    private void drawQrAnchor(Canvas canvas, Paint paint, int x, int y, int size) {
-        Paint outerPaint = new Paint(paint);
-        outerPaint.setStyle(Paint.Style.STROKE);
-        outerPaint.setStrokeWidth(6);
-        canvas.drawRect(x, y, x + size, y + size, outerPaint);
-
-        int inset = size / 4;
-        canvas.drawRect(x + inset, y + inset, x + size - inset, y + size - inset, paint);
-    }
-
-    private void confirmDepositPayment() {
-        if (pendingDepositAmount <= 0 || depositQrGeneratedAt == null) return;
-        btnDoneDeposit.setEnabled(false);
-        UserSessionManager session = UserSessionManager.getInstance(requireContext());
-        TransactionRepository repository = new TransactionRepository();
-        repository.setAccessToken(session.getAccessToken());
-
-        repository.findConfirmedWalletPayment(session.getUserId(), pendingDepositAmount, depositQrGeneratedAt,
-                new TransactionRepository.DataCallback<com.sharedfund.app.model.Transaction>() {
-                    @Override
-                    public void onSuccess(com.sharedfund.app.model.Transaction transaction) {
-                        if (!isAdded()) return;
-                        requireActivity().runOnUiThread(() -> {
-                            if (!isAdded()) return;
-                            btnDoneDeposit.setEnabled(true);
-                            if (transaction == null) {
-                                Toast.makeText(requireContext(), "SePay chưa xác nhận khoản chuyển này. Hãy đợi rồi kiểm tra lại.", Toast.LENGTH_LONG).show();
-                                return;
+    private void startSePayPolling(String userId, double expectedAmount, String sinceIsoTime) {
+        stopSePayPolling();
+        isPollingSePay = true;
+        sepayPollRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (!isPollingSePay || !isAdded() || getContext() == null) return;
+                UserSessionManager session = UserSessionManager.getInstance(requireContext());
+                transactionRepository.setAccessToken(session.getAccessToken());
+                transactionRepository.findConfirmedWalletPayment(userId, expectedAmount, sinceIsoTime,
+                        new TransactionRepository.DataCallback<Transaction>() {
+                            @Override
+                            public void onSuccess(Transaction transaction) {
+                                if (!isPollingSePay || !isAdded()) return;
+                                requireActivity().runOnUiThread(() -> {
+                                    if (!isPollingSePay || !isAdded()) return;
+                                    if (transaction != null) {
+                                        stopSePayPolling();
+                                        RoomRepository.getInstance().onRemoteTransactionReceived(transaction);
+                                        RoomRepository.getInstance().loadUserProfile();
+                                        if (listener != null) listener.onTransferComplete();
+                                        Toast.makeText(requireContext(), "Giao dịch thành công! Đã cập nhật số dư ví Koin.", Toast.LENGTH_SHORT).show();
+                                        dismiss();
+                                    } else {
+                                        sepayPollHandler.postDelayed(sepayPollRunnable, 3000);
+                                    }
+                                });
                             }
-                            RoomRepository.getInstance().onRemoteTransactionReceived(transaction);
-                            RoomRepository.getInstance().loadUserProfile();
-                            if (listener != null) listener.onTransferComplete();
-                            Toast.makeText(requireContext(), "Nạp tiền vào ví thành công!", Toast.LENGTH_SHORT).show();
-                            dismiss();
-                        });
-                    }
 
-                    @Override
-                    public void onError(String message) {
-                        if (!isAdded()) return;
-                        requireActivity().runOnUiThread(() -> {
-                            if (!isAdded()) return;
-                            btnDoneDeposit.setEnabled(true);
-                            Toast.makeText(requireContext(), "Không kiểm tra được trạng thái thanh toán: " + message, Toast.LENGTH_LONG).show();
+                            @Override
+                            public void onError(String message) {
+                                if (!isPollingSePay || !isAdded()) return;
+                                sepayPollHandler.postDelayed(sepayPollRunnable, 3000);
+                            }
                         });
-                    }
-                });
+            }
+        };
+        sepayPollHandler.postDelayed(sepayPollRunnable, 3000);
     }
 
-    private void simulateDemoDeposit() {
-        if (!isDebugBuild() || pendingDepositAmount <= 0 || depositQrGeneratedAt == null) return;
-        UserSessionManager session = UserSessionManager.getInstance(requireContext());
-        String userId = session.getUserId();
-        if (userId == null || userId.trim().isEmpty()) return;
-
-        btnDoneDeposit.setEnabled(false);
-        btnDemoPaymentSuccess.setEnabled(false);
-        TransactionRepository repository = new TransactionRepository();
-        repository.setAccessToken(session.getAccessToken());
-        repository.simulateSePayPaymentForDemo(userId, null, pendingDepositAmount, demoPaymentReference,
-                new TransactionRepository.DataCallback<JsonObject>() {
-                    @Override
-                    public void onSuccess(JsonObject result) {
-                        if (!isAdded()) return;
-                        requireActivity().runOnUiThread(() -> {
-                            if (!isAdded()) return;
-                            btnDoneDeposit.setEnabled(true);
-                            btnDemoPaymentSuccess.setEnabled(true);
-                            RoomRepository.getInstance().loadUserProfile();
-                            if (listener != null) listener.onTransferComplete();
-                            Toast.makeText(requireContext(), "Mô phỏng nạp ví thành công (DEMO)!", Toast.LENGTH_SHORT).show();
-                            dismiss();
-                        });
-                    }
-
-                    @Override
-                    public void onError(String message) {
-                        if (!isAdded()) return;
-                        requireActivity().runOnUiThread(() -> {
-                            if (!isAdded()) return;
-                            btnDoneDeposit.setEnabled(true);
-                            btnDemoPaymentSuccess.setEnabled(true);
-                            Toast.makeText(requireContext(), "Mô phỏng nạp ví thất bại: " + message, Toast.LENGTH_LONG).show();
-                        });
-                    }
-                });
+    private void stopSePayPolling() {
+        isPollingSePay = false;
+        if (sepayPollRunnable != null) {
+            sepayPollHandler.removeCallbacks(sepayPollRunnable);
+            sepayPollRunnable = null;
+        }
     }
 
     private void setupWithdrawSection() {
@@ -627,7 +518,7 @@ public class WalletTransferBottomSheet extends BottomSheetDialogFragment {
                         if (!isAdded()) return;
                         requireActivity().runOnUiThread(() -> {
                             setWithdrawLoading(false);
-                            Toast.makeText(requireContext(), "Yêu cầu rút tiền thành công!", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(requireContext(), "Đã rút tiền từ ví về ngân hàng thành công!", Toast.LENGTH_SHORT).show();
                             RoomRepository.getInstance().loadUserProfile();
                             if (listener != null) listener.onTransferComplete();
                             dismiss();
@@ -648,9 +539,5 @@ public class WalletTransferBottomSheet extends BottomSheetDialogFragment {
     private void setWithdrawLoading(boolean loading) {
         pbWithdrawLoading.setVisibility(loading ? View.VISIBLE : View.GONE);
         btnConfirmWithdraw.setEnabled(!loading);
-    }
-
-    private boolean isDebugBuild() {
-        return (requireContext().getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0;
     }
 }

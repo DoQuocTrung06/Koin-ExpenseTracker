@@ -68,6 +68,7 @@ public class RoomViewModel extends ViewModel {
     public void setRoomId(String roomId) {
         this.roomId = roomId;
         refresh();
+        repository.refreshRoomTransactions(roomId, null);
     }
 
     public String getRoomId() {

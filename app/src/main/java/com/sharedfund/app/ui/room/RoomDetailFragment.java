@@ -1111,13 +1111,36 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
         sheet.setActionListener(new TransactionDetailBottomSheet.OnTransactionActionListener() {
             @Override
             public void onApprove(Transaction tx) {
-                String adminId = RoomRepository.getInstance().getCurrentUserId();
-                RoomRepository.getInstance().configureAccessToken(UserSessionManager.getInstance(requireContext()).getAccessToken());
-                new com.sharedfund.app.data.TransactionRepository().approveExpense(adminId, tx.getId(), new com.sharedfund.app.data.TransactionRepository.DataCallback<com.google.gson.JsonObject>() {
+                UserSessionManager session = UserSessionManager.getInstance(requireContext());
+                String adminId = session.getUserId();
+                RoomRepository.getInstance().configureAccessToken(session.getAccessToken());
+                com.sharedfund.app.data.TransactionRepository remote = new com.sharedfund.app.data.TransactionRepository();
+                remote.setAccessToken(session.getAccessToken());
+                remote.approveExpense(adminId, tx.getId(), new com.sharedfund.app.data.TransactionRepository.DataCallback<com.google.gson.JsonObject>() {
                     @Override
                     public void onSuccess(com.google.gson.JsonObject data) {
                         if (isAdded()) {
                             requireActivity().runOnUiThread(() -> {
+                                RoomRepository.getInstance().loadUserProfile();
+                                RoomRepository.getInstance().refreshRoomTransactions(roomId, new RoomRepository.DataCallback<List<Transaction>>() {
+                                    @Override
+                                    public void onSuccess(List<Transaction> value) {
+                                        if (isAdded()) {
+                                            requireActivity().runOnUiThread(() -> {
+                                                if (viewModel != null) viewModel.refresh();
+                                            });
+                                        }
+                                    }
+
+                                    @Override
+                                    public void onError(String message) {
+                                        if (isAdded()) {
+                                            requireActivity().runOnUiThread(() -> {
+                                                if (viewModel != null) viewModel.refresh();
+                                            });
+                                        }
+                                    }
+                                });
                                 AppToaster.success(requireActivity(), "Đã duyệt khoản chi thành công!");
                                 if (viewModel != null) viewModel.refresh();
                             });
@@ -1135,12 +1158,35 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
             @Override
             public void onReject(Transaction tx, String reason) {
-                String adminId = RoomRepository.getInstance().getCurrentUserId();
-                new com.sharedfund.app.data.TransactionRepository().rejectExpense(adminId, tx.getId(), reason, new com.sharedfund.app.data.TransactionRepository.DataCallback<com.google.gson.JsonObject>() {
+                UserSessionManager session = UserSessionManager.getInstance(requireContext());
+                String adminId = session.getUserId();
+                RoomRepository.getInstance().configureAccessToken(session.getAccessToken());
+                com.sharedfund.app.data.TransactionRepository remote = new com.sharedfund.app.data.TransactionRepository();
+                remote.setAccessToken(session.getAccessToken());
+                remote.rejectExpense(adminId, tx.getId(), reason, new com.sharedfund.app.data.TransactionRepository.DataCallback<com.google.gson.JsonObject>() {
                     @Override
                     public void onSuccess(com.google.gson.JsonObject data) {
                         if (isAdded()) {
                             requireActivity().runOnUiThread(() -> {
+                                RoomRepository.getInstance().refreshRoomTransactions(roomId, new RoomRepository.DataCallback<List<Transaction>>() {
+                                    @Override
+                                    public void onSuccess(List<Transaction> value) {
+                                        if (isAdded()) {
+                                            requireActivity().runOnUiThread(() -> {
+                                                if (viewModel != null) viewModel.refresh();
+                                            });
+                                        }
+                                    }
+
+                                    @Override
+                                    public void onError(String message) {
+                                        if (isAdded()) {
+                                            requireActivity().runOnUiThread(() -> {
+                                                if (viewModel != null) viewModel.refresh();
+                                            });
+                                        }
+                                    }
+                                });
                                 AppToaster.info(requireActivity(), "Đã từ chối khoản chi!");
                                 if (viewModel != null) viewModel.refresh();
                             });

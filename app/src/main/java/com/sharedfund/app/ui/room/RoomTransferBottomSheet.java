@@ -1,5 +1,8 @@
 package com.sharedfund.app.ui.room;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -8,6 +11,8 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
@@ -17,15 +22,24 @@ import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
+import com.google.gson.JsonObject;
+import com.google.zxing.BinaryBitmap;
+import com.google.zxing.MultiFormatReader;
+import com.google.zxing.RGBLuminanceSource;
+import com.google.zxing.Result;
+import com.google.zxing.common.HybridBinarizer;
 import com.sharedfund.app.R;
 import com.sharedfund.app.data.RoomRepository;
 import com.sharedfund.app.data.TransactionRepository;
 import com.sharedfund.app.data.UserSessionManager;
+import com.sharedfund.app.model.Room;
 import com.sharedfund.app.model.ScannedQrPayment;
 import com.sharedfund.app.model.Transaction;
 
+import java.io.InputStream;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
+import java.util.List;
 import java.util.Locale;
 
 public class RoomTransferBottomSheet extends BottomSheetDialogFragment {
@@ -71,6 +85,7 @@ public class RoomTransferBottomSheet extends BottomSheetDialogFragment {
     private MaterialButton btnConfirmTransferBank;
 
     private MaterialButton btnScanQrTransfer;
+    private MaterialButton btnPickQrImageTransfer;
     private MaterialCardView cardQrResult;
     private TextView tvQrResultDetails;
     private TextInputLayout tilQrAmount;
@@ -82,6 +97,13 @@ public class RoomTransferBottomSheet extends BottomSheetDialogFragment {
 
     private final DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.US);
     private DecimalFormat df;
+
+    private final ActivityResultLauncher<String> qrImagePicker = registerForActivityResult(
+            new ActivityResultContracts.GetContent(), uri -> {
+                if (uri != null) {
+                    decodeQrFromImage(uri);
+                }
+            });
 
     public static RoomTransferBottomSheet newInstance(String roomId, double roomBalance) {
         RoomTransferBottomSheet sheet = new RoomTransferBottomSheet();
@@ -124,6 +146,9 @@ public class RoomTransferBottomSheet extends BottomSheetDialogFragment {
         initViews(view);
         setupTabs();
         setupListeners();
+        if (pendingQr != null) {
+            setScannedQrData(pendingQr);
+        }
     }
 
     private void initViews(View view) {
@@ -156,6 +181,7 @@ public class RoomTransferBottomSheet extends BottomSheetDialogFragment {
         btnConfirmTransferBank = view.findViewById(R.id.btnConfirmTransferBank);
 
         btnScanQrTransfer = view.findViewById(R.id.btnScanQrTransfer);
+        btnPickQrImageTransfer = view.findViewById(R.id.btnPickQrImageTransfer);
         cardQrResult = view.findViewById(R.id.cardQrResult);
         tvQrResultDetails = view.findViewById(R.id.tvQrResultDetails);
         tilQrAmount = view.findViewById(R.id.tilQrAmount);
@@ -165,6 +191,23 @@ public class RoomTransferBottomSheet extends BottomSheetDialogFragment {
         btnConfirmTransferQr = view.findViewById(R.id.btnConfirmTransferQr);
 
         tvTransferRoomBalance.setText("Số dư quỹ khả dụng: " + df.format(roomBalance) + " ₫");
+
+        boolean isOwner = isCurrentUserOwner();
+        btnConfirmTransferWallet.setText(isOwner
+                ? "Xác nhận chuyển về Ví Koin"
+                : "Gửi yêu cầu chuyển về Ví (Chờ duyệt)");
+        btnConfirmTransferBank.setText(isOwner
+                ? "Xác nhận chuyển đến Ngân hàng"
+                : "Gửi yêu cầu chuyển Ngân hàng (Chờ duyệt)");
+    }
+
+    private boolean isCurrentUserOwner() {
+        Room room = RoomRepository.getInstance().getRoomSync(roomId);
+        if (room == null) return false;
+        String role = room.getCurrentUserRole();
+        if (role != null) return "ADMIN".equalsIgnoreCase(role) || "OWNER".equalsIgnoreCase(role);
+        String userId = UserSessionManager.getInstance(requireContext()).getUserId();
+        return userId != null && userId.equals(room.getCreatedBy());
     }
 
     private void setupTabs() {
@@ -183,22 +226,81 @@ public class RoomTransferBottomSheet extends BottomSheetDialogFragment {
     }
 
     private void setupListeners() {
-        btnQuickWallet50k.setOnClickListener(v -> etTransferWalletAmount.setText("50000"));
-        btnQuickWallet100k.setOnClickListener(v -> etTransferWalletAmount.setText("100000"));
-        btnQuickWallet200k.setOnClickListener(v -> etTransferWalletAmount.setText("200000"));
+        btnQuickWallet50k.setOnClickListener(v -> { etTransferWalletAmount.setText("50000"); tilTransferWalletAmount.setError(null); });
+        btnQuickWallet100k.setOnClickListener(v -> { etTransferWalletAmount.setText("100000"); tilTransferWalletAmount.setError(null); });
+        btnQuickWallet200k.setOnClickListener(v -> { etTransferWalletAmount.setText("200000"); tilTransferWalletAmount.setError(null); });
         btnQuickWalletAll.setOnClickListener(v -> {
             long maxWhole = (long) Math.floor(roomBalance);
-            if (maxWhole > 0) etTransferWalletAmount.setText(String.valueOf(maxWhole));
+            if (maxWhole > 0) {
+                etTransferWalletAmount.setText(String.valueOf(maxWhole));
+                tilTransferWalletAmount.setError(null);
+            }
         });
 
         btnConfirmTransferWallet.setOnClickListener(v -> processWalletTransfer());
         btnConfirmTransferBank.setOnClickListener(v -> processBankTransfer());
 
         btnScanQrTransfer.setOnClickListener(v -> {
+            if (!isCurrentUserOwner()) {
+                Toast.makeText(requireContext(), "Chỉ Trưởng quỹ mới có quyền quét QR thanh toán trực tiếp từ quỹ.", Toast.LENGTH_SHORT).show();
+                return;
+            }
             if (listener != null) listener.onRequestQrScan();
         });
 
+        if (btnPickQrImageTransfer != null) {
+            btnPickQrImageTransfer.setOnClickListener(v -> {
+                if (!isCurrentUserOwner()) {
+                    Toast.makeText(requireContext(), "Chỉ Trưởng quỹ mới có quyền quét QR thanh toán trực tiếp từ quỹ.", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                qrImagePicker.launch("image/*");
+            });
+        }
+
         btnConfirmTransferQr.setOnClickListener(v -> processQrTransfer());
+    }
+
+    private void decodeQrFromImage(Uri uri) {
+        try (InputStream is = requireContext().getContentResolver().openInputStream(uri)) {
+            Bitmap bitmap = BitmapFactory.decodeStream(is);
+            if (bitmap == null) {
+                Toast.makeText(requireContext(), "Không thể đọc ảnh đã chọn.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            int width = bitmap.getWidth();
+            int height = bitmap.getHeight();
+            int[] pixels = new int[width * height];
+            bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
+            RGBLuminanceSource source = new RGBLuminanceSource(width, height, pixels);
+            BinaryBitmap binaryBitmap = new BinaryBitmap(new HybridBinarizer(source));
+            Result result = new MultiFormatReader().decode(binaryBitmap);
+            if (result != null && result.getText() != null) {
+                ScannedQrPayment parsed = ScannedQrPayment.parse(result.getText());
+                if (parsed == null || parsed.accountNumber == null || parsed.accountNumber.trim().isEmpty()) {
+                    Toast.makeText(requireContext(), "Mã QR trong ảnh không chứa thông tin VietQR hợp lệ.", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                setScannedQrData(parsed);
+            }
+        } catch (Exception e) {
+            Toast.makeText(requireContext(), "Không tìm thấy mã QR hợp lệ trong ảnh.", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private String formatBankLabel(String bankBin) {
+        if (bankBin == null || bankBin.trim().isEmpty()) return "VietQR";
+        switch (bankBin.trim()) {
+            case "970422": return "MB Bank (970422)";
+            case "970436": return "Vietcombank (970436)";
+            case "970415": return "VietinBank (970415)";
+            case "970418": return "BIDV (970418)";
+            case "970407": return "Techcombank (970407)";
+            case "970416": return "ACB (970416)";
+            case "970432": return "VPBank (970432)";
+            case "970423": return "TPBank (970423)";
+            default: return "BIN " + bankBin.trim();
+        }
     }
 
     public void setScannedQrData(ScannedQrPayment parsed) {
@@ -209,9 +311,9 @@ public class RoomTransferBottomSheet extends BottomSheetDialogFragment {
         }
         if (cardQrResult != null && parsed != null) {
             cardQrResult.setVisibility(View.VISIBLE);
-            String info = "Tài khoản nhận: " + parsed.accountNumber
-                    + "\nNgân hàng/BIN: " + (parsed.bankBin != null ? parsed.bankBin : "Không xác định")
-                    + "\nNgười nhận: " + (parsed.recipientName != null ? parsed.recipientName : "Chưa xác định");
+            String info = "🏦 Ngân hàng: " + formatBankLabel(parsed.bankBin)
+                    + "\n💳 Số TK nhận: " + parsed.accountNumber
+                    + "\n👤 Người nhận: " + (parsed.recipientName != null && !parsed.recipientName.trim().isEmpty() ? parsed.recipientName : "Tài khoản VietQR");
             tvQrResultDetails.setText(info);
             if (parsed.amount != null && parsed.amount > 0) {
                 etQrAmount.setText(String.valueOf(parsed.amount.longValue()));
@@ -250,36 +352,96 @@ public class RoomTransferBottomSheet extends BottomSheetDialogFragment {
         String note = etTransferWalletNote.getText() != null ? etTransferWalletNote.getText().toString().trim() : "";
         if (note.isEmpty()) note = "Rút tiền về ví Koin";
 
+        boolean isOwner = isCurrentUserOwner();
         UserSessionManager session = UserSessionManager.getInstance(requireContext());
         String userId = session.getUserId();
         String userName = session.getCurrentUserName();
 
+        if (userId == null || userId.isEmpty() || userId.startsWith("user-") || (roomId != null && roomId.startsWith("room-"))) {
+            Transaction tx = new Transaction();
+            tx.setRoomId(roomId);
+            tx.setUserId(userId);
+            tx.setCreatedBy(userName != null ? userName : "Bạn");
+            tx.setType(Transaction.TYPE_EXPENSE);
+            tx.setAmount(amount);
+            tx.setCategory("Rút về ví");
+            tx.setNote(note);
+            tx.setStatus(isOwner ? "APPROVED" : "PENDING");
+            RoomRepository.getInstance().addTransaction(tx);
+            if (isOwner) {
+                double currentWallet = RoomRepository.getInstance().getUserWalletBalance();
+                RoomRepository.getInstance().setUserWalletBalance(currentWallet + amount);
+            }
+            Toast.makeText(requireContext(), isOwner
+                    ? "Đã chuyển " + df.format(amount) + " ₫ về Ví Koin thành công!"
+                    : "Đã gửi yêu cầu chuyển về Ví. Chờ Trưởng quỹ phê duyệt!", Toast.LENGTH_SHORT).show();
+            if (listener != null) listener.onTransferComplete();
+            dismiss();
+            return;
+        }
+
         btnConfirmTransferWallet.setEnabled(false);
-
-        Transaction tx = new Transaction();
-        tx.setRoomId(roomId);
-        tx.setUserId(userId);
-        tx.setCreatedBy(userName != null ? userName : "Bạn");
-        tx.setType(Transaction.TYPE_EXPENSE);
-        tx.setAmount(amount);
-        tx.setCategory("Rút về ví");
-        tx.setNote(note);
-        tx.setStatus("APPROVED");
-
-        RoomRepository.getInstance().addTransaction(tx);
-        double currentWallet = RoomRepository.getInstance().getUserWalletBalance();
-        RoomRepository.getInstance().setUserWalletBalance(currentWallet + amount);
+        btnConfirmTransferWallet.setText("Đang xử lý...");
 
         TransactionRepository remote = new TransactionRepository();
         remote.setAccessToken(session.getAccessToken());
-        remote.submitWithdrawal(userId, userName, roomId, amount, "Rút về ví", note, true, new TransactionRepository.DataCallback<Transaction>() {
-            @Override public void onSuccess(Transaction created) {}
-            @Override public void onError(String errorMessage) {}
-        });
+        remote.submitWithdrawal(userId, userName != null ? userName : "Member", roomId, amount, "Rút về ví", note, isOwner,
+                new TransactionRepository.DataCallback<Transaction>() {
+                    @Override
+                    public void onSuccess(Transaction created) {
+                        if (!isAdded()) return;
+                        requireActivity().runOnUiThread(() -> {
+                            if (!isAdded()) return;
+                            if (created != null) {
+                                RoomRepository.getInstance().onRemoteTransactionReceived(created);
+                            }
+                            if (isOwner) {
+                                RoomRepository.getInstance().loadUserProfile();
+                            }
+                            RoomRepository.getInstance().refreshRoomTransactions(roomId, new RoomRepository.DataCallback<List<Transaction>>() {
+                                @Override
+                                public void onSuccess(List<Transaction> value) {
+                                    if (!isAdded()) return;
+                                    requireActivity().runOnUiThread(() -> {
+                                        if (!isAdded()) return;
+                                        Toast.makeText(requireContext(), isOwner
+                                                ? "Đã chuyển " + df.format(amount) + " ₫ về Ví Koin thành công!"
+                                                : "Đã gửi yêu cầu chuyển về Ví. Vui lòng chờ Trưởng quỹ duyệt!", Toast.LENGTH_SHORT).show();
+                                        if (listener != null) listener.onTransferComplete();
+                                        dismiss();
+                                    });
+                                }
 
-        Toast.makeText(requireContext(), "Đã chuyển " + df.format(amount) + " ₫ về Ví Koin thành công!", Toast.LENGTH_SHORT).show();
-        if (listener != null) listener.onTransferComplete();
-        dismiss();
+                                @Override
+                                public void onError(String message) {
+                                    if (!isAdded()) return;
+                                    requireActivity().runOnUiThread(() -> {
+                                        if (!isAdded()) return;
+                                        Toast.makeText(requireContext(), isOwner
+                                                ? "Đã chuyển " + df.format(amount) + " ₫ về Ví Koin thành công!"
+                                                : "Đã gửi yêu cầu chuyển về Ví. Vui lòng chờ Trưởng quỹ duyệt!", Toast.LENGTH_SHORT).show();
+                                        if (listener != null) listener.onTransferComplete();
+                                        dismiss();
+                                    });
+                                }
+                            });
+                        });
+                    }
+
+                    @Override
+                    public void onError(String errorMessage) {
+                        if (!isAdded()) return;
+                        requireActivity().runOnUiThread(() -> {
+                            if (!isAdded()) return;
+                            btnConfirmTransferWallet.setEnabled(true);
+                            btnConfirmTransferWallet.setText(isOwner
+                                    ? "Xác nhận chuyển về Ví Koin"
+                                    : "Gửi yêu cầu chuyển về Ví (Chờ duyệt)");
+                            tilTransferWalletAmount.setError(errorMessage);
+                            Toast.makeText(requireContext(), "Chuyển tiền thất bại: " + errorMessage, Toast.LENGTH_LONG).show();
+                        });
+                    }
+                });
     }
 
     private void processBankTransfer() {
@@ -326,38 +488,106 @@ public class RoomTransferBottomSheet extends BottomSheetDialogFragment {
         }
 
         if (note.isEmpty()) note = "Chuyển tiền quỹ đến " + bank;
+        String fullNote = note + " (" + bank + " - STK: " + accNum + (holder.isEmpty() ? "" : " - " + holder) + ")";
 
+        boolean isOwner = isCurrentUserOwner();
         UserSessionManager session = UserSessionManager.getInstance(requireContext());
         String userId = session.getUserId();
         String userName = session.getCurrentUserName();
 
+        if (userId == null || userId.isEmpty() || userId.startsWith("user-") || (roomId != null && roomId.startsWith("room-"))) {
+            Transaction tx = new Transaction();
+            tx.setRoomId(roomId);
+            tx.setUserId(userId);
+            tx.setCreatedBy(userName != null ? userName : "Bạn");
+            tx.setType(Transaction.TYPE_EXPENSE);
+            tx.setAmount(amount);
+            tx.setCategory("Chuyển ngân hàng");
+            tx.setNote(fullNote);
+            tx.setStatus(isOwner ? "APPROVED" : "PENDING");
+            RoomRepository.getInstance().addTransaction(tx);
+            Toast.makeText(requireContext(), isOwner
+                    ? "Đã lập lệnh chuyển " + df.format(amount) + " ₫ đến ngân hàng!"
+                    : "Đã gửi yêu cầu chuyển khoản ngân hàng. Chờ Trưởng quỹ duyệt!", Toast.LENGTH_SHORT).show();
+            if (listener != null) listener.onTransferComplete();
+            dismiss();
+            return;
+        }
+
         btnConfirmTransferBank.setEnabled(false);
-
-        Transaction tx = new Transaction();
-        tx.setRoomId(roomId);
-        tx.setUserId(userId);
-        tx.setCreatedBy(userName != null ? userName : "Bạn");
-        tx.setType(Transaction.TYPE_EXPENSE);
-        tx.setAmount(amount);
-        tx.setCategory("Chuyển ngân hàng");
-        tx.setNote(note + " (" + bank + " - " + accNum + (holder.isEmpty() ? "" : " - " + holder) + ")");
-        tx.setStatus("APPROVED");
-
-        RoomRepository.getInstance().addTransaction(tx);
+        btnConfirmTransferBank.setText("Đang xử lý...");
 
         TransactionRepository remote = new TransactionRepository();
         remote.setAccessToken(session.getAccessToken());
-        remote.submitWithdrawal(userId, userName, roomId, amount, "Chuyển ngân hàng", tx.getNote(), true, new TransactionRepository.DataCallback<Transaction>() {
-            @Override public void onSuccess(Transaction created) {}
-            @Override public void onError(String errorMessage) {}
-        });
+        remote.submitWithdrawal(userId, userName != null ? userName : "Member", roomId, amount, "Chuyển ngân hàng", fullNote, isOwner,
+                new TransactionRepository.DataCallback<Transaction>() {
+                    @Override
+                    public void onSuccess(Transaction created) {
+                        if (!isAdded()) return;
+                        requireActivity().runOnUiThread(() -> {
+                            if (!isAdded()) return;
+                            if (created != null) {
+                                RoomRepository.getInstance().onRemoteTransactionReceived(created);
+                            }
+                            if (isOwner) {
+                                RoomRepository.getInstance().loadUserProfile();
+                            }
+                            RoomRepository.getInstance().refreshRoomTransactions(roomId, new RoomRepository.DataCallback<List<Transaction>>() {
+                                @Override
+                                public void onSuccess(List<Transaction> value) {
+                                    if (!isAdded()) return;
+                                    requireActivity().runOnUiThread(() -> {
+                                        if (!isAdded()) return;
+                                        Toast.makeText(requireContext(), isOwner
+                                                ? "Đã lập lệnh chuyển " + df.format(amount) + " ₫ đến ngân hàng!"
+                                                : "Đã gửi yêu cầu chuyển khoản ngân hàng. Vui lòng chờ Trưởng quỹ duyệt!", Toast.LENGTH_SHORT).show();
+                                        if (listener != null) listener.onTransferComplete();
+                                        dismiss();
+                                    });
+                                }
 
-        Toast.makeText(requireContext(), "Đã lập lệnh chuyển " + df.format(amount) + " ₫ đến ngân hàng!", Toast.LENGTH_SHORT).show();
-        if (listener != null) listener.onTransferComplete();
-        dismiss();
+                                @Override
+                                public void onError(String message) {
+                                    if (!isAdded()) return;
+                                    requireActivity().runOnUiThread(() -> {
+                                        if (!isAdded()) return;
+                                        Toast.makeText(requireContext(), isOwner
+                                                ? "Đã lập lệnh chuyển " + df.format(amount) + " ₫ đến ngân hàng!"
+                                                : "Đã gửi yêu cầu chuyển khoản ngân hàng. Vui lòng chờ Trưởng quỹ duyệt!", Toast.LENGTH_SHORT).show();
+                                        if (listener != null) listener.onTransferComplete();
+                                        dismiss();
+                                    });
+                                }
+                            });
+                        });
+                    }
+
+                    @Override
+                    public void onError(String errorMessage) {
+                        if (!isAdded()) return;
+                        requireActivity().runOnUiThread(() -> {
+                            if (!isAdded()) return;
+                            btnConfirmTransferBank.setEnabled(true);
+                            btnConfirmTransferBank.setText(isOwner
+                                    ? "Xác nhận chuyển đến Ngân hàng"
+                                    : "Gửi yêu cầu chuyển Ngân hàng (Chờ duyệt)");
+                            tilTransferBankAmount.setError(errorMessage);
+                            Toast.makeText(requireContext(), "Chuyển ngân hàng thất bại: " + errorMessage, Toast.LENGTH_LONG).show();
+                        });
+                    }
+                });
     }
 
     private void processQrTransfer() {
+        if (!isCurrentUserOwner()) {
+            Toast.makeText(requireContext(), "Chỉ Trưởng quỹ mới có quyền xác nhận chi quỹ qua mã QR.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (pendingQr == null || pendingQr.accountNumber == null || pendingQr.accountNumber.trim().isEmpty()) {
+            Toast.makeText(requireContext(), "Vui lòng quét mã QR hoặc chọn ảnh QR hợp lệ trước.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         String amountStr = etQrAmount.getText() != null ? etQrAmount.getText().toString().trim() : "";
         if (amountStr.isEmpty()) {
             tilQrAmount.setError("Vui lòng nhập số tiền");
@@ -390,35 +620,75 @@ public class RoomTransferBottomSheet extends BottomSheetDialogFragment {
         String userId = session.getUserId();
         String userName = session.getCurrentUserName();
 
-        btnConfirmTransferQr.setEnabled(false);
-
-        Transaction tx = new Transaction();
-        tx.setRoomId(roomId);
-        tx.setUserId(userId);
-        tx.setCreatedBy(userName != null ? userName : "Bạn");
-        tx.setType(Transaction.TYPE_EXPENSE);
-        tx.setAmount(amount);
-        tx.setCategory("Chi QR");
-        String recipientNote = pendingQr != null && pendingQr.accountNumber != null
-                ? " (" + pendingQr.accountNumber + (pendingQr.recipientName != null ? " - " + pendingQr.recipientName : "") + ")"
-                : "";
-        tx.setNote(note + recipientNote);
-        tx.setStatus("APPROVED");
-
-        RoomRepository.getInstance().addTransaction(tx);
-
-        if (pendingQr != null) {
-            TransactionRepository remote = new TransactionRepository();
-            remote.setAccessToken(session.getAccessToken());
-            remote.payRoomRecipient(roomId, amount, "Chi QR", note, pendingQr.bankBin, pendingQr.accountNumber,
-                    pendingQr.recipientName, pendingQr.transferContent, new TransactionRepository.DataCallback<com.google.gson.JsonObject>() {
-                        @Override public void onSuccess(com.google.gson.JsonObject data) {}
-                        @Override public void onError(String errorMessage) {}
-                    });
+        if (userId == null || userId.isEmpty() || userId.startsWith("user-") || (roomId != null && roomId.startsWith("room-"))) {
+            Transaction tx = new Transaction();
+            tx.setRoomId(roomId);
+            tx.setUserId(userId);
+            tx.setCreatedBy(userName != null ? userName : "Bạn");
+            tx.setType(Transaction.TYPE_EXPENSE);
+            tx.setAmount(amount);
+            tx.setCategory("Chi QR");
+            String recipientNote = " (" + formatBankLabel(pendingQr.bankBin) + " - " + pendingQr.accountNumber
+                    + (pendingQr.recipientName != null ? " - " + pendingQr.recipientName : "") + ")";
+            tx.setNote(note + recipientNote);
+            tx.setStatus("APPROVED");
+            RoomRepository.getInstance().addTransaction(tx);
+            Toast.makeText(requireContext(), "Đã thanh toán " + df.format(amount) + " ₫ qua QR từ quỹ thành công!", Toast.LENGTH_SHORT).show();
+            if (listener != null) listener.onTransferComplete();
+            dismiss();
+            return;
         }
 
-        Toast.makeText(requireContext(), "Đã thanh toán " + df.format(amount) + " ₫ từ quỹ thành công!", Toast.LENGTH_SHORT).show();
-        if (listener != null) listener.onTransferComplete();
-        dismiss();
+        btnConfirmTransferQr.setEnabled(false);
+        btnConfirmTransferQr.setText("Đang thanh toán...");
+
+        TransactionRepository remote = new TransactionRepository();
+        remote.setAccessToken(session.getAccessToken());
+        remote.payRoomRecipient(roomId, amount, "Chi QR", note, pendingQr.bankBin, pendingQr.accountNumber,
+                pendingQr.recipientName, pendingQr.transferContent != null ? pendingQr.transferContent : note,
+                new TransactionRepository.DataCallback<JsonObject>() {
+                    @Override
+                    public void onSuccess(JsonObject data) {
+                        if (!isAdded()) return;
+                        requireActivity().runOnUiThread(() -> {
+                            if (!isAdded()) return;
+                            RoomRepository.getInstance().refreshRoomTransactions(roomId, new RoomRepository.DataCallback<List<Transaction>>() {
+                                @Override
+                                public void onSuccess(List<Transaction> value) {
+                                    if (!isAdded()) return;
+                                    requireActivity().runOnUiThread(() -> {
+                                        if (!isAdded()) return;
+                                        Toast.makeText(requireContext(), "Đã thanh toán " + df.format(amount) + " ₫ qua QR từ quỹ thành công!", Toast.LENGTH_SHORT).show();
+                                        if (listener != null) listener.onTransferComplete();
+                                        dismiss();
+                                    });
+                                }
+
+                                @Override
+                                public void onError(String message) {
+                                    if (!isAdded()) return;
+                                    requireActivity().runOnUiThread(() -> {
+                                        if (!isAdded()) return;
+                                        Toast.makeText(requireContext(), "Đã thanh toán " + df.format(amount) + " ₫ qua QR từ quỹ thành công!", Toast.LENGTH_SHORT).show();
+                                        if (listener != null) listener.onTransferComplete();
+                                        dismiss();
+                                    });
+                                }
+                            });
+                        });
+                    }
+
+                    @Override
+                    public void onError(String errorMessage) {
+                        if (!isAdded()) return;
+                        requireActivity().runOnUiThread(() -> {
+                            if (!isAdded()) return;
+                            btnConfirmTransferQr.setEnabled(true);
+                            btnConfirmTransferQr.setText("Xác nhận thanh toán từ quỹ");
+                            tilQrAmount.setError(errorMessage);
+                            Toast.makeText(requireContext(), "Thanh toán QR thất bại: " + errorMessage, Toast.LENGTH_LONG).show();
+                        });
+                    }
+                });
     }
 }

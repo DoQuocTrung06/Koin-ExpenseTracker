@@ -257,30 +257,29 @@
                     android:textColor="@color/text_primary"
                     android:textSize="12sp" />
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnDoneDeposit"
+                <LinearLayout
+                    android:id="@+id/layoutSePayListening"
                     android:layout_width="match_parent"
-                    android:layout_height="50dp"
-                    android:layout_marginTop="14dp"
-                    android:backgroundTint="@color/accent_income"
-                    android:text="Đã chuyển tiền (Xác nhận)"
-                    android:textColor="@color/white"
-                    android:textSize="14sp"
-                    android:textStyle="bold"
-                    app:cornerRadius="12dp"
-                    app:icon="@drawable/ic_check"
-                    app:iconGravity="textStart"
-                    app:iconTint="@color/white" />
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:gravity="center"
+                    android:orientation="horizontal"
+                    android:padding="8dp">
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnDemoPaymentSuccess"
-                    style="@style/Widget.Material3.Button.TonalButton"
-                    android:layout_width="match_parent"
-                    android:layout_height="44dp"
-                    android:layout_marginTop="8dp"
-                    android:text="Mô phỏng thanh toán thành công (DEMO)"
-                    android:textSize="13sp"
-                    app:cornerRadius="12dp" />
+                    <ProgressBar
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:layout_marginEnd="8dp"
+                        android:indeterminateTint="@color/primary" />
+
+                    <TextView
+                        android:id="@+id/tvSePayWaitingStatus"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Quét mã bằng ứng dụng Ngân hàng — Hệ thống tự động nhận diện giao dịch"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp" />
+                </LinearLayout>
             </LinearLayout>
         </LinearLayout>
 

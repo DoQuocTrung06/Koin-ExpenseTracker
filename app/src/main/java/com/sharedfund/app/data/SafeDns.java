@@ -37,7 +37,7 @@ public class SafeDns implements Dns, org.java_websocket.client.DnsResolver {
                     );
                 } catch (Exception ignored) {
                 }
-            } else if ("api.vietqr.io".equalsIgnoreCase(hostname)) {
+            } else if ("api.vietqr.io".equalsIgnoreCase(hostname) || "img.vietqr.io".equalsIgnoreCase(hostname)) {
                 try {
                     return Arrays.asList(
                             InetAddress.getByAddress(hostname, new byte[]{104, 26, 15, (byte) 229}),

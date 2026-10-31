@@ -776,6 +776,53 @@ public class RoomRepository {
         notifyDataChanged();
     }
 
+    public synchronized void replaceTransactionsForRoom(String roomId, List<Transaction> roomTransactions) {
+        if (roomId == null) return;
+        for (int i = transactionList.size() - 1; i >= 0; i--) {
+            Transaction existing = transactionList.get(i);
+            if (existing != null && roomId.equals(existing.getRoomId())) {
+                transactionList.remove(i);
+            }
+        }
+        if (roomTransactions != null) {
+            transactionList.addAll(0, roomTransactions);
+        }
+        recalculateAllBalances();
+        notifyDataChanged();
+    }
+
+    public void refreshRoomTransactions(String roomId, DataCallback<List<Transaction>> callback) {
+        if (roomId == null || "user-001".equals(currentUserId) || roomId.startsWith("room-")) {
+            if (callback != null) callback.onSuccess(getTransactionsForRoom(roomId));
+            return;
+        }
+        String path = "/transactions?select=*&room_id=eq." + roomId + "&order=created_at.desc";
+        client.newCall(request(path).get().build()).enqueue(new okhttp3.Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                if (callback != null) callback.onError(e.getMessage());
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                String body = response.body() != null ? response.body().string() : "";
+                if (!response.isSuccessful()) {
+                    if (callback != null) callback.onError(error(response, body));
+                    return;
+                }
+                try {
+                    Type type = new TypeToken<List<Transaction>>() {}.getType();
+                    List<Transaction> list = gson.fromJson(body, type);
+                    List<Transaction> safeList = list != null ? list : new ArrayList<>();
+                    replaceTransactionsForRoom(roomId, safeList);
+                    if (callback != null) callback.onSuccess(safeList);
+                } catch (Exception e) {
+                    if (callback != null) callback.onError(e.getMessage());
+                }
+            }
+        });
+    }
+
     public void leaveRoom(String roomId, String userId, DataCallback<Boolean> callback) {
         Room room = getRoomSync(roomId);
         if (room != null && "OWNER".equalsIgnoreCase(room.getCurrentUserRole())) {
