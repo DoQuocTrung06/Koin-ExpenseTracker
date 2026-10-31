@@ -81,7 +81,6 @@ public class WalletTransferBottomSheet extends BottomSheetDialogFragment {
     private ProgressBar pbDepositLoading;
     private LinearLayout layoutQrSection;
     private ImageView ivQrCode;
-    private TextView tvTransferInfo;
 
     private double pendingDepositAmount = 0.0;
     private String depositQrGeneratedAt;
@@ -180,7 +179,6 @@ public class WalletTransferBottomSheet extends BottomSheetDialogFragment {
         pbDepositLoading = view.findViewById(R.id.pbDepositLoading);
         layoutQrSection = view.findViewById(R.id.layoutQrSection);
         ivQrCode = view.findViewById(R.id.ivQrCode);
-        tvTransferInfo = view.findViewById(R.id.tvTransferInfo);
 
         tvAvailableBalance = view.findViewById(R.id.tvAvailableBalance);
         tilWithdrawAmount = view.findViewById(R.id.tilWithdrawAmount);
@@ -284,38 +282,7 @@ public class WalletTransferBottomSheet extends BottomSheetDialogFragment {
         pbDepositLoading.setVisibility(View.VISIBLE);
         btnGenerateQr.setEnabled(false);
 
-        String bankName = PaymentHelper.BANK_NAME;
-        String accountNumber = PaymentHelper.ACCOUNT_NO;
-        String accountName = PaymentHelper.ACCOUNT_NAME;
-        String transferContent = PaymentHelper.getWalletTransferContent(userId);
         String qrUrl = PaymentHelper.generateWalletQrUrl(userId, amount);
-
-        DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.US);
-        symbols.setGroupingSeparator('.');
-        DecimalFormat df = new DecimalFormat("#,##0", symbols);
-        String formattedAmount = df.format(amount) + " ₫";
-
-        tvTransferInfo.setText(
-                "Ngân hàng: " + bankName + "\n"
-                        + "Số tài khoản: " + accountNumber + " (Chạm để sao chép)\n"
-                        + "Chủ tài khoản: " + accountName + "\n"
-                        + "Số tiền: " + formattedAmount + "\n"
-                        + "Nội dung chuyển khoản: " + transferContent
-        );
-
-        tvTransferInfo.setOnClickListener(v -> {
-            if (!isAdded()) return;
-            ClipboardManager clipboard = (ClipboardManager) requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
-            ClipData clip = ClipData.newPlainText("Thông tin nạp ví",
-                    "STK: " + accountNumber + " (" + bankName + ")\n"
-                            + "Chủ TK: " + accountName + "\n"
-                            + "Số tiền: " + (long) amount + "\n"
-                            + "Nội dung: " + transferContent);
-            if (clipboard != null) {
-                clipboard.setPrimaryClip(clip);
-                Toast.makeText(requireContext(), "Đã sao chép thông tin chuyển khoản!", Toast.LENGTH_SHORT).show();
-            }
-        });
 
         Executors.newSingleThreadExecutor().execute(() -> {
             Bitmap downloadedBitmap = null;

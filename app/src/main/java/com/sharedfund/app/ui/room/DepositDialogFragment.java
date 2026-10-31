@@ -66,7 +66,6 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
     private MaterialButton btnQuick200k;
     private LinearLayout layoutQrSection;
     private ImageView ivQrCode;
-    private TextView tvTransferInfo;
     private ProgressBar pbDepositLoading;
     private MaterialButton btnCancelDeposit;
     private MaterialButton btnGenerateQr;
@@ -168,7 +167,6 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
         btnQuick200k = view.findViewById(R.id.btnQuick200k);
         layoutQrSection = view.findViewById(R.id.layoutQrSection);
         ivQrCode = view.findViewById(R.id.ivQrCode);
-        tvTransferInfo = view.findViewById(R.id.tvTransferInfo);
         pbDepositLoading = view.findViewById(R.id.pbDepositLoading);
         btnCancelDeposit = view.findViewById(R.id.btnCancelDeposit);
         btnGenerateQr = view.findViewById(R.id.btnGenerateQr);
@@ -239,10 +237,6 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
         pbDepositLoading.setVisibility(View.VISIBLE);
         btnGenerateQr.setEnabled(false);
 
-        String bankName = PaymentHelper.BANK_NAME;
-        String accountNumber = PaymentHelper.ACCOUNT_NO;
-        String accountName = PaymentHelper.ACCOUNT_NAME;
-        String transferContent;
         String qrUrl;
 
         if (isWalletDeposit()) {
@@ -253,7 +247,6 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
                 Toast.makeText(requireContext(), "Không xác định được tài khoản để nạp ví.", Toast.LENGTH_LONG).show();
                 return;
             }
-            transferContent = PaymentHelper.getWalletTransferContent(userId);
             qrUrl = PaymentHelper.generateWalletQrUrl(userId, amount);
         } else {
             Room room = RoomRepository.getInstance().getRoomSync(roomId);
@@ -263,34 +256,8 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
                 Toast.makeText(requireContext(), "Không tìm thấy mã quỹ.", Toast.LENGTH_LONG).show();
                 return;
             }
-            transferContent = PaymentHelper.getTransferContent(room.getJoinCode());
             qrUrl = PaymentHelper.generateVietQrUrl(room.getJoinCode(), amount);
         }
-
-        DecimalFormat df = new DecimalFormat("#,###");
-        String formattedAmount = df.format(amount).replace(',', '.') + " ₫";
-
-        tvTransferInfo.setText(
-                "Ngân hàng: " + bankName + "\n"
-                + "Số tài khoản: " + accountNumber + " (Chạm để sao chép)\n"
-                + "Chủ tài khoản: " + accountName + "\n"
-                + "Số tiền: " + formattedAmount + "\n"
-                + "Nội dung chuyển khoản: " + transferContent
-        );
-
-        tvTransferInfo.setOnClickListener(v -> {
-            if (!isAdded()) return;
-            ClipboardManager clipboard = (ClipboardManager) requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
-            ClipData clip = ClipData.newPlainText("Thông tin chuyển khoản",
-                    "STK: " + accountNumber + " (" + bankName + ")\n"
-                    + "Chủ TK: " + accountName + "\n"
-                    + "Số tiền: " + (long) amount + "\n"
-                    + "Nội dung: " + transferContent);
-            if (clipboard != null) {
-                clipboard.setPrimaryClip(clip);
-                Toast.makeText(requireContext(), "Đã sao chép thông tin chuyển khoản!", Toast.LENGTH_SHORT).show();
-            }
-        });
 
         Executors.newSingleThreadExecutor().execute(() -> {
             Bitmap downloadedBitmap = null;

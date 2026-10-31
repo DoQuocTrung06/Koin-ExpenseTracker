@@ -130,69 +130,24 @@
         android:gravity="center"
         android:orientation="vertical"
         android:visibility="gone">
-        <ImageView
-            android:id="@+id/ivQrCode"
-            android:layout_width="200dp"
-            android:layout_height="200dp"
-            android:contentDescription="VietQR"
-            android:scaleType="fitCenter" />
+
         <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            app:cardBackgroundColor="@color/primary_light"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="0dp">
+            app:cardBackgroundColor="@color/white"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="2dp"
+            app:strokeColor="@color/border"
+            app:strokeWidth="1dp">
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="12dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="4dp"
-                    android:text="Hướng dẫn chuyển khoản"
-                    android:textColor="@color/primary"
-                    android:textSize="12sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/tvTransferInfo"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:lineSpacingExtra="3dp"
-                    android:text="Ngân hàng: —\nSTK: —\nNội dung: SF [MÃ QUỸ] [USER ID]"
-                    android:textColor="@color/text_primary"
-                    android:textSize="13sp" />
-            </LinearLayout>
+            <ImageView
+                android:id="@+id/ivQrCode"
+                android:layout_width="220dp"
+                android:layout_height="220dp"
+                android:layout_margin="16dp"
+                android:contentDescription="VietQR"
+                android:scaleType="fitCenter" />
         </com.google.android.material.card.MaterialCardView>
-
-        <LinearLayout
-            android:id="@+id/layoutSePayListening"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:gravity="center"
-            android:orientation="horizontal"
-            android:padding="8dp">
-
-            <ProgressBar
-                android:layout_width="18dp"
-                android:layout_height="18dp"
-                android:layout_marginEnd="8dp"
-                android:indeterminateTint="@color/primary" />
-
-            <TextView
-                android:id="@+id/tvSePayWaitingStatus"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Quét mã bằng ứng dụng Ngân hàng — Hệ thống tự động nhận diện giao dịch"
-                android:textColor="@color/text_secondary"
-                android:textSize="12sp" />
-        </LinearLayout>
     </LinearLayout>
     <ProgressBar
         android:id="@+id/pbDepositLoading"
