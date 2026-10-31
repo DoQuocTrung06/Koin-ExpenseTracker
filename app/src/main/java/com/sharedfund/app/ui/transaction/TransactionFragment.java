@@ -11,6 +11,7 @@ import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
+import com.sharedfund.app.ui.widget.AppToaster;
 import android.widget.EditText;
 import android.text.InputType;
 import android.app.AlertDialog;
@@ -154,7 +155,7 @@ public class TransactionFragment extends Fragment implements TransactionAdapter.
                         layoutTxEmptyState.setVisibility(View.GONE);
                         rvTransactions.setVisibility(View.GONE);
                     } else {
-                        Toast.makeText(requireContext(), err, Toast.LENGTH_SHORT).show();
+                        AppToaster.error(requireActivity(), err);
                     }
                 }
             }
@@ -164,7 +165,11 @@ public class TransactionFragment extends Fragment implements TransactionAdapter.
             @Override
             public void onChanged(String msg) {
                 if (msg != null && !msg.isEmpty()) {
-                    Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show();
+                    if (msg.toLowerCase().contains("thất bại") || msg.toLowerCase().contains("lỗi")) {
+                        AppToaster.error(requireActivity(), msg);
+                    } else {
+                        AppToaster.success(requireActivity(), msg);
+                    }
                 }
             }
         });

@@ -62,6 +62,17 @@ public class UserSessionManager {
         editor.apply();
     }
 
+    public void updateProfile(String fullName, String email) {
+        SharedPreferences.Editor editor = preferences.edit();
+        if (fullName != null) {
+            editor.putString(KEY_FULL_NAME, fullName);
+        }
+        if (email != null) {
+            editor.putString(KEY_EMAIL, email);
+        }
+        editor.apply();
+    }
+
     public void updateTokens(String accessToken, String refreshToken, long expiresInSeconds) {
         SharedPreferences.Editor editor = preferences.edit();
         if (accessToken != null && !accessToken.trim().isEmpty()) {

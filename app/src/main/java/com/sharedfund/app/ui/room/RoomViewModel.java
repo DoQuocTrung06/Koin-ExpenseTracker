@@ -7,17 +7,31 @@ import androidx.lifecycle.ViewModel;
 
 import com.sharedfund.app.data.RoomRepository;
 import com.sharedfund.app.model.Room;
+import com.sharedfund.app.model.RoomMember;
 import com.sharedfund.app.model.Transaction;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class RoomViewModel extends ViewModel {
+
+    public enum FilterType {
+        ALL,
+        INCOME,
+        EXPENSE
+    }
+
     private final RoomRepository repository;
     private String roomId;
+    private FilterType currentFilter = FilterType.ALL;
 
     private final MutableLiveData<Room> roomLiveData = new MutableLiveData<>();
     private final MutableLiveData<List<Transaction>> recentTransactionsLiveData = new MutableLiveData<>();
+    private final MutableLiveData<List<Transaction>> allTransactionsLiveData = new MutableLiveData<>();
+    private final MutableLiveData<List<Transaction>> filteredTransactionsLiveData = new MutableLiveData<>();
+    private final MutableLiveData<Map<String, Double>> categoryStatsLiveData = new MutableLiveData<>();
+    private final MutableLiveData<List<RoomMember>> membersLiveData = new MutableLiveData<>();
     private final MutableLiveData<Double> totalIncomeLiveData = new MutableLiveData<>(0.0);
     private final MutableLiveData<Double> totalExpenseLiveData = new MutableLiveData<>(0.0);
     private final MutableLiveData<Boolean> isLoading = new MutableLiveData<>(false);
@@ -67,6 +81,9 @@ public class RoomViewModel extends ViewModel {
         roomLiveData.setValue(r);
 
         List<Transaction> all = repository.getTransactionsForRoom(roomId);
+        allTransactionsLiveData.setValue(all);
+        applyFilter(currentFilter);
+
         List<Transaction> recent = new ArrayList<>();
         int count = Math.min(5, all.size());
         for (int i = 0; i < count; i++) {
@@ -76,7 +93,78 @@ public class RoomViewModel extends ViewModel {
 
         totalIncomeLiveData.setValue(repository.getRoomTotalIncome(roomId));
         totalExpenseLiveData.setValue(repository.getRoomTotalExpense(roomId));
+        categoryStatsLiveData.setValue(repository.getCategoryBreakdown(roomId));
+        loadMembers();
         isLoading.setValue(false);
+    }
+
+    public void setFilter(FilterType filter) {
+        this.currentFilter = filter;
+        applyFilter(filter);
+    }
+
+    public FilterType getCurrentFilter() {
+        return currentFilter;
+    }
+
+    private void applyFilter(FilterType filter) {
+        List<Transaction> all = allTransactionsLiveData.getValue();
+        if (all == null) {
+            filteredTransactionsLiveData.setValue(new ArrayList<>());
+            return;
+        }
+        if (filter == FilterType.ALL) {
+            filteredTransactionsLiveData.setValue(new ArrayList<>(all));
+            return;
+        }
+        List<Transaction> filtered = new ArrayList<>();
+        for (Transaction tx : all) {
+            if (filter == FilterType.INCOME && tx.isIncome()) {
+                filtered.add(tx);
+            } else if (filter == FilterType.EXPENSE && tx.isExpense()) {
+                filtered.add(tx);
+            }
+        }
+        filteredTransactionsLiveData.setValue(filtered);
+    }
+
+    public void loadMembers() {
+        if (roomId == null) return;
+        repository.loadRoomMembers(roomId, new RoomRepository.DataCallback<List<RoomMember>>() {
+            @Override
+            public void onSuccess(List<RoomMember> list) {
+                try {
+                    membersLiveData.setValue(list);
+                } catch (IllegalStateException e) {
+                    membersLiveData.postValue(list);
+                }
+            }
+
+            @Override
+            public void onError(String message) {
+                Room r = roomLiveData.getValue();
+                if (r != null && r.getMembers() != null) {
+                    List<RoomMember> fallback = new ArrayList<>();
+                    double totalIncome = totalIncomeLiveData.getValue() != null ? totalIncomeLiveData.getValue() : 0.0;
+                    double perMember = r.getMembers().size() > 0 ? totalIncome / r.getMembers().size() : 0.0;
+                    for (int i = 0; i < r.getMembers().size(); i++) {
+                        String name = r.getMembers().get(i);
+                        RoomMember m = new RoomMember();
+                        m.setRoomId(roomId);
+                        m.setUserId("user-member-" + i);
+                        m.setFullName(name);
+                        m.setRole(name.contains("Trưởng quỹ") ? "OWNER" : "MEMBER");
+                        m.setTotalContributed(perMember);
+                        fallback.add(m);
+                    }
+                    try {
+                        membersLiveData.setValue(fallback);
+                    } catch (IllegalStateException e) {
+                        membersLiveData.postValue(fallback);
+                    }
+                }
+            }
+        });
     }
 
     public LiveData<Room> getRoom() {
@@ -85,6 +173,22 @@ public class RoomViewModel extends ViewModel {
 
     public LiveData<List<Transaction>> getRecentTransactions() {
         return recentTransactionsLiveData;
+    }
+
+    public LiveData<List<Transaction>> getFilteredTransactions() {
+        return filteredTransactionsLiveData;
+    }
+
+    public LiveData<List<Transaction>> getAllTransactions() {
+        return allTransactionsLiveData;
+    }
+
+    public LiveData<Map<String, Double>> getCategoryStats() {
+        return categoryStatsLiveData;
+    }
+
+    public LiveData<List<RoomMember>> getMembers() {
+        return membersLiveData;
     }
 
     public LiveData<Double> getTotalIncome() {
@@ -101,6 +205,27 @@ public class RoomViewModel extends ViewModel {
 
     public LiveData<String> getActionMessage() {
         return actionMessage;
+    }
+
+    public void updateRoom(String name, String description, double targetAmount, RoomRepository.DataCallback<Room> callback) {
+        if (roomId == null) return;
+        repository.updateRoom(roomId, name, description, targetAmount, new RoomRepository.DataCallback<Room>() {
+            @Override
+            public void onSuccess(Room value) {
+                try {
+                    roomLiveData.setValue(value);
+                } catch (IllegalStateException e) {
+                    roomLiveData.postValue(value);
+                }
+                refresh();
+                if (callback != null) callback.onSuccess(value);
+            }
+
+            @Override
+            public void onError(String message) {
+                if (callback != null) callback.onError(message);
+            }
+        });
     }
 
     public void leaveRoom(String userId, RoomRepository.DataCallback<Boolean> callback) {

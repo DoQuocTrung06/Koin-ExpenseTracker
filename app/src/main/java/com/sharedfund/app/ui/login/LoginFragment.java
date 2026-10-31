@@ -1,7 +1,8 @@
 package com.sharedfund.app.ui.login;
 
 import android.content.res.ColorStateList;
-import android.graphics.Color;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.LayerDrawable;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -11,10 +12,10 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 
 import com.google.android.material.button.MaterialButton;
@@ -26,6 +27,8 @@ import com.sharedfund.app.data.AuthRepository;
 import com.sharedfund.app.data.RoomRepository;
 import com.sharedfund.app.data.UserSessionManager;
 import com.sharedfund.app.model.Profile;
+import com.sharedfund.app.ui.widget.AppToaster;
+import com.sharedfund.app.util.PasswordStrengthEvaluator;
 
 public class LoginFragment extends Fragment {
 
@@ -43,6 +46,13 @@ public class LoginFragment extends Fragment {
     private TextInputEditText etEmail;
     private TextInputLayout tilPassword;
     private TextInputEditText etPassword;
+    private View layoutPasswordStrength;
+    private TextView tvStrengthLabel;
+    private ProgressBar pbPasswordStrength;
+    private TextView tvRuleLength;
+    private TextView tvRuleCase;
+    private TextView tvRuleDigit;
+    private TextView tvRuleSpecial;
     private TextInputLayout tilConfirmPassword;
     private TextInputEditText etConfirmPassword;
 
@@ -78,6 +88,13 @@ public class LoginFragment extends Fragment {
         etEmail = view.findViewById(R.id.etEmail);
         tilPassword = view.findViewById(R.id.tilPassword);
         etPassword = view.findViewById(R.id.etPassword);
+        layoutPasswordStrength = view.findViewById(R.id.layoutPasswordStrength);
+        tvStrengthLabel = view.findViewById(R.id.tvStrengthLabel);
+        pbPasswordStrength = view.findViewById(R.id.pbPasswordStrength);
+        tvRuleLength = view.findViewById(R.id.tvRuleLength);
+        tvRuleCase = view.findViewById(R.id.tvRuleCase);
+        tvRuleDigit = view.findViewById(R.id.tvRuleDigit);
+        tvRuleSpecial = view.findViewById(R.id.tvRuleSpecial);
         tilConfirmPassword = view.findViewById(R.id.tilConfirmPassword);
         etConfirmPassword = view.findViewById(R.id.etConfirmPassword);
         pbAuthLoading = view.findViewById(R.id.pbAuthLoading);
@@ -92,6 +109,9 @@ public class LoginFragment extends Fragment {
     private void switchToMode(boolean loginMode) {
         isLoginMode = loginMode;
         clearAllErrors();
+        if (layoutPasswordStrength != null) {
+            layoutPasswordStrength.setVisibility(View.GONE);
+        }
 
         if (loginMode) {
             tvAuthTitle.setText("Chào mừng trở lại");
@@ -117,18 +137,119 @@ public class LoginFragment extends Fragment {
     private void setupTextWatchers() {
         attachClearError(etFullName, tilFullName);
         attachClearError(etEmail, tilEmail);
-        attachClearError(etPassword, tilPassword);
         attachClearError(etConfirmPassword, tilConfirmPassword);
+
+        etPassword.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                if (tilPassword.getError() != null) {
+                    tilPassword.setError(null);
+                }
+                if (!isLoginMode) {
+                    updatePasswordStrength(s != null ? s.toString() : "");
+                }
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+            }
+        });
+
+        etPassword.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus && !isLoginMode) {
+                layoutPasswordStrength.setVisibility(View.VISIBLE);
+                updatePasswordStrength(getRawPassword(etPassword));
+            } else {
+                layoutPasswordStrength.setVisibility(View.GONE);
+            }
+        });
+
+        etPassword.setOnClickListener(v -> {
+            if (!isLoginMode) {
+                layoutPasswordStrength.setVisibility(View.VISIBLE);
+                updatePasswordStrength(getRawPassword(etPassword));
+            }
+        });
+
+        tilPassword.setOnClickListener(v -> {
+            if (!isLoginMode) {
+                etPassword.requestFocus();
+                layoutPasswordStrength.setVisibility(View.VISIBLE);
+                updatePasswordStrength(getRawPassword(etPassword));
+            }
+        });
     }
 
     private void attachClearError(TextInputEditText editText, TextInputLayout layout) {
         editText.addTextChangedListener(new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-                if (layout.getError() != null) layout.setError(null);
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
             }
-            @Override public void afterTextChanged(Editable s) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                if (layout.getError() != null) {
+                    layout.setError(null);
+                }
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+            }
         });
+    }
+
+    private void updatePasswordStrength(String password) {
+        if (layoutPasswordStrength == null || !isAdded()) return;
+
+        PasswordStrengthEvaluator.Evaluation eval = PasswordStrengthEvaluator.evaluate(password);
+        tvStrengthLabel.setText(eval.getLabel());
+        pbPasswordStrength.setProgress(eval.getProgressPercent());
+
+        int color;
+        if (eval.getLevel() == PasswordStrengthEvaluator.Level.STRONG) {
+            color = ContextCompat.getColor(requireContext(), R.color.accent_income);
+        } else if (eval.getLevel() == PasswordStrengthEvaluator.Level.MEDIUM) {
+            color = ContextCompat.getColor(requireContext(), R.color.accent_amber);
+        } else if (eval.getLevel() == PasswordStrengthEvaluator.Level.WEAK) {
+            color = ContextCompat.getColor(requireContext(), R.color.accent_expense);
+        } else {
+            color = ContextCompat.getColor(requireContext(), R.color.text_tertiary);
+        }
+
+        tvStrengthLabel.setTextColor(color);
+
+        Drawable progressDrawable = pbPasswordStrength.getProgressDrawable();
+        if (progressDrawable instanceof LayerDrawable) {
+            Drawable item = ((LayerDrawable) progressDrawable).findDrawableByLayerId(android.R.id.progress);
+            if (item != null) {
+                item.mutate().setTint(color);
+            }
+        } else {
+            pbPasswordStrength.setProgressTintList(ColorStateList.valueOf(color));
+        }
+
+        updateRuleText(tvRuleLength, eval.hasMinLength(), "Tối thiểu 8 ký tự");
+        updateRuleText(tvRuleCase, eval.hasUpperAndLower(), "Chữ hoa & chữ thường");
+        updateRuleText(tvRuleDigit, eval.hasDigit(), "Có ít nhất 1 chữ số");
+        updateRuleText(tvRuleSpecial, eval.hasSpecial(), "Ký tự đặc biệt (!@#...)");
+    }
+
+    private void updateRuleText(TextView tv, boolean satisfied, String text) {
+        if (tv == null || !isAdded()) return;
+        int passedColor = ContextCompat.getColor(requireContext(), R.color.accent_income);
+        int normalColor = ContextCompat.getColor(requireContext(), R.color.text_tertiary);
+        if (satisfied) {
+            tv.setText("✓ " + text);
+            tv.setTextColor(passedColor);
+        } else {
+            tv.setText("• " + text);
+            tv.setTextColor(normalColor);
+        }
     }
 
     private void setupClickListeners() {
@@ -144,7 +265,7 @@ public class LoginFragment extends Fragment {
     private void validateAndLogin() {
         clearAllErrors();
         String email = getText(etEmail);
-        String pass = getText(etPassword);
+        String pass = getRawPassword(etPassword);
         boolean hasError = false;
 
         if (email.isEmpty()) {
@@ -176,7 +297,7 @@ public class LoginFragment extends Fragment {
                         return;
                     }
                     RoomRepository.getInstance().setCurrentUser(profile.getId(), profile.getFullName());
-                    Toast.makeText(requireContext(), "Đăng nhập thành công!", Toast.LENGTH_SHORT).show();
+                    AppToaster.success(requireActivity(), "Đăng nhập thành công!");
                     goToHome();
                 });
             }
@@ -194,9 +315,9 @@ public class LoginFragment extends Fragment {
     private void validateAndRegister() {
         clearAllErrors();
         String fullName = getText(etFullName);
-        String email = getText(emailEditText());
-        String pass = getText(etPassword);
-        String confirmPass = getText(etConfirmPassword);
+        String email = getText(etEmail);
+        String pass = getRawPassword(etPassword);
+        String confirmPass = getRawPassword(etConfirmPassword);
         boolean hasError = false;
 
         if (fullName.isEmpty()) {
@@ -217,9 +338,18 @@ public class LoginFragment extends Fragment {
 
         if (pass.isEmpty()) {
             tilPassword.setError("Vui lòng nhập mật khẩu");
+            layoutPasswordStrength.setVisibility(View.VISIBLE);
+            updatePasswordStrength("");
             hasError = true;
-        } else if (pass.length() < 6) {
-            tilPassword.setError("Mật khẩu phải có ít nhất 6 ký tự");
+        } else if (pass.length() < 8) {
+            tilPassword.setError("Mật khẩu phải có ít nhất 8 ký tự");
+            layoutPasswordStrength.setVisibility(View.VISIBLE);
+            updatePasswordStrength(pass);
+            hasError = true;
+        } else if (!PasswordStrengthEvaluator.hasLettersAndNumbers(pass)) {
+            tilPassword.setError("Mật khẩu phải bao gồm cả chữ và số");
+            layoutPasswordStrength.setVisibility(View.VISIBLE);
+            updatePasswordStrength(pass);
             hasError = true;
         }
 
@@ -248,16 +378,14 @@ public class LoginFragment extends Fragment {
                     UserSessionManager sessions = UserSessionManager.getInstance(requireContext());
                     if (sessions.getAccessToken() == null || sessions.getAccessToken().isEmpty()) {
                         sessions.clearSession();
-                        Toast.makeText(requireContext(),
-                                "Tài khoản đã được tạo. Hãy xác nhận email rồi đăng nhập.",
-                                Toast.LENGTH_LONG).show();
+                        AppToaster.info(requireActivity(), "Tài khoản đã được tạo. Hãy xác nhận email rồi đăng nhập.");
                         switchToMode(true);
                         return;
                     }
 
                     RoomRepository.getInstance().registerNewUser(profile.getId(), profile.getFullName());
-                    Toast.makeText(requireContext(), "Đăng ký thành công! Chào mừng "
-                            + profile.getFullName() + "!", Toast.LENGTH_SHORT).show();
+                    AppToaster.success(requireActivity(), "Đăng ký thành công! Chào mừng "
+                            + profile.getFullName() + "!");
                     goToHome();
                 });
             }
@@ -272,10 +400,6 @@ public class LoginFragment extends Fragment {
         });
     }
 
-    private TextInputEditText emailEditText() {
-        return etEmail;
-    }
-
     private void runOnUiThreadIfAttached(Runnable action) {
         if (isAdded() && getActivity() != null) {
             getActivity().runOnUiThread(() -> {
@@ -286,7 +410,7 @@ public class LoginFragment extends Fragment {
 
     private void showAuthError(String message) {
         if (!isAdded()) return;
-        Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show();
+        AppToaster.error(requireActivity(), message);
     }
 
     private void setLoadingState(boolean loading) {
@@ -303,7 +427,11 @@ public class LoginFragment extends Fragment {
     }
 
     private String getText(TextInputEditText et) {
-        return et.getText() != null ? et.getText().toString().trim() : "";
+        return et != null && et.getText() != null ? et.getText().toString().trim() : "";
+    }
+
+    private String getRawPassword(TextInputEditText et) {
+        return et != null && et.getText() != null ? et.getText().toString() : "";
     }
 
     private void goToHome() {

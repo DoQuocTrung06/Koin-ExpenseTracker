@@ -1,0 +1,656 @@
+package com.sharedfund.app.ui.home;
+
+import android.app.Dialog;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
+import android.content.pm.ApplicationInfo;
+import android.content.res.ColorStateList;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.RectF;
+import android.graphics.Typeface;
+import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.FrameLayout;
+import android.widget.ImageButton;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.ProgressBar;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
+
+import com.google.android.material.bottomsheet.BottomSheetBehavior;
+import com.google.android.material.bottomsheet.BottomSheetDialog;
+import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
+import com.google.gson.JsonObject;
+import com.sharedfund.app.R;
+import com.sharedfund.app.data.PaymentHelper;
+import com.sharedfund.app.data.RoomRepository;
+import com.sharedfund.app.data.SafeDns;
+import com.sharedfund.app.data.TransactionRepository;
+import com.sharedfund.app.data.UserSessionManager;
+
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.time.Instant;
+import java.util.Locale;
+import java.util.Random;
+import java.util.UUID;
+import java.util.concurrent.Executors;
+
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+
+public class WalletTransferBottomSheet extends BottomSheetDialogFragment {
+
+    public interface OnWalletTransferListener {
+        void onTransferComplete();
+    }
+
+    private OnWalletTransferListener listener;
+
+    private View btnTabDeposit;
+    private View btnTabWithdraw;
+    private ImageView ivTabDeposit;
+    private ImageView ivTabWithdraw;
+    private TextView tvTabDeposit;
+    private TextView tvTabWithdraw;
+    private LinearLayout layoutTabDeposit;
+    private LinearLayout layoutTabWithdraw;
+    private ImageButton btnTransferClose;
+
+    private TextInputLayout tilDepositAmount;
+    private TextInputEditText etDepositAmount;
+    private MaterialButton btnQuick20k;
+    private MaterialButton btnQuick50k;
+    private MaterialButton btnQuick100k;
+    private MaterialButton btnQuick200k;
+    private MaterialButton btnGenerateQr;
+    private ProgressBar pbDepositLoading;
+    private LinearLayout layoutQrSection;
+    private ImageView ivQrCode;
+    private TextView tvTransferInfo;
+    private MaterialButton btnDoneDeposit;
+    private MaterialButton btnDemoPaymentSuccess;
+
+    private double pendingDepositAmount = 0.0;
+    private String depositQrGeneratedAt;
+    private String demoPaymentReference;
+
+    private TextView tvAvailableBalance;
+    private TextInputLayout tilWithdrawAmount;
+    private TextInputEditText etWithdrawAmount;
+    private MaterialButton btnWithdrawQuick50k;
+    private MaterialButton btnWithdrawQuick100k;
+    private MaterialButton btnWithdrawQuick200k;
+    private MaterialButton btnWithdrawQuickAll;
+    private TextInputLayout tilWithdrawBank;
+    private TextInputEditText etWithdrawBank;
+    private TextInputLayout tilWithdrawAccountNumber;
+    private TextInputEditText etWithdrawAccountNumber;
+    private TextInputLayout tilWithdrawAccountHolder;
+    private TextInputEditText etWithdrawAccountHolder;
+    private ProgressBar pbWithdrawLoading;
+    private MaterialButton btnConfirmWithdraw;
+
+    private double currentWalletBalance = 0.0;
+    private final TransactionRepository transactionRepository = new TransactionRepository();
+
+    public static WalletTransferBottomSheet newInstance() {
+        return new WalletTransferBottomSheet();
+    }
+
+    public void setOnWalletTransferListener(OnWalletTransferListener listener) {
+        this.listener = listener;
+    }
+
+    @Override
+    public int getTheme() {
+        return R.style.Theme_App_BottomSheet;
+    }
+
+    @NonNull
+    @Override
+    public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
+        BottomSheetDialog dialog = (BottomSheetDialog) super.onCreateDialog(savedInstanceState);
+        dialog.setOnShowListener(dialogInterface -> {
+            BottomSheetDialog bsd = (BottomSheetDialog) dialogInterface;
+            FrameLayout bottomSheet = bsd.findViewById(com.google.android.material.R.id.design_bottom_sheet);
+            if (bottomSheet != null) {
+                bottomSheet.setBackgroundResource(android.R.color.transparent);
+                BottomSheetBehavior<FrameLayout> behavior = BottomSheetBehavior.from(bottomSheet);
+                behavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+                behavior.setSkipCollapsed(true);
+            }
+        });
+        return dialog;
+    }
+
+    @Nullable
+    @Override
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+        return inflater.inflate(R.layout.bottom_sheet_wallet_transfer, container, false);
+    }
+
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        initViews(view);
+        setupTabs();
+        setupDepositSection();
+        setupWithdrawSection();
+    }
+
+    private void initViews(View view) {
+        btnTransferClose = view.findViewById(R.id.btnTransferClose);
+        btnTabDeposit = view.findViewById(R.id.btnTabDeposit);
+        btnTabWithdraw = view.findViewById(R.id.btnTabWithdraw);
+        ivTabDeposit = view.findViewById(R.id.ivTabDeposit);
+        ivTabWithdraw = view.findViewById(R.id.ivTabWithdraw);
+        tvTabDeposit = view.findViewById(R.id.tvTabDeposit);
+        tvTabWithdraw = view.findViewById(R.id.tvTabWithdraw);
+        layoutTabDeposit = view.findViewById(R.id.layoutTabDeposit);
+        layoutTabWithdraw = view.findViewById(R.id.layoutTabWithdraw);
+
+        tilDepositAmount = view.findViewById(R.id.tilDepositAmount);
+        etDepositAmount = view.findViewById(R.id.etDepositAmount);
+        btnQuick20k = view.findViewById(R.id.btnQuick20k);
+        btnQuick50k = view.findViewById(R.id.btnQuick50k);
+        btnQuick100k = view.findViewById(R.id.btnQuick100k);
+        btnQuick200k = view.findViewById(R.id.btnQuick200k);
+        btnGenerateQr = view.findViewById(R.id.btnGenerateQr);
+        pbDepositLoading = view.findViewById(R.id.pbDepositLoading);
+        layoutQrSection = view.findViewById(R.id.layoutQrSection);
+        ivQrCode = view.findViewById(R.id.ivQrCode);
+        tvTransferInfo = view.findViewById(R.id.tvTransferInfo);
+        btnDoneDeposit = view.findViewById(R.id.btnDoneDeposit);
+        btnDemoPaymentSuccess = view.findViewById(R.id.btnDemoPaymentSuccess);
+
+        tvAvailableBalance = view.findViewById(R.id.tvAvailableBalance);
+        tilWithdrawAmount = view.findViewById(R.id.tilWithdrawAmount);
+        etWithdrawAmount = view.findViewById(R.id.etWithdrawAmount);
+        btnWithdrawQuick50k = view.findViewById(R.id.btnWithdrawQuick50k);
+        btnWithdrawQuick100k = view.findViewById(R.id.btnWithdrawQuick100k);
+        btnWithdrawQuick200k = view.findViewById(R.id.btnWithdrawQuick200k);
+        btnWithdrawQuickAll = view.findViewById(R.id.btnWithdrawQuickAll);
+        tilWithdrawBank = view.findViewById(R.id.tilWithdrawBank);
+        etWithdrawBank = view.findViewById(R.id.etWithdrawBank);
+        tilWithdrawAccountNumber = view.findViewById(R.id.tilWithdrawAccountNumber);
+        etWithdrawAccountNumber = view.findViewById(R.id.etWithdrawAccountNumber);
+        tilWithdrawAccountHolder = view.findViewById(R.id.tilWithdrawAccountHolder);
+        etWithdrawAccountHolder = view.findViewById(R.id.etWithdrawAccountHolder);
+        pbWithdrawLoading = view.findViewById(R.id.pbWithdrawLoading);
+        btnConfirmWithdraw = view.findViewById(R.id.btnConfirmWithdraw);
+
+        btnTransferClose.setOnClickListener(v -> dismiss());
+    }
+
+    private void setupTabs() {
+        btnTabDeposit.setOnClickListener(v -> selectTab(true));
+        btnTabWithdraw.setOnClickListener(v -> selectTab(false));
+        selectTab(true);
+    }
+
+    private void selectTab(boolean isDeposit) {
+        int secondaryColor = ContextCompat.getColor(requireContext(), R.color.text_secondary);
+        int whiteColor = ContextCompat.getColor(requireContext(), R.color.white);
+
+        btnTabDeposit.setBackgroundResource(isDeposit ? R.drawable.bg_wallet_tab_active : R.drawable.bg_wallet_tab_inactive);
+        tvTabDeposit.setTextColor(isDeposit ? whiteColor : secondaryColor);
+        ivTabDeposit.setImageTintList(ColorStateList.valueOf(isDeposit ? whiteColor : secondaryColor));
+
+        btnTabWithdraw.setBackgroundResource(!isDeposit ? R.drawable.bg_wallet_tab_active : R.drawable.bg_wallet_tab_inactive);
+        tvTabWithdraw.setTextColor(!isDeposit ? whiteColor : secondaryColor);
+        ivTabWithdraw.setImageTintList(ColorStateList.valueOf(!isDeposit ? whiteColor : secondaryColor));
+
+        layoutTabDeposit.setVisibility(isDeposit ? View.VISIBLE : View.GONE);
+        layoutTabWithdraw.setVisibility(isDeposit ? View.GONE : View.VISIBLE);
+
+        if (!isDeposit) {
+            loadWalletBalanceForWithdraw();
+        }
+    }
+
+    private void setupDepositSection() {
+        btnQuick20k.setOnClickListener(v -> { etDepositAmount.setText("20000"); tilDepositAmount.setError(null); });
+        btnQuick50k.setOnClickListener(v -> { etDepositAmount.setText("50000"); tilDepositAmount.setError(null); });
+        btnQuick100k.setOnClickListener(v -> { etDepositAmount.setText("100000"); tilDepositAmount.setError(null); });
+        btnQuick200k.setOnClickListener(v -> { etDepositAmount.setText("200000"); tilDepositAmount.setError(null); });
+
+        etDepositAmount.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                if (tilDepositAmount.getError() != null) tilDepositAmount.setError(null);
+                layoutQrSection.setVisibility(View.GONE);
+                pendingDepositAmount = 0.0;
+                depositQrGeneratedAt = null;
+                btnGenerateQr.setText("Quét mã QR");
+            }
+            @Override public void afterTextChanged(Editable s) {}
+        });
+
+        btnGenerateQr.setOnClickListener(v -> generateDepositQr());
+        btnDoneDeposit.setOnClickListener(v -> confirmDepositPayment());
+        btnDemoPaymentSuccess.setOnClickListener(v -> simulateDemoDeposit());
+        btnDemoPaymentSuccess.setVisibility(isDebugBuild() ? View.VISIBLE : View.GONE);
+    }
+
+    private void generateDepositQr() {
+        String amountStr = etDepositAmount.getText() != null ? etDepositAmount.getText().toString().trim() : "";
+        if (amountStr.isEmpty()) {
+            tilDepositAmount.setError("Vui lòng nhập số tiền");
+            return;
+        }
+
+        double amount;
+        try {
+            amount = Double.parseDouble(amountStr);
+        } catch (NumberFormatException e) {
+            tilDepositAmount.setError("Số tiền không hợp lệ");
+            return;
+        }
+
+        if (amount < 1000) {
+            tilDepositAmount.setError("Số tiền tối thiểu là 1.000 ₫");
+            return;
+        }
+
+        UserSessionManager session = UserSessionManager.getInstance(requireContext());
+        String userId = session.getUserId();
+        if (userId == null || userId.trim().isEmpty()) {
+            Toast.makeText(requireContext(), "Không xác định được tài khoản người dùng.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        pendingDepositAmount = amount;
+        depositQrGeneratedAt = Instant.now().toString();
+        demoPaymentReference = "DEMO-SEPAY-" + UUID.randomUUID();
+
+        pbDepositLoading.setVisibility(View.VISIBLE);
+        btnGenerateQr.setEnabled(false);
+
+        String bankName = PaymentHelper.BANK_NAME;
+        String accountNumber = PaymentHelper.ACCOUNT_NO;
+        String accountName = PaymentHelper.ACCOUNT_NAME;
+        String transferContent = PaymentHelper.getWalletTransferContent(userId);
+        String qrUrl = PaymentHelper.generateWalletQrUrl(userId, amount);
+
+        DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.US);
+        symbols.setGroupingSeparator('.');
+        DecimalFormat df = new DecimalFormat("#,##0", symbols);
+        String formattedAmount = df.format(amount) + " ₫";
+
+        tvTransferInfo.setText(
+                "🏦 Ngân hàng: " + bankName + "\n"
+                        + "💳 STK: " + accountNumber + "  (📋 Chạm để sao chép)\n"
+                        + "👤 Chủ TK: " + accountName + "\n"
+                        + "💰 Số tiền: " + formattedAmount + "\n"
+                        + "📝 Nội dung: " + transferContent + "  (📋 Chạm để sao chép)"
+        );
+
+        tvTransferInfo.setOnClickListener(v -> {
+            if (!isAdded()) return;
+            ClipboardManager clipboard = (ClipboardManager) requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
+            ClipData clip = ClipData.newPlainText("Thông tin nạp ví",
+                    "STK: " + accountNumber + " (" + bankName + ")\n"
+                            + "Chủ TK: " + accountName + "\n"
+                            + "Số tiền: " + (long) amount + "\n"
+                            + "Nội dung: " + transferContent);
+            if (clipboard != null) {
+                clipboard.setPrimaryClip(clip);
+                Toast.makeText(requireContext(), "Đã sao chép thông tin chuyển khoản!", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        Executors.newSingleThreadExecutor().execute(() -> {
+            Bitmap downloadedBitmap = null;
+            try {
+                OkHttpClient client = new OkHttpClient.Builder()
+                        .dns(SafeDns.getInstance())
+                        .build();
+                Request request = new Request.Builder().url(qrUrl).build();
+                try (Response response = client.newCall(request).execute()) {
+                    if (response.isSuccessful() && response.body() != null) {
+                        downloadedBitmap = BitmapFactory.decodeStream(response.body().byteStream());
+                    }
+                }
+            } catch (Exception ignored) {}
+
+            if (downloadedBitmap == null) {
+                downloadedBitmap = generateQrPlaceholderBitmap(accountNumber, formattedAmount, transferContent);
+            }
+
+            final Bitmap qrBitmap = downloadedBitmap;
+            if (getActivity() != null) {
+                getActivity().runOnUiThread(() -> {
+                    if (!isAdded()) return;
+                    pbDepositLoading.setVisibility(View.GONE);
+                    btnGenerateQr.setEnabled(true);
+
+                    if (qrBitmap == null) {
+                        layoutQrSection.setVisibility(View.GONE);
+                        Toast.makeText(requireContext(), "Không tải được mã QR. Vui lòng thử lại.", Toast.LENGTH_LONG).show();
+                        return;
+                    }
+
+                    ivQrCode.setImageBitmap(qrBitmap);
+                    ivQrCode.setBackgroundColor(Color.WHITE);
+                    ivQrCode.setScaleType(ImageView.ScaleType.FIT_CENTER);
+
+                    layoutQrSection.setVisibility(View.VISIBLE);
+                    btnGenerateQr.setText("Quét lại mã QR");
+                    Toast.makeText(requireContext(), "Mã VietQR đã sẵn sàng!", Toast.LENGTH_SHORT).show();
+                });
+            }
+        });
+    }
+
+    private Bitmap generateQrPlaceholderBitmap(String accountNumber, String amount, String content) {
+        int size = 480;
+        Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+
+        Paint bgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        bgPaint.setColor(Color.WHITE);
+        canvas.drawRoundRect(new RectF(0, 0, size, size), 20, 20, bgPaint);
+
+        Paint borderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        borderPaint.setStyle(Paint.Style.STROKE);
+        borderPaint.setColor(Color.parseColor("#4F46E5"));
+        borderPaint.setStrokeWidth(4);
+        canvas.drawRoundRect(new RectF(4, 4, size - 4, size - 4), 18, 18, borderPaint);
+
+        Paint titlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        titlePaint.setColor(Color.parseColor("#4F46E5"));
+        titlePaint.setTextSize(30);
+        titlePaint.setTypeface(Typeface.DEFAULT_BOLD);
+        titlePaint.setTextAlign(Paint.Align.CENTER);
+        canvas.drawText("VietQR - SharedFund", size / 2f, 48, titlePaint);
+
+        Paint qrDotPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        qrDotPaint.setColor(Color.parseColor("#1E293B"));
+        int qrSize = 250;
+        int qrAreaX = (size - qrSize) / 2;
+        int qrAreaY = 75;
+        int cellSize = 10;
+        Random rand = new Random(accountNumber.hashCode());
+
+        drawQrAnchor(canvas, qrDotPaint, qrAreaX, qrAreaY, 56);
+        drawQrAnchor(canvas, qrDotPaint, qrAreaX + qrSize - 56, qrAreaY, 56);
+        drawQrAnchor(canvas, qrDotPaint, qrAreaX, qrAreaY + qrSize - 56, 56);
+
+        for (int x = qrAreaX + 64; x < qrAreaX + qrSize - 64; x += cellSize) {
+            for (int y = qrAreaY + 64; y < qrAreaY + qrSize - 64; y += cellSize) {
+                if (rand.nextBoolean()) {
+                    canvas.drawRect(x, y, x + cellSize - 2, y + cellSize - 2, qrDotPaint);
+                }
+            }
+        }
+
+        Paint infoPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        infoPaint.setColor(Color.parseColor("#0F172A"));
+        infoPaint.setTextSize(20);
+        infoPaint.setTextAlign(Paint.Align.CENTER);
+        canvas.drawText("STK: " + accountNumber, size / 2f, qrAreaY + qrSize + 36, infoPaint);
+
+        Paint amountPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        amountPaint.setColor(Color.parseColor("#10B981"));
+        amountPaint.setTextSize(26);
+        amountPaint.setTypeface(Typeface.DEFAULT_BOLD);
+        amountPaint.setTextAlign(Paint.Align.CENTER);
+        canvas.drawText(amount, size / 2f, qrAreaY + qrSize + 70, amountPaint);
+
+        Paint contentPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        contentPaint.setColor(Color.parseColor("#64748B"));
+        contentPaint.setTextSize(16);
+        contentPaint.setTextAlign(Paint.Align.CENTER);
+        canvas.drawText("ND: " + content, size / 2f, qrAreaY + qrSize + 100, contentPaint);
+
+        return bitmap;
+    }
+
+    private void drawQrAnchor(Canvas canvas, Paint paint, int x, int y, int size) {
+        Paint outerPaint = new Paint(paint);
+        outerPaint.setStyle(Paint.Style.STROKE);
+        outerPaint.setStrokeWidth(6);
+        canvas.drawRect(x, y, x + size, y + size, outerPaint);
+
+        int inset = size / 4;
+        canvas.drawRect(x + inset, y + inset, x + size - inset, y + size - inset, paint);
+    }
+
+    private void confirmDepositPayment() {
+        if (pendingDepositAmount <= 0 || depositQrGeneratedAt == null) return;
+        btnDoneDeposit.setEnabled(false);
+        UserSessionManager session = UserSessionManager.getInstance(requireContext());
+        TransactionRepository repository = new TransactionRepository();
+        repository.setAccessToken(session.getAccessToken());
+
+        repository.findConfirmedWalletPayment(session.getUserId(), pendingDepositAmount, depositQrGeneratedAt,
+                new TransactionRepository.DataCallback<com.sharedfund.app.model.Transaction>() {
+                    @Override
+                    public void onSuccess(com.sharedfund.app.model.Transaction transaction) {
+                        if (!isAdded()) return;
+                        requireActivity().runOnUiThread(() -> {
+                            if (!isAdded()) return;
+                            btnDoneDeposit.setEnabled(true);
+                            if (transaction == null) {
+                                Toast.makeText(requireContext(), "SePay chưa xác nhận khoản chuyển này. Hãy đợi rồi kiểm tra lại.", Toast.LENGTH_LONG).show();
+                                return;
+                            }
+                            RoomRepository.getInstance().onRemoteTransactionReceived(transaction);
+                            RoomRepository.getInstance().loadUserProfile();
+                            if (listener != null) listener.onTransferComplete();
+                            Toast.makeText(requireContext(), "Nạp tiền vào ví thành công!", Toast.LENGTH_SHORT).show();
+                            dismiss();
+                        });
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        if (!isAdded()) return;
+                        requireActivity().runOnUiThread(() -> {
+                            if (!isAdded()) return;
+                            btnDoneDeposit.setEnabled(true);
+                            Toast.makeText(requireContext(), "Không kiểm tra được trạng thái thanh toán: " + message, Toast.LENGTH_LONG).show();
+                        });
+                    }
+                });
+    }
+
+    private void simulateDemoDeposit() {
+        if (!isDebugBuild() || pendingDepositAmount <= 0 || depositQrGeneratedAt == null) return;
+        UserSessionManager session = UserSessionManager.getInstance(requireContext());
+        String userId = session.getUserId();
+        if (userId == null || userId.trim().isEmpty()) return;
+
+        btnDoneDeposit.setEnabled(false);
+        btnDemoPaymentSuccess.setEnabled(false);
+        TransactionRepository repository = new TransactionRepository();
+        repository.setAccessToken(session.getAccessToken());
+        repository.simulateSePayPaymentForDemo(userId, null, pendingDepositAmount, demoPaymentReference,
+                new TransactionRepository.DataCallback<JsonObject>() {
+                    @Override
+                    public void onSuccess(JsonObject result) {
+                        if (!isAdded()) return;
+                        requireActivity().runOnUiThread(() -> {
+                            if (!isAdded()) return;
+                            btnDoneDeposit.setEnabled(true);
+                            btnDemoPaymentSuccess.setEnabled(true);
+                            RoomRepository.getInstance().loadUserProfile();
+                            if (listener != null) listener.onTransferComplete();
+                            Toast.makeText(requireContext(), "Mô phỏng nạp ví thành công (DEMO)!", Toast.LENGTH_SHORT).show();
+                            dismiss();
+                        });
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        if (!isAdded()) return;
+                        requireActivity().runOnUiThread(() -> {
+                            if (!isAdded()) return;
+                            btnDoneDeposit.setEnabled(true);
+                            btnDemoPaymentSuccess.setEnabled(true);
+                            Toast.makeText(requireContext(), "Mô phỏng nạp ví thất bại: " + message, Toast.LENGTH_LONG).show();
+                        });
+                    }
+                });
+    }
+
+    private void setupWithdrawSection() {
+        UserSessionManager session = UserSessionManager.getInstance(requireContext());
+        String fullName = session.getCurrentUserName();
+        if (fullName != null && !fullName.isEmpty()) {
+            etWithdrawAccountHolder.setText(fullName.toUpperCase(Locale.ROOT));
+        }
+
+        btnWithdrawQuick50k.setOnClickListener(v -> etWithdrawAmount.setText("50000"));
+        btnWithdrawQuick100k.setOnClickListener(v -> etWithdrawAmount.setText("100000"));
+        btnWithdrawQuick200k.setOnClickListener(v -> etWithdrawAmount.setText("200000"));
+        btnWithdrawQuickAll.setOnClickListener(v -> {
+            long wholeAmount = (long) Math.floor(currentWalletBalance);
+            if (wholeAmount > 0) {
+                etWithdrawAmount.setText(String.valueOf(wholeAmount));
+            }
+        });
+
+        btnConfirmWithdraw.setOnClickListener(v -> executeWithdrawal());
+    }
+
+    private void loadWalletBalanceForWithdraw() {
+        currentWalletBalance = RoomRepository.getInstance().getUserWalletBalance();
+        updateWithdrawBalanceDisplay(currentWalletBalance);
+
+        UserSessionManager session = UserSessionManager.getInstance(requireContext());
+        if (session.isLoggedIn()) {
+            RoomRepository.getInstance().loadWalletBalance(session.getUserId(), new RoomRepository.DataCallback<Double>() {
+                @Override
+                public void onSuccess(Double balance) {
+                    if (isAdded()) {
+                        requireActivity().runOnUiThread(() -> {
+                            currentWalletBalance = balance != null ? balance : 0.0;
+                            updateWithdrawBalanceDisplay(currentWalletBalance);
+                        });
+                    }
+                }
+
+                @Override
+                public void onError(String message) {}
+            });
+        }
+    }
+
+    private void updateWithdrawBalanceDisplay(double balance) {
+        DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.US);
+        symbols.setGroupingSeparator('.');
+        DecimalFormat df = new DecimalFormat("#,##0", symbols);
+        tvAvailableBalance.setText("Số dư ví khả dụng: " + df.format(balance) + " ₫");
+    }
+
+    private void executeWithdrawal() {
+        String amountStr = etWithdrawAmount.getText() != null ? etWithdrawAmount.getText().toString().trim() : "";
+        String bankName = etWithdrawBank.getText() != null ? etWithdrawBank.getText().toString().trim() : "";
+        String accountNumber = etWithdrawAccountNumber.getText() != null ? etWithdrawAccountNumber.getText().toString().trim() : "";
+        String accountHolder = etWithdrawAccountHolder.getText() != null ? etWithdrawAccountHolder.getText().toString().trim() : "";
+
+        if (amountStr.isEmpty()) {
+            tilWithdrawAmount.setError("Vui lòng nhập số tiền rút");
+            return;
+        }
+        tilWithdrawAmount.setError(null);
+
+        double amount;
+        try {
+            amount = Double.parseDouble(amountStr.replace(".", "").replace(",", ""));
+        } catch (NumberFormatException e) {
+            tilWithdrawAmount.setError("Số tiền không hợp lệ");
+            return;
+        }
+
+        if (amount <= 0) {
+            tilWithdrawAmount.setError("Số tiền phải lớn hơn 0 ₫");
+            return;
+        }
+
+        if (amount > currentWalletBalance) {
+            tilWithdrawAmount.setError("Số dư ví không đủ để rút số tiền này");
+            return;
+        }
+
+        if (bankName.isEmpty()) {
+            tilWithdrawBank.setError("Vui lòng nhập tên ngân hàng");
+            return;
+        }
+        tilWithdrawBank.setError(null);
+
+        if (accountNumber.isEmpty()) {
+            tilWithdrawAccountNumber.setError("Vui lòng nhập số tài khoản");
+            return;
+        }
+        tilWithdrawAccountNumber.setError(null);
+
+        if (accountHolder.isEmpty()) {
+            tilWithdrawAccountHolder.setError("Vui lòng nhập tên chủ tài khoản");
+            return;
+        }
+        tilWithdrawAccountHolder.setError(null);
+
+        UserSessionManager session = UserSessionManager.getInstance(requireContext());
+        String userId = session.getUserId();
+        if (userId == null || userId.isEmpty()) {
+            userId = RoomRepository.getInstance().getCurrentUserId();
+        }
+
+        setWithdrawLoading(true);
+
+        transactionRepository.setAccessToken(session.getAccessToken());
+        transactionRepository.withdrawWallet(userId, amount, bankName, accountNumber, accountHolder,
+                new TransactionRepository.DataCallback<JsonObject>() {
+                    @Override
+                    public void onSuccess(JsonObject value) {
+                        if (!isAdded()) return;
+                        requireActivity().runOnUiThread(() -> {
+                            setWithdrawLoading(false);
+                            Toast.makeText(requireContext(), "Yêu cầu rút tiền thành công!", Toast.LENGTH_SHORT).show();
+                            RoomRepository.getInstance().loadUserProfile();
+                            if (listener != null) listener.onTransferComplete();
+                            dismiss();
+                        });
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        if (!isAdded()) return;
+                        requireActivity().runOnUiThread(() -> {
+                            setWithdrawLoading(false);
+                            Toast.makeText(requireContext(), "Rút tiền thất bại: " + message, Toast.LENGTH_LONG).show();
+                        });
+                    }
+                });
+    }
+
+    private void setWithdrawLoading(boolean loading) {
+        pbWithdrawLoading.setVisibility(loading ? View.VISIBLE : View.GONE);
+        btnConfirmWithdraw.setEnabled(!loading);
+    }
+
+    private boolean isDebugBuild() {
+        return (requireContext().getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0;
+    }
+}

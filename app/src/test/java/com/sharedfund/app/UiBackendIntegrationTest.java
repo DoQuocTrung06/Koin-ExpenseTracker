@@ -215,4 +215,175 @@ public class UiBackendIntegrationTest {
 
         repository.setCurrentUser("user-001", "Bạn");
     }
+
+    @Test
+    public void testDeleteRoomOwnerAndBalanceValidation() {
+        RoomViewModel roomViewModel = new RoomViewModel();
+        roomViewModel.setRoomId("room-1");
+        final String[] errorHolder = new String[1];
+        roomViewModel.deleteRoom("user-not-owner", new RoomRepository.DataCallback<Boolean>() {
+            @Override
+            public void onSuccess(Boolean value) {}
+
+            @Override
+            public void onError(String message) {
+                errorHolder[0] = message;
+            }
+        });
+        assertNotNull(errorHolder[0]);
+    }
+
+    @Test
+    public void testRoomViewModel4TabsData() {
+        RoomViewModel roomViewModel = new RoomViewModel();
+        String roomId = "room-1";
+        roomViewModel.setRoomId(roomId);
+
+        Room room = roomViewModel.getRoom().getValue();
+        assertNotNull(room);
+        assertEquals("room-1", roomViewModel.getRoomId());
+        assertNotNull(roomViewModel.getTotalIncome().getValue());
+        assertNotNull(roomViewModel.getTotalExpense().getValue());
+
+        List<Transaction> recent = roomViewModel.getRecentTransactions().getValue();
+        assertNotNull(recent);
+        assertTrue(recent.size() <= 5);
+
+        roomViewModel.setFilter(RoomViewModel.FilterType.ALL);
+        List<Transaction> all = roomViewModel.getFilteredTransactions().getValue();
+        assertNotNull(all);
+
+        roomViewModel.setFilter(RoomViewModel.FilterType.INCOME);
+        List<Transaction> incomes = roomViewModel.getFilteredTransactions().getValue();
+        assertNotNull(incomes);
+        for (Transaction tx : incomes) {
+            assertTrue(tx.isIncome());
+        }
+
+        roomViewModel.setFilter(RoomViewModel.FilterType.EXPENSE);
+        List<Transaction> expenses = roomViewModel.getFilteredTransactions().getValue();
+        assertNotNull(expenses);
+        for (Transaction tx : expenses) {
+            assertTrue(tx.isExpense());
+        }
+
+        Map<String, Double> categoryStats = roomViewModel.getCategoryStats().getValue();
+        assertNotNull(categoryStats);
+
+        roomViewModel.loadMembers();
+        List<com.sharedfund.app.model.RoomMember> members = roomViewModel.getMembers().getValue();
+        assertNotNull(members);
+        assertTrue(members.size() > 0);
+
+        final Room[] updatedHolder = new Room[1];
+        roomViewModel.updateRoom("Quỹ Đà Lạt 2026 Mới", "Mô tả cập nhật", 8000000.0, new RoomRepository.DataCallback<Room>() {
+            @Override
+            public void onSuccess(Room value) {
+                updatedHolder[0] = value;
+            }
+
+            @Override
+            public void onError(String message) {}
+        });
+
+        assertNotNull(updatedHolder[0]);
+        assertEquals("Quỹ Đà Lạt 2026 Mới", updatedHolder[0].getName());
+        assertEquals("Mô tả cập nhật", updatedHolder[0].getDescription());
+        assertEquals(8000000.0, updatedHolder[0].getTargetAmount(), 0.001);
+
+        Room refreshed = roomViewModel.getRoom().getValue();
+        assertNotNull(refreshed);
+        assertEquals("Quỹ Đà Lạt 2026 Mới", refreshed.getName());
+    }
+
+    @Test
+    public void testLeaveRoomConstraint() {
+        Room testRoom = repository.createRoom("Quỹ Test Rời Quỹ", "Dùng để kiểm thử rời quỹ");
+        assertNotNull(testRoom);
+
+        RoomViewModel roomViewModel = new RoomViewModel();
+        roomViewModel.setRoomId(testRoom.getId());
+
+        testRoom.setCurrentUserRole("OWNER");
+
+        final String[] errorHolder = new String[1];
+        roomViewModel.leaveRoom("user-001", new RoomRepository.DataCallback<Boolean>() {
+            @Override
+            public void onSuccess(Boolean value) {}
+
+            @Override
+            public void onError(String message) {
+                errorHolder[0] = message;
+            }
+        });
+        assertNotNull(errorHolder[0]);
+
+        testRoom.setCurrentUserRole("MEMBER");
+        final boolean[] successHolder = new boolean[1];
+        roomViewModel.leaveRoom("user-001", new RoomRepository.DataCallback<Boolean>() {
+            @Override
+            public void onSuccess(Boolean value) {
+                successHolder[0] = (value != null && value);
+            }
+
+            @Override
+            public void onError(String message) {}
+        });
+        assertTrue(successHolder[0]);
+    }
+
+    @Test
+    public void testCreateRoomWithTargetAmount() {
+        HomeViewModel homeViewModel = new HomeViewModel();
+        homeViewModel.createRoom("Quỹ Tiệc Tất Niên 2026", "Tất niên công ty", 15000000.0);
+
+        List<Room> rooms = homeViewModel.getRooms().getValue();
+        assertNotNull(rooms);
+        assertTrue(rooms.size() > 0);
+
+        Room created = rooms.get(0);
+        assertEquals("Quỹ Tiệc Tất Niên 2026", created.getName());
+        assertEquals(15000000.0, created.getTargetAmount(), 0.001);
+    }
+
+    @Test
+    public void testRoomSearchAndFilterLogic() {
+        HomeViewModel homeViewModel = new HomeViewModel();
+        homeViewModel.createRoom("Quỹ Du Lịch Đà Nẵng", "Chuyến đi mùa hè");
+
+        List<Room> allRooms = homeViewModel.getRooms().getValue();
+        assertNotNull(allRooms);
+        assertTrue(allRooms.size() > 0);
+
+        String targetCode = allRooms.get(0).getJoinCode();
+        assertNotNull(targetCode);
+
+        java.util.List<Room> matchedByName = new java.util.ArrayList<>();
+        for (Room r : allRooms) {
+            if (r.getName() != null && r.getName().toLowerCase().contains("đà nẵng")) {
+                matchedByName.add(r);
+            }
+        }
+        assertEquals(1, matchedByName.size());
+        assertEquals("Quỹ Du Lịch Đà Nẵng", matchedByName.get(0).getName());
+
+        java.util.List<Room> matchedByCode = new java.util.ArrayList<>();
+        String partialCode = targetCode.substring(0, Math.min(3, targetCode.length())).toLowerCase();
+        for (Room r : allRooms) {
+            if (r.getJoinCode() != null && r.getJoinCode().toLowerCase().contains(partialCode)) {
+                matchedByCode.add(r);
+            }
+        }
+        assertTrue(matchedByCode.size() >= 1);
+        assertTrue(matchedByCode.contains(allRooms.get(0)));
+    }
+
+    @Test
+    public void testUserProfileUpdate() {
+        repository.setCurrentUser("user-test-01", "Nguyễn Văn Test");
+        assertEquals("Nguyễn Văn Test", repository.getCurrentUserName());
+
+        repository.setCurrentUser("user-test-01", "Trần Thị Cập Nhật");
+        assertEquals("Trần Thị Cập Nhật", repository.getCurrentUserName());
+    }
 }

@@ -15,7 +15,7 @@ import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.Spinner;
 import android.widget.TextView;
-import android.widget.Toast;
+import com.sharedfund.app.ui.widget.AppToaster;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -223,8 +223,8 @@ public class AddTransactionFragment extends Fragment {
             }
             @Override public void onError(String message) {
                 if (!isAdded()) return;
-                requireActivity().runOnUiThread(() -> Toast.makeText(requireContext(),
-                        "Failed to load categories: " + message, Toast.LENGTH_LONG).show());
+                requireActivity().runOnUiThread(() -> AppToaster.error(requireActivity(),
+                        "Không thể tải danh mục: " + message));
             }
         });
 
@@ -235,7 +235,7 @@ public class AddTransactionFragment extends Fragment {
                     btnSaveTransaction.setEnabled(true);
                     btnSaveTransaction.setText(scannedQrPayment == null
                             ? getString(R.string.btn_save_transaction) : "Xác nhận chi từ quỹ");
-                    Toast.makeText(requireContext(), error, Toast.LENGTH_SHORT).show();
+                    AppToaster.error(requireActivity(), error);
                 }
             }
         });
@@ -263,7 +263,7 @@ public class AddTransactionFragment extends Fragment {
                     else if (scannedQrPayment != null) message = "Đã ghi nhận khoản chi nội bộ từ quỹ. App không chuyển tiền ngân hàng.";
                     else if (viewModel.isCurrentUserOwner()) message = "Đã rút tiền vào ví cá nhân.";
                     else message = "Đã gửi yêu cầu rút quỹ. Vui lòng chờ chủ quỹ duyệt.";
-                    Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show();
+                    AppToaster.success(requireActivity(), message);
                     if (getActivity() instanceof MainActivity) {
                         requireActivity().getSupportFragmentManager().popBackStack();
                         ((MainActivity) getActivity()).openTransactions(roomId);
@@ -365,14 +365,14 @@ public class AddTransactionFragment extends Fragment {
             Result result = new MultiFormatReader().decode(binary, hints);
             handleScannedPayload(result.getText());
         } catch (Exception error) {
-            Toast.makeText(requireContext(), "Không đọc được QR trong ảnh. Hãy chọn ảnh rõ, đủ sáng.", Toast.LENGTH_LONG).show();
+            AppToaster.error(requireActivity(), "Không đọc được QR trong ảnh. Hãy chọn ảnh rõ, đủ sáng.");
         }
     }
 
     private void handleScannedPayload(String payload) {
         ScannedQrPayment parsed = ScannedQrPayment.parse(payload);
         if (parsed == null || parsed.accountNumber == null || parsed.accountNumber.trim().isEmpty()) {
-            Toast.makeText(requireContext(), "Mã này không chứa thông tin tài khoản VietQR được hỗ trợ.", Toast.LENGTH_LONG).show();
+            AppToaster.error(requireActivity(), "Mã này không chứa thông tin tài khoản VietQR được hỗ trợ.");
             return;
         }
         scannedQrPayment = parsed;

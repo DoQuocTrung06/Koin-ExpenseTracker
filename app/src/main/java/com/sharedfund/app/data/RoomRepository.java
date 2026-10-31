@@ -318,6 +318,10 @@ public class RoomRepository {
     }
 
     public void createRoom(String name, String description, String userId, DataCallback<Room> callback) {
+        createRoom(name, description, 0.0, userId, callback);
+    }
+
+    public void createRoom(String name, String description, double targetAmount, String userId, DataCallback<Room> callback) {
         JsonObject payload = new JsonObject();
         payload.addProperty("name", name);
         payload.addProperty("description", description);
@@ -326,6 +330,9 @@ public class RoomRepository {
         payload.addProperty("balance", 0);
         payload.addProperty("currency", "VND");
         payload.addProperty("is_archived", false);
+        if (targetAmount > 0) {
+            payload.addProperty("target_amount", targetAmount);
+        }
         RequestBody body = RequestBody.create(gson.toJson(payload), JSON);
         client.newCall(request("/rooms?select=*").post(body)
                 .addHeader("Content-Type", "application/json")
@@ -362,6 +369,26 @@ public class RoomRepository {
     }
 
     public void loadRoomMembers(String roomId, DataCallback<List<RoomMember>> callback) {
+        if ("user-001".equals(currentUserId) || (roomId != null && roomId.startsWith("room-"))) {
+            Room r = getRoomSync(roomId);
+            List<RoomMember> mockMembers = new ArrayList<>();
+            if (r != null && r.getMembers() != null) {
+                double totalIncome = getRoomTotalIncome(roomId);
+                double perMember = r.getMembers().size() > 0 ? totalIncome / r.getMembers().size() : 0.0;
+                for (int i = 0; i < r.getMembers().size(); i++) {
+                    String name = r.getMembers().get(i);
+                    RoomMember m = new RoomMember();
+                    m.setRoomId(roomId);
+                    m.setUserId("user-mock-" + i);
+                    m.setFullName(name);
+                    m.setRole(name.contains("Trưởng quỹ") ? "OWNER" : "MEMBER");
+                    m.setTotalContributed(perMember);
+                    mockMembers.add(m);
+                }
+            }
+            callback.onSuccess(mockMembers);
+            return;
+        }
         String path = "/room_members?select=id,room_id,user_id,role,total_contributed,joined_at,profiles(full_name,email,avatar_url)&room_id=eq." + roomId;
         client.newCall(request(path).get().build()).enqueue(new okhttp3.Callback() {
             @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
@@ -414,6 +441,10 @@ public class RoomRepository {
     }
 
     public synchronized Room createRoom(String name, String description) {
+        return createRoom(name, description, 0.0);
+    }
+
+    public synchronized Room createRoom(String name, String description, double targetAmount) {
         String id = "room-" + (roomList.size() + 1);
         String code = makeJoinCode();
         List<String> members = new ArrayList<>();
@@ -422,6 +453,9 @@ public class RoomRepository {
                 : "Bạn (Trưởng quỹ)";
         members.add(creatorLabel);
         Room newRoom = new Room(id, name, code, 0, description, 1, members);
+        if (targetAmount > 0) {
+            newRoom.setTargetAmount(targetAmount);
+        }
         roomList.add(0, newRoom);
         List<String> joined = userRoomsMap.get(currentUserId);
         if (joined == null) {
@@ -745,7 +779,18 @@ public class RoomRepository {
     public void leaveRoom(String roomId, String userId, DataCallback<Boolean> callback) {
         Room room = getRoomSync(roomId);
         if (room != null && "OWNER".equalsIgnoreCase(room.getCurrentUserRole())) {
-            callback.onError("Room owner cannot leave the room. Please transfer ownership or delete the room.");
+            callback.onError("Trưởng quỹ không thể rời phòng. Vui lòng chuyển quyền hoặc đóng quỹ.");
+            return;
+        }
+        if ("user-001".equals(currentUserId) || (roomId != null && roomId.startsWith("room-"))) {
+            if (room != null && room.getMembers() != null) {
+                room.getMembers().remove(currentUserName);
+                room.setMemberCount(Math.max(1, room.getMembers().size()));
+            }
+            List<String> list = userRoomsMap.get(currentUserId);
+            if (list != null) list.remove(roomId);
+            notifyDataChanged();
+            callback.onSuccess(true);
             return;
         }
         String path = "/room_members?room_id=eq." + roomId + "&user_id=eq." + userId;
@@ -764,6 +809,65 @@ public class RoomRepository {
         });
     }
 
+    public void updateRoom(String roomId, String name, String description, double targetAmount, DataCallback<Room> callback) {
+        Room room = getRoomSync(roomId);
+        if (room != null) {
+            room.setName(name);
+            room.setDescription(description);
+            if (targetAmount >= 0) {
+                room.setTargetAmount(targetAmount);
+            }
+            notifyDataChanged();
+        }
+        if ("user-001".equals(currentUserId) || (roomId != null && roomId.startsWith("room-"))) {
+            if (room != null) {
+                callback.onSuccess(room);
+            } else {
+                callback.onError("Không tìm thấy quỹ");
+            }
+            return;
+        }
+        JsonObject payload = new JsonObject();
+        payload.addProperty("name", name);
+        payload.addProperty("description", description);
+        if (targetAmount >= 0) {
+            payload.addProperty("target_amount", targetAmount);
+        }
+        String path = "/rooms?id=eq." + roomId;
+        client.newCall(request(path).patch(RequestBody.create(gson.toJson(payload), JSON))
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Prefer", "return=representation").build()).enqueue(new okhttp3.Callback() {
+            @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+            @Override public void onResponse(Call call, Response response) throws IOException {
+                String body = response.body() != null ? response.body().string() : "";
+                if (!response.isSuccessful()) {
+                    callback.onError("HTTP " + response.code() + ": " + body);
+                    return;
+                }
+                try {
+                    JsonArray rows = JsonParser.parseString(body).getAsJsonArray();
+                    if (rows.size() > 0) {
+                        Room updated = gson.fromJson(rows.get(0), Room.class);
+                        if (room != null) {
+                            room.setName(updated.getName());
+                            room.setDescription(updated.getDescription());
+                            room.setTargetAmount(updated.getTargetAmount());
+                        }
+                        notifyDataChanged();
+                        callback.onSuccess(updated);
+                    } else if (room != null) {
+                        callback.onSuccess(room);
+                    } else {
+                        callback.onError("Không tìm thấy dữ liệu quỹ");
+                    }
+                } catch (Exception e) {
+                    if (room != null) callback.onSuccess(room);
+                    else callback.onError(e.getMessage());
+                }
+            }
+        });
+    }
+
     public void deleteRoom(String roomId, String adminUserId, DataCallback<Boolean> callback) {
         Room room = getRoomSync(roomId);
         if (room != null) {
@@ -777,6 +881,14 @@ public class RoomRepository {
                 callback.onError("Cannot delete fund room with remaining balance. Please disburse or withdraw remaining funds first.");
                 return;
             }
+        }
+        if ("user-001".equals(currentUserId) || (roomId != null && roomId.startsWith("room-"))) {
+            if (room != null) roomList.remove(room);
+            List<String> list = userRoomsMap.get(currentUserId);
+            if (list != null) list.remove(roomId);
+            notifyDataChanged();
+            callback.onSuccess(true);
+            return;
         }
         JsonObject params = new JsonObject();
         params.addProperty("p_room_id", roomId);

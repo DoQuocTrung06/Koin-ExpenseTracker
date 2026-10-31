@@ -19,6 +19,7 @@ import com.sharedfund.app.ui.room.RoomDetailFragment;
 import com.sharedfund.app.ui.statistics.StatisticsFragment;
 import com.sharedfund.app.ui.transaction.AddTransactionFragment;
 import com.sharedfund.app.ui.transaction.TransactionFragment;
+import com.sharedfund.app.ui.widget.AppToaster;
 
 public class MainActivity extends AppCompatActivity {
     private static final String SETTINGS_PREFS = "koin_ui_settings";
@@ -66,7 +67,7 @@ public class MainActivity extends AppCompatActivity {
     public void onSessionExpired() {
         runOnUiThread(() -> {
             UserSessionManager.getInstance(this).clearSession();
-            Toast.makeText(this, "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại", Toast.LENGTH_LONG).show();
+            AppToaster.error(this, "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại");
             openLogin();
         });
     }

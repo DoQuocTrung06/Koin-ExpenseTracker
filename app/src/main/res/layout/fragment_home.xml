@@ -73,126 +73,162 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
 
-                <RelativeLayout
+                <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content">
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <FrameLayout
+                        android:layout_width="44dp"
+                        android:layout_height="44dp">
+
+                        <ImageView
+                            android:id="@+id/ivHomeAvatar"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:background="@drawable/bg_avatar_circle"
+                            android:clipToOutline="true"
+                            android:contentDescription="Ảnh đại diện"
+                            android:scaleType="centerCrop" />
+
+                        <TextView
+                            android:id="@+id/tvHomeAvatarInitials"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:text="U"
+                            android:textColor="@color/white"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+                    </FrameLayout>
 
                     <LinearLayout
-                        android:layout_width="wrap_content"
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_alignParentStart="true"
-                        android:layout_toStartOf="@+id/layoutWalletButtons"
-                        android:layout_marginEnd="8dp"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal">
+                        android:layout_marginStart="12dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
 
-                        <FrameLayout
-                            android:layout_width="40dp"
-                            android:layout_height="40dp">
+                        <TextView
+                            android:id="@+id/tvHomeUserName"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:ellipsize="end"
+                            android:maxLines="1"
+                            android:singleLine="true"
+                            android:text="Người dùng"
+                            android:textColor="@color/white"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
 
-                            <ImageView
-                                android:id="@+id/ivHomeAvatar"
-                                android:layout_width="match_parent"
-                                android:layout_height="match_parent"
-                                android:background="@drawable/bg_avatar_circle"
-                                android:clipToOutline="true"
-                                android:contentDescription="Ảnh đại diện"
-                                android:scaleType="centerCrop" />
+                        <LinearLayout
+                            android:id="@+id/layoutHomeUserId"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="3dp"
+                            android:background="@drawable/bg_id_badge"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:foreground="?attr/selectableItemBackground"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:paddingStart="8dp"
+                            android:paddingTop="2dp"
+                            android:paddingEnd="8dp"
+                            android:paddingBottom="2dp">
 
                             <TextView
-                                android:id="@+id/tvHomeAvatarInitials"
-                                android:layout_width="match_parent"
-                                android:layout_height="match_parent"
-                                android:gravity="center"
-                                android:text="U"
-                                android:textColor="@color/white"
-                                android:textSize="13sp"
+                                android:id="@+id/tvHomeUserIdTag"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="ID: —"
+                                android:textColor="#E0E7FF"
+                                android:textSize="11sp"
                                 android:textStyle="bold" />
-                        </FrameLayout>
+
+                            <ImageView
+                                android:layout_width="11dp"
+                                android:layout_height="11dp"
+                                android:layout_marginStart="4dp"
+                                android:contentDescription="Sao chép ID"
+                                android:src="@drawable/ic_copy"
+                                app:tint="#B8C8F0" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tvWalletTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Số dư ví cá nhân"
+                            android:textColor="#E0E7FF"
+                            android:textSize="12sp" />
 
                         <LinearLayout
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="8dp"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:id="@+id/tvWalletTitle"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Ví cá nhân"
-                                android:textColor="#E0E7FF"
-                                android:textSize="13sp" />
+                            android:layout_marginTop="2dp"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
 
                             <TextView
                                 android:id="@+id/tvTotalBalance"
-                                android:layout_width="match_parent"
+                                android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_marginTop="4dp"
                                 android:ellipsize="end"
                                 android:maxLines="1"
                                 android:singleLine="true"
                                 android:text="0 ₫"
                                 android:textColor="@color/white"
-                                android:textSize="30sp"
-                                android:textStyle="bold"
-                                app:autoSizeMaxTextSize="30sp"
-                                app:autoSizeMinTextSize="16sp"
-                                app:autoSizeStepGranularity="1sp"
-                                app:autoSizeTextType="uniform" />
+                                android:textSize="26sp"
+                                android:textStyle="bold" />
+
+                            <ImageButton
+                                android:id="@+id/btnToggleBalanceVisibility"
+                                android:layout_width="32dp"
+                                android:layout_height="32dp"
+                                android:layout_marginStart="8dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:contentDescription="Ẩn/hiện số dư"
+                                android:padding="5dp"
+                                android:src="@drawable/ic_visibility"
+                                app:tint="#E0E7FF" />
                         </LinearLayout>
                     </LinearLayout>
 
-                    <LinearLayout
-                        android:id="@+id/layoutWalletButtons"
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnHomeDepositWithdraw"
+                        style="@style/Widget.Material3.Button"
                         android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_alignParentEnd="true"
-                        android:layout_centerVertical="true"
-                        android:orientation="horizontal">
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnHomeDeposit"
-                            style="@style/Widget.Material3.Button"
-                            android:layout_width="wrap_content"
-                            android:layout_height="38dp"
-                            android:backgroundTint="#33FFFFFF"
-                            android:insetTop="0dp"
-                            android:insetBottom="0dp"
-                            android:paddingStart="10dp"
-                            android:paddingEnd="10dp"
-                            android:text="Nạp"
-                            android:textColor="@color/white"
-                            android:textSize="12sp"
-                            android:textStyle="bold"
-                            app:cornerRadius="19dp"
-                            app:icon="@drawable/ic_add"
-                            app:iconSize="14dp"
-                            app:iconTint="@color/white"
-                            app:strokeColor="#66FFFFFF"
-                            app:strokeWidth="1dp" />
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnHomeWithdraw"
-                            style="@style/Widget.Material3.Button"
-                            android:layout_width="wrap_content"
-                            android:layout_height="38dp"
-                            android:layout_marginStart="6dp"
-                            android:backgroundTint="#33FFFFFF"
-                            android:insetTop="0dp"
-                            android:insetBottom="0dp"
-                            android:paddingStart="10dp"
-                            android:paddingEnd="10dp"
-                            android:text="Rút"
-                            android:textColor="@color/white"
-                            android:textSize="12sp"
-                            android:textStyle="bold"
-                            app:cornerRadius="19dp"
-                            app:iconTint="@color/white"
-                            app:strokeColor="#66FFFFFF"
-                            app:strokeWidth="1dp" />
-                    </LinearLayout>
-                </RelativeLayout>
+                        android:layout_height="40dp"
+                        android:backgroundTint="#33FFFFFF"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        android:paddingStart="12dp"
+                        android:paddingEnd="12dp"
+                        android:text="⇅ Nạp / Rút"
+                        android:textColor="@color/white"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        app:cornerRadius="20dp"
+                        app:strokeColor="#66FFFFFF"
+                        app:strokeWidth="1dp" />
+                </LinearLayout>
 
                 <View
                     android:layout_width="match_parent"
@@ -321,11 +357,70 @@
                 app:strokeColor="@color/primary"
                 app:strokeWidth="1.5dp" />
         </LinearLayout>
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardHomeSearch"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="16dp"
+            android:layout_marginEnd="16dp"
+            app:cardBackgroundColor="@color/surface"
+            app:cardCornerRadius="14dp"
+            app:cardElevation="0dp"
+            app:strokeColor="@color/border"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:contentDescription="Tìm kiếm"
+                    android:src="@drawable/ic_search"
+                    app:tint="@color/text_tertiary" />
+
+                <EditText
+                    android:id="@+id/etHomeSearchRooms"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_marginStart="10dp"
+                    android:layout_marginEnd="6dp"
+                    android:layout_weight="1"
+                    android:background="@null"
+                    android:hint="Tìm kiếm theo tên quỹ hoặc mã quỹ..."
+                    android:imeOptions="actionSearch"
+                    android:inputType="text"
+                    android:maxLines="1"
+                    android:singleLine="true"
+                    android:textColor="@color/text_primary"
+                    android:textColorHint="@color/text_tertiary"
+                    android:textSize="14sp" />
+
+                <ImageButton
+                    android:id="@+id/btnClearSearch"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Xóa tìm kiếm"
+                    android:padding="4dp"
+                    android:src="@drawable/ic_close"
+                    android:visibility="gone"
+                    app:tint="@color/text_tertiary" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginStart="18dp"
-            android:layout_marginTop="22dp"
+            android:layout_marginTop="18dp"
             android:layout_marginEnd="18dp"
             android:layout_marginBottom="10dp"
             android:gravity="center_vertical"
@@ -550,9 +645,9 @@
         </LinearLayout>
 
         <LinearLayout
-            android:id="@+id/btnDrawerTheme"
+            android:id="@+id/layoutDrawerTheme"
             style="@style/AccountDrawerItem"
-            android:contentDescription="Chỉnh theme">
+            android:contentDescription="Chế độ tối">
 
             <ImageView
                 style="@style/AccountDrawerIcon"
@@ -564,15 +659,12 @@
                 style="@style/AccountDrawerLabel"
                 android:layout_width="0dp"
                 android:layout_weight="1"
-                android:text="Chỉnh theme" />
+                android:text="Chế độ tối" />
 
-            <TextView
-                android:id="@+id/tvDrawerThemeValue"
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/switchDrawerTheme"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Sáng"
-                android:textColor="@color/text_secondary"
-                android:textSize="13sp" />
+                android:layout_height="wrap_content" />
         </LinearLayout>
 
         <View

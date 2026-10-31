@@ -86,12 +86,13 @@ public class MemberAdapter extends RecyclerView.Adapter<MemberAdapter.MemberView
 
             if (member.isAdmin()) {
                 tvBadge.setVisibility(View.VISIBLE);
+                tvBadge.setText("OWNER".equalsIgnoreCase(member.getRole()) ? "★ Trưởng quỹ" : "★ Quản trị");
             } else {
                 tvBadge.setVisibility(View.GONE);
             }
 
             String formattedAmount = df.format(member.getContributedAmount()) + " ₫";
-            tvContribution.setText("Đã đóng: " + formattedAmount);
+            tvContribution.setText("Đã góp: " + formattedAmount);
 
             if (totalContribution > 0) {
                 double percent = (member.getContributedAmount() / totalContribution) * 100;

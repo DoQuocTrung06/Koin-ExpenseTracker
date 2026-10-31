@@ -11,7 +11,7 @@ import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.widget.Toast;
+import com.sharedfund.app.ui.widget.AppToaster;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -25,6 +25,12 @@ import com.sharedfund.app.data.ProfileRepository;
 import com.sharedfund.app.data.RoomRepository;
 import com.sharedfund.app.data.UserSessionManager;
 import com.sharedfund.app.model.Profile;
+import com.sharedfund.app.model.Transaction;
+
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.util.List;
+import java.util.Locale;
 
 public class ProfileFragment extends Fragment {
 
@@ -37,16 +43,23 @@ public class ProfileFragment extends Fragment {
     private TextView tvProfileRoomCount;
     private TextView tvProfileTxCount;
     private ImageButton btnProfileBack;
+    private View btnEditProfileInfo;
+    private ImageView ivProfileCover;
+    private ImageButton btnEditCover;
     private ImageButton btnEditAvatar;
     private ImageView ivProfileAvatar;
     private ProgressBar pbAvatarUpload;
     private ActivityResultLauncher<String> avatarPicker;
+    private ActivityResultLauncher<String> coverPicker;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         avatarPicker = registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
             if (uri != null) uploadAvatar(uri);
+        });
+        coverPicker = registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
+            if (uri != null) saveProfileCoverUrl(uri.toString());
         });
     }
 
@@ -77,7 +90,10 @@ public class ProfileFragment extends Fragment {
         tvProfileRoomCount = view.findViewById(R.id.tvProfileRoomCount);
         tvProfileTxCount = view.findViewById(R.id.tvProfileTxCount);
         btnProfileBack = view.findViewById(R.id.btnProfileBack);
+        btnEditProfileInfo = view.findViewById(R.id.btnEditProfileInfo);
         btnEditAvatar = view.findViewById(R.id.btnEditAvatar);
+        ivProfileCover = view.findViewById(R.id.ivProfileCover);
+        btnEditCover = view.findViewById(R.id.btnEditCover);
         pbAvatarUpload = view.findViewById(R.id.pbAvatarUpload);
     }
 
@@ -104,11 +120,30 @@ public class ProfileFragment extends Fragment {
         RoomRepository repo = RoomRepository.getInstance();
         int roomCount = repo.getRoomsLiveData().getValue() != null
                 ? repo.getRoomsLiveData().getValue().size() : 0;
-        int txCount = repo.getTransactionsLiveData().getValue() != null
-                ? repo.getTransactionsLiveData().getValue().size() : 0;
+
+        double totalContributed = 0.0;
+        List<Transaction> txList = repo.getTransactionsLiveData().getValue();
+        if (txList != null) {
+            String currentUserId = session.getUserId();
+            String currentUserName = profile != null ? profile.getFullName() : null;
+            for (Transaction tx : txList) {
+                if (Transaction.TYPE_INCOME.equals(tx.getType())) {
+                    String author = tx.getCreatedBy();
+                    if (author == null || "Bạn".equalsIgnoreCase(author)
+                            || (currentUserName != null && currentUserName.equalsIgnoreCase(author))
+                            || (currentUserId != null && currentUserId.equals(author))) {
+                        totalContributed += tx.getAmount();
+                    }
+                }
+            }
+        }
+
+        DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.US);
+        symbols.setGroupingSeparator('.');
+        DecimalFormat df = new DecimalFormat("#,##0", symbols);
 
         tvProfileRoomCount.setText(String.valueOf(roomCount));
-        tvProfileTxCount.setText(String.valueOf(txCount));
+        tvProfileTxCount.setText(df.format(totalContributed) + " ₫");
     }
 
     private void setupClickListeners() {
@@ -117,7 +152,114 @@ public class ProfileFragment extends Fragment {
                 getActivity().onBackPressed();
             }
         });
+        if (btnEditProfileInfo != null) {
+            btnEditProfileInfo.setOnClickListener(v -> showEditProfileDialog());
+        }
         btnEditAvatar.setOnClickListener(v -> showAvatarOptions());
+        if (btnEditCover != null) btnEditCover.setOnClickListener(v -> showCoverOptions());
+    }
+
+    private void showEditProfileDialog() {
+        UserSessionManager session = UserSessionManager.getInstance(requireContext());
+        Profile profile = session.getCurrentUser();
+        String currentName = profile != null ? profile.getFullName() : "";
+        String currentEmail = profile != null ? profile.getEmail() : "";
+
+        android.widget.LinearLayout layout = new android.widget.LinearLayout(requireContext());
+        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+        int pad = Math.round(20 * getResources().getDisplayMetrics().density);
+        layout.setPadding(pad, pad / 2, pad, pad / 2);
+
+        com.google.android.material.textfield.TextInputLayout tilName = new com.google.android.material.textfield.TextInputLayout(
+                requireContext(), null, com.google.android.material.R.style.Widget_MaterialComponents_TextInputLayout_OutlinedBox);
+        tilName.setHint("Họ và tên");
+        com.google.android.material.textfield.TextInputEditText etName = new com.google.android.material.textfield.TextInputEditText(tilName.getContext());
+        etName.setText(currentName);
+        etName.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_WORDS);
+        tilName.addView(etName);
+        layout.addView(tilName);
+
+        com.google.android.material.textfield.TextInputLayout tilEmail = new com.google.android.material.textfield.TextInputLayout(
+                requireContext(), null, com.google.android.material.R.style.Widget_MaterialComponents_TextInputLayout_OutlinedBox);
+        tilEmail.setHint("Email / Số điện thoại");
+        android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = Math.round(12 * getResources().getDisplayMetrics().density);
+        tilEmail.setLayoutParams(lp);
+        com.google.android.material.textfield.TextInputEditText etEmail = new com.google.android.material.textfield.TextInputEditText(tilEmail.getContext());
+        etEmail.setText(currentEmail);
+        etEmail.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+        tilEmail.addView(etEmail);
+        layout.addView(tilEmail);
+
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Chỉnh sửa thông tin cá nhân")
+                .setView(layout)
+                .setNegativeButton("Hủy", null)
+                .setPositiveButton("Lưu thay đổi", (dialog, which) -> {
+                    String newName = etName.getText() != null ? etName.getText().toString().trim() : "";
+                    String newEmail = etEmail.getText() != null ? etEmail.getText().toString().trim() : "";
+                    if (newName.isEmpty()) {
+                        AppToaster.error(requireActivity(), "Họ và tên không được để trống!");
+                        return;
+                    }
+                    session.updateProfile(newName, newEmail);
+                    RoomRepository.getInstance().setCurrentUser(session.getUserId(), newName);
+                    loadProfileData();
+                    AppToaster.success(requireActivity(), "Đã cập nhật thông tin cá nhân thành công!");
+                })
+                .show();
+    }
+
+    private void showCoverOptions() {
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Ảnh bìa cá nhân")
+                .setItems(new String[]{"Chọn ảnh từ thiết bị", "Dán link ảnh"}, (dialog, which) -> {
+                    if (which == 0) coverPicker.launch("image/*");
+                    else showCoverUrlInput();
+                })
+                .show();
+    }
+
+    private void showCoverUrlInput() {
+        EditText input = new EditText(requireContext());
+        input.setSingleLine(true);
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
+        input.setHint("https://.../cover.jpg");
+        int padding = Math.round(20 * getResources().getDisplayMetrics().density);
+        input.setPadding(padding, padding, padding, padding);
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Dán link ảnh bìa")
+                .setView(input)
+                .setNegativeButton("Hủy", null)
+                .setPositiveButton("Lưu", (dialog, which) -> {
+                    String url = input.getText() != null ? input.getText().toString().trim() : "";
+                    if (!url.isEmpty()) {
+                        saveProfileCoverUrl(url);
+                    }
+                })
+                .show();
+    }
+
+    private void saveProfileCoverUrl(String url) {
+        requireContext().getSharedPreferences("shared_fund_profile_bg", android.content.Context.MODE_PRIVATE)
+                .edit()
+                .putString("profile_cover_url", url)
+                .apply();
+        loadProfileCover();
+        AppToaster.success(requireActivity(), "Đã cập nhật ảnh bìa cá nhân.");
+    }
+
+    private void loadProfileCover() {
+        if (ivProfileCover == null || getContext() == null) return;
+        String url = requireContext().getSharedPreferences("shared_fund_profile_bg", android.content.Context.MODE_PRIVATE)
+                .getString("profile_cover_url", "");
+        if (url != null && !url.trim().isEmpty()) {
+            ivProfileCover.setVisibility(View.VISIBLE);
+            AvatarImageLoader.load(ivProfileCover, null, url);
+        } else {
+            ivProfileCover.setVisibility(View.GONE);
+        }
     }
 
     private void showAvatarOptions() {
@@ -148,7 +290,7 @@ public class ProfileFragment extends Fragment {
                             && parsed.getHost() != null) {
                         persistAvatarUrl(url);
                     } else {
-                        Toast.makeText(requireContext(), "Link ảnh phải bắt đầu bằng http:// hoặc https://", Toast.LENGTH_LONG).show();
+                        AppToaster.error(requireActivity(), "Link ảnh phải bắt đầu bằng http:// hoặc https://");
                     }
                 })
                 .show();
@@ -177,7 +319,7 @@ public class ProfileFragment extends Fragment {
                     UserSessionManager.getInstance(requireContext()).saveAvatarUrl(avatarUrl);
                     tvAvatarInitials.setVisibility(View.VISIBLE);
                     AvatarImageLoader.load(ivProfileAvatar, tvAvatarInitials, avatarUrl);
-                    Toast.makeText(requireContext(), "Đã cập nhật ảnh đại diện.", Toast.LENGTH_SHORT).show();
+                    AppToaster.success(requireActivity(), "Đã cập nhật ảnh đại diện.");
                 });
             }
 
@@ -186,8 +328,7 @@ public class ProfileFragment extends Fragment {
                 requireActivity().runOnUiThread(() -> {
                     if (!isAdded()) return;
                     setAvatarLoading(false);
-                    Toast.makeText(requireContext(), "Không cập nhật được ảnh đại diện: " + message,
-                            Toast.LENGTH_LONG).show();
+                    AppToaster.error(requireActivity(), "Không cập nhật được ảnh đại diện: " + message);
                 });
             }
         };

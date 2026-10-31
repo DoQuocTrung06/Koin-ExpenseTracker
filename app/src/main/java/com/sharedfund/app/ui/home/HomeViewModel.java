@@ -115,6 +115,10 @@ public class HomeViewModel extends ViewModel {
     }
 
     public void createRoom(String name, String description) {
+        createRoom(name, description, 0.0);
+    }
+
+    public void createRoom(String name, String description, double targetAmount) {
         if (name == null || name.trim().isEmpty()) {
             actionMessage.setValue("Tên quỹ không được để trống!");
             return;
@@ -122,7 +126,7 @@ public class HomeViewModel extends ViewModel {
         String effectiveUserId = getEffectiveUserId();
         if (effectiveUserId.isEmpty() || effectiveUserId.startsWith("user-")) {
             isLoading.setValue(true);
-            Room newRoom = repository.createRoom(name.trim(), description != null ? description.trim() : "");
+            Room newRoom = repository.createRoom(name.trim(), description != null ? description.trim() : "", targetAmount);
             isLoading.setValue(false);
             if (newRoom != null) {
                 applyRoomFilter();
@@ -133,7 +137,7 @@ public class HomeViewModel extends ViewModel {
             return;
         }
         isLoading.setValue(true);
-        repository.createRoom(name.trim(), description != null ? description.trim() : "", effectiveUserId,
+        repository.createRoom(name.trim(), description != null ? description.trim() : "", targetAmount, effectiveUserId,
                 new RoomRepository.DataCallback<Room>() {
                     @Override public void onSuccess(Room room) {
                         loadRemoteData();

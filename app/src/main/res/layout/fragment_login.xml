@@ -57,7 +57,7 @@
                     android:gravity="center"
                     android:text="Chào mừng trở lại"
                     android:textColor="@color/text_primary"
-                    android:textSize="25sp"
+                    android:textSize="26sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -65,25 +65,26 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
+                    android:layout_marginBottom="8dp"
                     android:gravity="center"
                     android:text="Đăng nhập để tiếp tục quản lý quỹ cùng bạn bè"
                     android:textColor="@color/text_secondary"
-                    android:textSize="14sp" />
+                    android:textSize="15sp" />
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/tilFullName"
                     style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="24dp"
+                    android:layout_marginTop="16dp"
                     android:hint="Họ và tên"
                     android:textColorHint="@color/text_secondary"
                     android:visibility="gone"
                     app:boxBackgroundColor="@color/auth_input_background"
-                    app:boxCornerRadiusBottomEnd="13dp"
-                    app:boxCornerRadiusBottomStart="13dp"
-                    app:boxCornerRadiusTopEnd="13dp"
-                    app:boxCornerRadiusTopStart="13dp"
+                    app:boxCornerRadiusBottomEnd="14dp"
+                    app:boxCornerRadiusBottomStart="14dp"
+                    app:boxCornerRadiusTopEnd="14dp"
+                    app:boxCornerRadiusTopStart="14dp"
                     app:boxStrokeColor="@color/border"
                     app:errorEnabled="true"
                     app:startIconDrawable="@drawable/ic_auth_person"
@@ -92,34 +93,25 @@
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etFullName"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
+                        android:layout_height="54dp"
                         android:inputType="textPersonName|textCapWords"
                         android:textColor="@color/text_primary"
-                        android:textSize="15sp" />
+                        android:textSize="16sp" />
                 </com.google.android.material.textfield.TextInputLayout>
-
-                <TextView
-                    android:id="@+id/tvEmailLabel"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="22dp"
-                    android:text="Email"
-                    android:textColor="@color/text_primary"
-                    android:textSize="13sp" />
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/tilEmail"
                     style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="5dp"
-                    android:hint="Địa chỉ email"
+                    android:layout_marginTop="16dp"
+                    android:hint="Email"
                     android:textColorHint="@color/text_secondary"
                     app:boxBackgroundColor="@color/auth_input_background"
-                    app:boxCornerRadiusBottomEnd="13dp"
-                    app:boxCornerRadiusBottomStart="13dp"
-                    app:boxCornerRadiusTopEnd="13dp"
-                    app:boxCornerRadiusTopStart="13dp"
+                    app:boxCornerRadiusBottomEnd="14dp"
+                    app:boxCornerRadiusBottomStart="14dp"
+                    app:boxCornerRadiusTopEnd="14dp"
+                    app:boxCornerRadiusTopStart="14dp"
                     app:boxStrokeColor="@color/border"
                     app:errorEnabled="true"
                     app:startIconDrawable="@drawable/ic_auth_email"
@@ -128,34 +120,25 @@
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etEmail"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
+                        android:layout_height="54dp"
                         android:inputType="textEmailAddress"
                         android:textColor="@color/text_primary"
-                        android:textSize="15sp" />
+                        android:textSize="16sp" />
                 </com.google.android.material.textfield.TextInputLayout>
-
-                <TextView
-                    android:id="@+id/tvPasswordLabel"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:text="Mật khẩu"
-                    android:textColor="@color/text_primary"
-                    android:textSize="13sp" />
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/tilPassword"
                     style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="5dp"
-                    android:hint="Nhập mật khẩu"
+                    android:layout_marginTop="16dp"
+                    android:hint="Mật khẩu"
                     android:textColorHint="@color/text_secondary"
                     app:boxBackgroundColor="@color/auth_input_background"
-                    app:boxCornerRadiusBottomEnd="13dp"
-                    app:boxCornerRadiusBottomStart="13dp"
-                    app:boxCornerRadiusTopEnd="13dp"
-                    app:boxCornerRadiusTopStart="13dp"
+                    app:boxCornerRadiusBottomEnd="14dp"
+                    app:boxCornerRadiusBottomStart="14dp"
+                    app:boxCornerRadiusTopEnd="14dp"
+                    app:boxCornerRadiusTopStart="14dp"
                     app:boxStrokeColor="@color/border"
                     app:errorEnabled="true"
                     app:passwordToggleEnabled="true"
@@ -165,26 +148,128 @@
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etPassword"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
+                        android:layout_height="54dp"
                         android:inputType="textPassword"
                         android:textColor="@color/text_primary"
-                        android:textSize="15sp" />
+                        android:textSize="16sp" />
                 </com.google.android.material.textfield.TextInputLayout>
+
+                <LinearLayout
+                    android:id="@+id/layoutPasswordStrength"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:layout_marginBottom="4dp"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Độ bảo mật mật khẩu:"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="13sp" />
+
+                        <TextView
+                            android:id="@+id/tvStrengthLabel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Chưa nhập"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <ProgressBar
+                        android:id="@+id/pbPasswordStrength"
+                        style="@style/Widget.AppCompat.ProgressBar.Horizontal"
+                        android:layout_width="match_parent"
+                        android:layout_height="6dp"
+                        android:layout_marginTop="6dp"
+                        android:layout_marginBottom="8dp"
+                        android:max="100"
+                        android:progress="0"
+                        android:progressDrawable="@drawable/bg_password_strength_bar" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:id="@+id/tvRuleLength"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="• Tối thiểu 8 ký tự"
+                                android:textColor="@color/text_tertiary"
+                                android:textSize="12sp" />
+
+                            <TextView
+                                android:id="@+id/tvRuleCase"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="• Chữ hoa &amp; chữ thường"
+                                android:textColor="@color/text_tertiary"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:id="@+id/tvRuleDigit"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="• Có ít nhất 1 chữ số"
+                                android:textColor="@color/text_tertiary"
+                                android:textSize="12sp" />
+
+                            <TextView
+                                android:id="@+id/tvRuleSpecial"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="• Ký tự đặc biệt (!@#...)"
+                                android:textColor="@color/text_tertiary"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </LinearLayout>
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/tilConfirmPassword"
                     style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
+                    android:layout_marginTop="16dp"
                     android:hint="Xác nhận mật khẩu"
                     android:textColorHint="@color/text_secondary"
                     android:visibility="gone"
                     app:boxBackgroundColor="@color/auth_input_background"
-                    app:boxCornerRadiusBottomEnd="13dp"
-                    app:boxCornerRadiusBottomStart="13dp"
-                    app:boxCornerRadiusTopEnd="13dp"
-                    app:boxCornerRadiusTopStart="13dp"
+                    app:boxCornerRadiusBottomEnd="14dp"
+                    app:boxCornerRadiusBottomStart="14dp"
+                    app:boxCornerRadiusTopEnd="14dp"
+                    app:boxCornerRadiusTopStart="14dp"
                     app:boxStrokeColor="@color/border"
                     app:errorEnabled="true"
                     app:passwordToggleEnabled="true"
@@ -194,10 +279,10 @@
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etConfirmPassword"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
+                        android:layout_height="54dp"
                         android:inputType="textPassword"
                         android:textColor="@color/text_primary"
-                        android:textSize="15sp" />
+                        android:textSize="16sp" />
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <ProgressBar
@@ -211,12 +296,12 @@
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnAuthAction"
                     android:layout_width="match_parent"
-                    android:layout_height="52dp"
-                    android:layout_marginTop="22dp"
+                    android:layout_height="54dp"
+                    android:layout_marginTop="24dp"
                     android:backgroundTint="@color/primary"
                     android:text="Đăng nhập"
                     android:textColor="@color/white"
-                    android:textSize="15sp"
+                    android:textSize="16sp"
                     android:textStyle="bold"
                     app:cornerRadius="14dp" />
             </LinearLayout>
@@ -225,7 +310,7 @@
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
+            android:layout_marginTop="20dp"
             android:gravity="center"
             android:orientation="horizontal">
 
@@ -235,7 +320,7 @@
                 android:layout_height="wrap_content"
                 android:text="Chưa có tài khoản? "
                 android:textColor="@color/text_secondary"
-                android:textSize="13sp" />
+                android:textSize="15sp" />
 
             <TextView
                 android:id="@+id/tvSwitchAction"
@@ -243,7 +328,7 @@
                 android:layout_height="wrap_content"
                 android:text="Đăng ký miễn phí"
                 android:textColor="@color/primary"
-                android:textSize="13sp"
+                android:textSize="15sp"
                 android:textStyle="bold" />
         </LinearLayout>
     </LinearLayout>
