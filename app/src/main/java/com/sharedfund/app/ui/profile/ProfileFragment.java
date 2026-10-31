@@ -17,6 +17,7 @@ import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import com.sharedfund.app.MainActivity;
 import com.sharedfund.app.ui.widget.AppToaster;
 
 import androidx.annotation.NonNull;
@@ -25,7 +26,9 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.fragment.app.Fragment;
 
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -59,6 +62,7 @@ public class ProfileFragment extends Fragment {
     private TextView tvProfileTxCount;
     private View layoutProfileTopBar;
     private View rowProfileUserId;
+    private View cardPersonalDetails;
     private ImageButton btnProfileBack;
     private View btnEditProfileInfo;
     private ImageView ivProfileCover;
@@ -98,12 +102,50 @@ public class ProfileFragment extends Fragment {
         setupClickListeners();
     }
 
+    @Override
+    public void onResume() {
+        super.onResume();
+        setStatusBarLightIcons(true);
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        boolean isDark = false;
+        if (getActivity() instanceof MainActivity) {
+            isDark = ((MainActivity) getActivity()).isDarkTheme();
+        }
+        setStatusBarLightIcons(isDark);
+    }
+
+    private void setStatusBarLightIcons(boolean lightIcons) {
+        if (getActivity() != null && getActivity().getWindow() != null) {
+            WindowInsetsControllerCompat controller =
+                    WindowCompat.getInsetsController(
+                            getActivity().getWindow(), getActivity().getWindow().getDecorView());
+            if (controller != null) {
+                controller.setAppearanceLightStatusBars(!lightIcons);
+            }
+        }
+    }
+
     private void setupWindowInsets() {
         if (layoutProfileTopBar != null) {
             ViewCompat.setOnApplyWindowInsetsListener(layoutProfileTopBar, (v, insets) -> {
                 Insets statusBars = insets.getInsets(WindowInsetsCompat.Type.statusBars());
+                Insets cutouts = insets.getInsets(WindowInsetsCompat.Type.displayCutout());
+                int statusBarHeight = Math.max(statusBars.top, cutouts.top);
+                if (statusBarHeight <= 0 && getContext() != null) {
+                    int resId = getResources().getIdentifier("status_bar_height", "dimen", "android");
+                    if (resId > 0) {
+                        statusBarHeight = getResources().getDimensionPixelSize(resId);
+                    }
+                }
+                if (statusBarHeight <= 0) {
+                    statusBarHeight = Math.round(24 * getResources().getDisplayMetrics().density);
+                }
                 int extraTop = Math.round(16 * getResources().getDisplayMetrics().density);
-                v.setPadding(v.getPaddingLeft(), statusBars.top + extraTop, v.getPaddingRight(), v.getPaddingBottom());
+                v.setPadding(v.getPaddingLeft(), statusBarHeight + extraTop, v.getPaddingRight(), v.getPaddingBottom());
                 return insets;
             });
             ViewCompat.requestApplyInsets(layoutProfileTopBar);
@@ -128,11 +170,15 @@ public class ProfileFragment extends Fragment {
         tvProfileTxCount = view.findViewById(R.id.tvProfileTxCount);
         btnProfileBack = view.findViewById(R.id.btnProfileBack);
         btnEditProfileInfo = view.findViewById(R.id.btnEditProfileInfo);
+        cardPersonalDetails = view.findViewById(R.id.cardPersonalDetails);
         btnEditAvatar = view.findViewById(R.id.btnEditAvatar);
         ivProfileCover = view.findViewById(R.id.ivProfileCover);
         btnEditCover = view.findViewById(R.id.btnEditCover);
         pbAvatarUpload = view.findViewById(R.id.pbAvatarUpload);
 
+        if (btnProfileBack != null) {
+            btnProfileBack.setColorFilter(Color.WHITE);
+        }
         if (btnEditCover != null) {
             btnEditCover.setColorFilter(Color.WHITE);
         }
@@ -217,6 +263,9 @@ public class ProfileFragment extends Fragment {
         });
         if (btnEditProfileInfo != null) {
             btnEditProfileInfo.setOnClickListener(v -> showEditProfileDialog());
+        }
+        if (cardPersonalDetails != null) {
+            cardPersonalDetails.setOnClickListener(v -> showEditProfileDialog());
         }
         btnEditAvatar.setOnClickListener(v -> showAvatarOptions());
         if (btnEditCover != null) {

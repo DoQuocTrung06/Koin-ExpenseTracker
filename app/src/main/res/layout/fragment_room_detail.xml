@@ -87,32 +87,26 @@
                         android:layout_gravity="top|start"
                         android:layout_marginStart="14dp"
                         android:layout_marginTop="14dp"
-                        android:background="@drawable/bg_id_badge"
                         android:gravity="center_vertical"
-                        android:orientation="horizontal"
-                        android:padding="2dp">
+                        android:orientation="horizontal">
 
                         <androidx.appcompat.widget.AppCompatImageButton
                             android:id="@+id/btnHeaderQuickEdit"
                             android:layout_width="38dp"
                             android:layout_height="38dp"
-                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:background="@drawable/bg_cover_button_circle"
                             android:contentDescription="Chỉnh sửa tên quỹ"
                             android:padding="9dp"
                             android:src="@drawable/ic_edit"
                             android:tint="@color/white"
                             app:tint="@color/white" />
 
-                        <View
-                            android:layout_width="1dp"
-                            android:layout_height="20dp"
-                            android:background="#4DFFFFFF" />
-
                         <androidx.appcompat.widget.AppCompatImageButton
                             android:id="@+id/btnChangeRoomBackground"
                             android:layout_width="38dp"
                             android:layout_height="38dp"
-                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:layout_marginStart="8dp"
+                            android:background="@drawable/bg_cover_button_circle"
                             android:contentDescription="Đổi ảnh bìa quỹ"
                             android:padding="9dp"
                             android:src="@drawable/ic_gallery"

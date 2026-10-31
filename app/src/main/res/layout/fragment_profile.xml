@@ -48,7 +48,7 @@
                         android:layout_width="40dp"
                         android:layout_height="40dp"
                         android:layout_gravity="start|center_vertical"
-                        android:background="@drawable/bg_avatar_circle"
+                        android:background="@drawable/bg_cover_button_circle"
                         android:contentDescription="Back"
                         android:padding="9dp"
                         android:src="@drawable/ic_arrow_back"
@@ -60,7 +60,7 @@
                         android:layout_width="40dp"
                         android:layout_height="40dp"
                         android:layout_gravity="end|center_vertical"
-                        android:background="@drawable/bg_avatar_circle"
+                        android:background="@drawable/bg_cover_button_circle"
                         android:contentDescription="Đổi ảnh bìa"
                         android:padding="9dp"
                         android:src="@drawable/ic_gallery"
@@ -141,6 +141,7 @@
         </FrameLayout>
 
         <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardPersonalDetails"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginStart="16dp"
@@ -201,7 +202,7 @@
                         android:layout_height="20dp"
                         android:contentDescription="Biệt danh"
                         android:src="@drawable/ic_sparkles"
-                        app:tint="@color/primary" />
+                        app:tint="@color/text_secondary" />
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -247,7 +248,7 @@
                         android:layout_height="20dp"
                         android:contentDescription="Nghề nghiệp"
                         android:src="@drawable/ic_wallet"
-                        app:tint="@color/accent_expense" />
+                        app:tint="@color/text_secondary" />
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -292,7 +293,7 @@
                         android:layout_height="20dp"
                         android:contentDescription="Học vấn"
                         android:src="@drawable/ic_home_category"
-                        app:tint="@color/accent_blue" />
+                        app:tint="@color/text_secondary" />
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -337,7 +338,7 @@
                         android:layout_height="20dp"
                         android:contentDescription="Tiểu sử"
                         android:src="@drawable/ic_group"
-                        app:tint="@color/accent_income" />
+                        app:tint="@color/text_secondary" />
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -421,7 +422,7 @@
                         android:layout_height="20dp"
                         android:contentDescription="Họ và tên"
                         android:src="@drawable/ic_auth_person"
-                        app:tint="@color/primary" />
+                        app:tint="@color/text_secondary" />
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -447,19 +448,6 @@
                             android:textSize="14sp"
                             android:textStyle="bold" />
                     </LinearLayout>
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:background="@drawable/bg_verified_badge"
-                        android:paddingStart="8dp"
-                        android:paddingTop="2dp"
-                        android:paddingEnd="8dp"
-                        android:paddingBottom="2dp"
-                        android:text="✓ Đã xác thực"
-                        android:textColor="@color/accent_income"
-                        android:textSize="11sp"
-                        android:textStyle="bold" />
                 </LinearLayout>
 
                 <View
@@ -480,7 +468,7 @@
                         android:layout_height="20dp"
                         android:contentDescription="Email"
                         android:src="@drawable/ic_auth_email"
-                        app:tint="@color/accent_income" />
+                        app:tint="@color/text_secondary" />
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -505,19 +493,6 @@
                             android:textColor="@color/text_primary"
                             android:textSize="14sp" />
                     </LinearLayout>
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:background="@drawable/bg_verified_badge"
-                        android:paddingStart="8dp"
-                        android:paddingTop="2dp"
-                        android:paddingEnd="8dp"
-                        android:paddingBottom="2dp"
-                        android:text="✓ Đã xác thực"
-                        android:textColor="@color/accent_income"
-                        android:textSize="11sp"
-                        android:textStyle="bold" />
                 </LinearLayout>
 
                 <View
@@ -542,7 +517,7 @@
                         android:layout_height="20dp"
                         android:contentDescription="ID"
                         android:src="@drawable/ic_copy"
-                        app:tint="@color/text_tertiary" />
+                        app:tint="@color/text_secondary" />
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -568,19 +543,6 @@
                             android:textColor="@color/text_tertiary"
                             android:textSize="12sp" />
                     </LinearLayout>
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:background="@drawable/bg_verified_badge"
-                        android:paddingStart="8dp"
-                        android:paddingTop="2dp"
-                        android:paddingEnd="8dp"
-                        android:paddingBottom="2dp"
-                        android:text="✓ Đã xác thực"
-                        android:textColor="@color/accent_income"
-                        android:textSize="11sp"
-                        android:textStyle="bold" />
                 </LinearLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>

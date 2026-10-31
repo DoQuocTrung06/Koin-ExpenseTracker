@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="primary">#4F46E5</color>
-    <color name="primary_dark">#3730A3</color>
-    <color name="primary_light">#EEF2FF</color>
-    <color name="primary_gradient_start">#4F46E5</color>
-    <color name="primary_gradient_end">#7C3AED</color>
+    <color name="primary">#0052CC</color>
+    <color name="primary_dark">#003D99</color>
+    <color name="primary_light">#EBF3FF</color>
+    <color name="primary_gradient_start">#0052CC</color>
+    <color name="primary_gradient_end">#0077FE</color>
     <color name="accent_income">#10B981</color>
     <color name="accent_income_light">#D1FAE5</color>
     <color name="accent_expense">#EF4444</color>
@@ -13,8 +13,8 @@
     <color name="accent_amber_light">#FEF3C7</color>
     <color name="accent_cyan">#06B6D4</color>
     <color name="accent_cyan_light">#CFFAFE</color>
-    <color name="accent_blue">#3B82F6</color>
-    <color name="accent_blue_light">#DBEAFE</color>
+    <color name="accent_blue">#0052CC</color>
+    <color name="accent_blue_light">#EBF3FF</color>
     <color name="background">#F8FAFC</color>
     <color name="surface">#FFFFFF</color>
     <color name="surface_variant">#F1F5F9</color>

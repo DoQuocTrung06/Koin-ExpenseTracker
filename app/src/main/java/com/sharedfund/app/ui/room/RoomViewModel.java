@@ -76,6 +76,10 @@ public class RoomViewModel extends ViewModel {
 
     public void refresh() {
         if (roomId == null) return;
+        if (android.os.Looper.myLooper() != android.os.Looper.getMainLooper()) {
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(this::refresh);
+            return;
+        }
         isLoading.setValue(true);
         Room r = repository.getRoomSync(roomId);
         roomLiveData.setValue(r);

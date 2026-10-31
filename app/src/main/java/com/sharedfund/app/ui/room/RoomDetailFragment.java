@@ -151,7 +151,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
     private final DecimalFormat df = new DecimalFormat("#,###");
     private final int[] categoryColors = new int[]{
-            Color.parseColor("#4F46E5"),
+            Color.parseColor("#0052CC"),
             Color.parseColor("#10B981"),
             Color.parseColor("#F59E0B"),
             Color.parseColor("#EF4444"),
@@ -195,6 +195,18 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
     @Override
     public void onResume() {
         super.onResume();
+        if (getActivity() != null && getActivity().getWindow() != null) {
+            boolean isDark = false;
+            if (getActivity() instanceof com.sharedfund.app.MainActivity) {
+                isDark = ((com.sharedfund.app.MainActivity) getActivity()).isDarkTheme();
+            }
+            androidx.core.view.WindowInsetsControllerCompat controller =
+                    androidx.core.view.WindowCompat.getInsetsController(
+                            getActivity().getWindow(), getActivity().getWindow().getDecorView());
+            if (controller != null) {
+                controller.setAppearanceLightStatusBars(!isDark);
+            }
+        }
         if (viewModel != null) {
             viewModel.refresh();
         }

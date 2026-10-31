@@ -372,12 +372,12 @@ public class WalletTransferBottomSheet extends BottomSheetDialogFragment {
 
         Paint borderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         borderPaint.setStyle(Paint.Style.STROKE);
-        borderPaint.setColor(Color.parseColor("#4F46E5"));
+        borderPaint.setColor(Color.parseColor("#0052CC"));
         borderPaint.setStrokeWidth(4);
         canvas.drawRoundRect(new RectF(4, 4, size - 4, size - 4), 18, 18, borderPaint);
 
         Paint titlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        titlePaint.setColor(Color.parseColor("#4F46E5"));
+        titlePaint.setColor(Color.parseColor("#0052CC"));
         titlePaint.setTextSize(30);
         titlePaint.setTypeface(Typeface.DEFAULT_BOLD);
         titlePaint.setTextAlign(Paint.Align.CENTER);

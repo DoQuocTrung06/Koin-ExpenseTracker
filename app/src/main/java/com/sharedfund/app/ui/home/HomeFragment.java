@@ -121,6 +121,18 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
     @Override
     public void onResume() {
         super.onResume();
+        if (getActivity() != null && getActivity().getWindow() != null) {
+            boolean isDark = false;
+            if (getActivity() instanceof com.sharedfund.app.MainActivity) {
+                isDark = ((com.sharedfund.app.MainActivity) getActivity()).isDarkTheme();
+            }
+            androidx.core.view.WindowInsetsControllerCompat controller =
+                    androidx.core.view.WindowCompat.getInsetsController(
+                            getActivity().getWindow(), getActivity().getWindow().getDecorView());
+            if (controller != null) {
+                controller.setAppearanceLightStatusBars(!isDark);
+            }
+        }
         updateUserProfileHeader();
         renderWalletBalance();
         if (viewModel != null) {

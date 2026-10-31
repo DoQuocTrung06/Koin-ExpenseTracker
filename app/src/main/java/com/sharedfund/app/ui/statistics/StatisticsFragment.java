@@ -48,7 +48,7 @@ public class StatisticsFragment extends Fragment {
     private final DecimalFormat df = new DecimalFormat("#,###");
 
     private final int[] categoryColors = new int[]{
-            Color.parseColor("#4F46E5"),
+            Color.parseColor("#0052CC"),
             Color.parseColor("#EC4899"),
             Color.parseColor("#F59E0B"),
             Color.parseColor("#10B981"),
