@@ -60,6 +60,18 @@ public class RoomRepository {
     private final MutableLiveData<Double> totalBalanceLiveData = new MutableLiveData<>();
     private final MutableLiveData<Double> userWalletLiveData = new MutableLiveData<>(0.0);
     private double currentWalletBalance = 0.0;
+    private final Map<String, String> userAvatarCache = new java.util.concurrent.ConcurrentHashMap<>();
+
+    public String getUserAvatar(String userId) {
+        if (userId == null) return null;
+        return userAvatarCache.get(userId);
+    }
+
+    public void cacheUserAvatar(String userId, String avatarUrl) {
+        if (userId != null && avatarUrl != null && !avatarUrl.trim().isEmpty()) {
+            userAvatarCache.put(userId, avatarUrl.trim());
+        }
+    }
 
     private RoomRepository() {
         roomsLiveData.setValue(new ArrayList<>());
@@ -238,7 +250,7 @@ public class RoomRepository {
     }
 
     public void loadCategories(DataCallback<List<Category>> callback) {
-        client.newCall(request("/categories?select=id,name,type&order=name.asc").get().build())
+        client.newCall(request("/categories?select=id,name,type,icon_name,color_code&order=name.asc").get().build())
                 .enqueue(new okhttp3.Callback() {
                     @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
                     @Override public void onResponse(Call call, Response response) throws IOException {
@@ -406,7 +418,11 @@ public class RoomRepository {
                             JsonObject p = profile.getAsJsonObject();
                             if (p.has("full_name")) member.setFullName(p.get("full_name").getAsString());
                             if (p.has("email")) member.setEmail(p.get("email").getAsString());
-                            if (p.has("avatar_url")) member.setAvatarUrl(p.get("avatar_url").getAsString());
+                            if (p.has("avatar_url") && !p.get("avatar_url").isJsonNull()) {
+                                String avUrl = p.get("avatar_url").getAsString();
+                                member.setAvatarUrl(avUrl);
+                                cacheUserAvatar(member.getUserId(), avUrl);
+                            }
                         }
                         result.add(member);
                     }
@@ -633,6 +649,12 @@ public class RoomRepository {
                     Profile[] list = gson.fromJson(body, Profile[].class);
                     if (list != null && list.length > 0) {
                         setUserWalletBalance(list[0].getWalletBalance());
+                        Profile p = list[0];
+                        if (UserSessionManager.getInstance() != null) {
+                            UserSessionManager.getInstance().updateCustomProfile(
+                                    p.getNickname(), p.getOccupation(), p.getEducation(), p.getBio()
+                            );
+                        }
                         if (callback != null) callback.onSuccess(list[0]);
                     } else if (callback != null) {
                         callback.onError("Profile not found");

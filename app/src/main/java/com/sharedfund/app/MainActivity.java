@@ -17,7 +17,6 @@ import com.sharedfund.app.ui.login.LoginFragment;
 import com.sharedfund.app.ui.profile.ProfileFragment;
 import com.sharedfund.app.ui.room.RoomDetailFragment;
 import com.sharedfund.app.ui.statistics.StatisticsFragment;
-import com.sharedfund.app.ui.transaction.AddTransactionFragment;
 import com.sharedfund.app.ui.transaction.TransactionFragment;
 import com.sharedfund.app.ui.widget.AppToaster;
 
@@ -92,16 +91,28 @@ public class MainActivity extends AppCompatActivity {
         ft.commit();
     }
 
+    public void openWalletTransactions() {
+        loadFragment(new com.sharedfund.app.ui.home.WalletTransactionsFragment(), true);
+    }
+
+    public void openWalletTransfer() {
+        loadFragment(com.sharedfund.app.ui.home.WalletTransferFragment.newInstance(), true);
+    }
+
+    public void openFundAction(String roomId, double roomBalance) {
+        loadFragment(com.sharedfund.app.ui.room.FundActionFragment.newInstance(roomId, roomBalance), true);
+    }
+
+    public void openRoomTransfer(String roomId, double roomBalance) {
+        loadFragment(com.sharedfund.app.ui.room.RoomTransferFragment.newInstance(roomId, roomBalance), true);
+    }
+
     public void openRoomDetail(String roomId) {
         loadFragment(RoomDetailFragment.newInstance(roomId), true);
     }
 
     public void openTransactions(String roomId) {
         loadFragment(TransactionFragment.newInstance(roomId), true);
-    }
-
-    public void openAddTransaction(String roomId) {
-        loadFragment(AddTransactionFragment.newInstance(roomId), true);
     }
 
     public void openStatistics(String roomId) {

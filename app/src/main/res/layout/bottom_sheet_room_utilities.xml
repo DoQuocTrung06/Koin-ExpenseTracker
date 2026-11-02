@@ -5,158 +5,140 @@
     android:layout_height="wrap_content"
     android:background="@drawable/bg_bottom_sheet"
     android:orientation="vertical"
-    android:paddingStart="20dp"
+    android:paddingStart="16dp"
     android:paddingTop="12dp"
-    android:paddingEnd="20dp"
-    android:paddingBottom="24dp">
+    android:paddingEnd="16dp"
+    android:paddingBottom="28dp">
 
     <View
         android:layout_width="40dp"
         android:layout_height="4dp"
         android:layout_gravity="center_horizontal"
-        android:layout_marginBottom="16dp"
-        android:background="@drawable/bg_id_badge" />
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Tiện ích quỹ nhóm"
-        android:textColor="@color/text_primary"
-        android:textSize="20sp"
-        android:textStyle="bold" />
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:layout_marginBottom="18dp"
-        android:text="Các công cụ hỗ trợ quản lý chi tiêu quỹ thông minh"
-        android:textColor="@color/text_secondary"
-        android:textSize="13sp" />
-
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/cardOptionSplitBill"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
         android:layout_marginBottom="12dp"
-        android:clickable="true"
-        android:focusable="true"
-        android:foreground="?attr/selectableItemBackground"
-        app:cardBackgroundColor="@color/surface"
-        app:cardCornerRadius="16dp"
-        app:cardElevation="1dp"
-        app:strokeColor="@color/border"
-        app:strokeWidth="1dp">
+        android:background="@drawable/bg_card" />
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:padding="16dp">
-
-            <ImageView
-                android:layout_width="44dp"
-                android:layout_height="44dp"
-                android:background="@drawable/bg_income_badge"
-                android:contentDescription="Chia tiền"
-                android:padding="10dp"
-                android:src="@drawable/ic_swap_vert"
-                app:tint="@color/accent_income" />
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="14dp"
-                android:layout_weight="1"
-                android:orientation="vertical">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Chia đều chi phí"
-                    android:textColor="@color/text_primary"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:text="Tính bill theo đầu người và chia sẻ nhóm"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="13sp" />
-            </LinearLayout>
-
-            <ImageView
-                android:layout_width="20dp"
-                android:layout_height="20dp"
-                android:contentDescription="Mở"
-                android:src="@drawable/ic_share"
-                app:tint="@color/primary" />
-        </LinearLayout>
-    </com.google.android.material.card.MaterialCardView>
-
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/cardOptionRemind"
+    <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:clickable="true"
-        android:focusable="true"
-        android:foreground="?attr/selectableItemBackground"
-        app:cardBackgroundColor="@color/surface"
-        app:cardCornerRadius="16dp"
-        app:cardElevation="1dp"
-        app:strokeColor="@color/border"
-        app:strokeWidth="1dp">
+        android:layout_marginBottom="20dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:text="Danh sách tiện ích"
+            android:textColor="@color/text_primary"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <ImageButton
+            android:id="@+id/btnUtilitiesClose"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Đóng"
+            android:src="@drawable/ic_close"
+            app:tint="@color/text_secondary" />
+    </RelativeLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:baselineAligned="false"
+        android:orientation="horizontal"
+        android:weightSum="4">
 
         <LinearLayout
-            android:layout_width="match_parent"
+            android:id="@+id/cardOptionSplitBill"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:padding="16dp">
+            android:layout_weight="1"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp">
 
-            <ImageView
-                android:layout_width="44dp"
-                android:layout_height="44dp"
-                android:background="@drawable/bg_id_badge"
-                android:contentDescription="Nhắc quỹ"
-                android:padding="10dp"
-                android:src="@drawable/ic_sparkles"
-                app:tint="@color/primary" />
+            <FrameLayout
+                android:layout_width="54dp"
+                android:layout_height="54dp"
+                android:background="@drawable/bg_utility_badge">
 
-            <LinearLayout
-                android:layout_width="0dp"
+                <ImageView
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="Chia tiền"
+                    android:src="@drawable/ic_split_bill"
+                    app:tint="@color/primary" />
+            </FrameLayout>
+
+            <TextView
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="14dp"
-                android:layout_weight="1"
-                android:orientation="vertical">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Nhắc đóng quỹ"
-                    android:textColor="@color/text_primary"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:text="Soạn tin nhắn nhắc nhở nhóm nạp quỹ"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="13sp" />
-            </LinearLayout>
-
-            <ImageView
-                android:layout_width="20dp"
-                android:layout_height="20dp"
-                android:contentDescription="Mở"
-                android:src="@drawable/ic_share"
-                app:tint="@color/primary" />
+                android:layout_marginTop="8dp"
+                android:ellipsize="end"
+                android:gravity="center"
+                android:maxLines="2"
+                android:text="Chia đều&#10;chi phí"
+                android:textColor="@color/text_primary"
+                android:textSize="12sp"
+                android:textStyle="bold" />
         </LinearLayout>
-    </com.google.android.material.card.MaterialCardView>
 
+        <LinearLayout
+            android:id="@+id/cardOptionRemind"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp">
+
+            <FrameLayout
+                android:layout_width="54dp"
+                android:layout_height="54dp"
+                android:background="@drawable/bg_utility_badge">
+
+                <ImageView
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="Nhắc quỹ"
+                    android:src="@drawable/ic_reminder_chat_money"
+                    app:tint="@color/primary" />
+            </FrameLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:ellipsize="end"
+                android:gravity="center"
+                android:maxLines="2"
+                android:text="Nhắc&#10;đóng quỹ"
+                android:textColor="@color/text_primary"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+    </LinearLayout>
 </LinearLayout>

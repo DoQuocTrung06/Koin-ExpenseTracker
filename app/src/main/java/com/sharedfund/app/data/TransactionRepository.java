@@ -417,10 +417,9 @@ public class TransactionRepository {
                                            DataCallback<Transaction> callback) {
         try {
             String after = URLEncoder.encode(createdAfter, StandardCharsets.UTF_8.name());
-            String category = URLEncoder.encode("Nạp ví SePay", StandardCharsets.UTF_8.name());
             String url = SupabaseConfig.REST_URL + "/transactions?user_id=eq." + userId
                     + "&room_id=is.null&amount=eq." + (long) amount
-                    + "&category=eq." + category + "&created_at=gte." + after
+                    + "&created_at=gte." + after
                     + "&select=*&order=created_at.desc";
             Request request = new Request.Builder().url(url)
                     .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)

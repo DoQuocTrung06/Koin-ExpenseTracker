@@ -9,6 +9,8 @@ import android.graphics.PorterDuff;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.view.Gravity;
+
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -52,10 +54,10 @@ import com.sharedfund.app.model.Transaction;
 import com.sharedfund.app.ui.transaction.TransactionAdapter;
 import com.sharedfund.app.ui.transaction.TransactionDetailBottomSheet;
 import com.sharedfund.app.ui.widget.AppToaster;
-import com.sharedfund.app.ui.widget.DonutChartView;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -78,6 +80,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
     private View btnDetailCopyCode;
     private TextView tvDetailJoinCode;
 
+    private View cardFloatingBottomNav;
     private BottomNavigationView bottomNavRoomDetail;
     private NestedScrollView layoutTabHome;
     private NestedScrollView layoutTabHistory;
@@ -91,17 +94,15 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
     private LinearLayout layoutHomeTarget;
     private TextView tvHomeTargetText;
     private ProgressBar pbHomeTarget;
-    private TextView tvDetailTotalIncome;
-    private TextView tvDetailTotalExpense;
     private MaterialButton btnRoomTransfer;
     private MaterialButton btnUnifiedTransfer;
     private MaterialButton btnRoomUtilities;
     private TextView tvSeeAllTransactions;
     private LinearLayout layoutEmptyRecentTx;
-    private MaterialCardView cardRecentTransactions;
+    private View cardRecentTransactions;
     private RecyclerView rvRecentTransactions;
 
-    private RoomTransferBottomSheet activeTransferSheet;
+
     private final ActivityResultLauncher<ScanOptions> qrScanner = registerForActivityResult(
             new ScanContract(), result -> {
                 if (result.getContents() != null) {
@@ -110,22 +111,16 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                         AppToaster.error(requireActivity(), "Mã QR không chứa thông tin VietQR hợp lệ.");
                         return;
                     }
-                    if (activeTransferSheet != null && activeTransferSheet.isAdded()) {
-                        activeTransferSheet.setScannedQrData(parsed);
-                    } else {
-                        showTransferSheetWithQr(parsed);
-                    }
+                    showTransferSheetWithQr(parsed);
                 }
             });
 
     private TextView tvHistoryTotalIncome;
     private TextView tvHistoryTotalExpense;
     private TextView tvHistoryNetBalance;
-    private ProgressBar pbHistoryCashflowRatio;
-    private TextView tvHistoryIncomeRatio;
-    private TextView tvHistoryExpenseRatio;
-    private DonutChartView donutHistoryCategoryChart;
+    private com.sharedfund.app.ui.widget.DonutChartView donutHistoryChartView;
     private LinearLayout layoutHistoryCategoryBars;
+    private boolean isCategoryListExpanded = false;
     private TextView tvEmptyCategoryBars;
     private MaterialButton btnHistoryFilterAll;
     private MaterialButton btnHistoryFilterIncome;
@@ -227,12 +222,10 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
         btnBack = view.findViewById(R.id.btnBack);
         tvHeaderRoomName = view.findViewById(R.id.tvHeaderRoomName);
         btnHeaderQuickEdit = view.findViewById(R.id.btnHeaderQuickEdit);
-        if (btnHeaderQuickEdit != null) {
-            btnHeaderQuickEdit.setColorFilter(Color.WHITE);
-        }
         btnDetailCopyCode = view.findViewById(R.id.btnDetailCopyCode);
         tvDetailJoinCode = view.findViewById(R.id.tvDetailJoinCode);
 
+        cardFloatingBottomNav = view.findViewById(R.id.cardFloatingBottomNav);
         bottomNavRoomDetail = view.findViewById(R.id.bottomNavRoomDetail);
         layoutTabHome = view.findViewById(R.id.layoutTabHome);
         layoutTabHistory = view.findViewById(R.id.layoutTabHistory);
@@ -241,6 +234,9 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
         pbDetailLoading = view.findViewById(R.id.pbDetailLoading);
 
         btnChangeRoomBackground = view.findViewById(R.id.btnChangeRoomBackground);
+        if (btnHeaderQuickEdit != null) {
+            btnHeaderQuickEdit.setColorFilter(Color.WHITE);
+        }
         if (btnChangeRoomBackground != null) {
             btnChangeRoomBackground.setColorFilter(Color.WHITE);
         }
@@ -249,8 +245,6 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
         layoutHomeTarget = view.findViewById(R.id.layoutHomeTarget);
         tvHomeTargetText = view.findViewById(R.id.tvHomeTargetText);
         pbHomeTarget = view.findViewById(R.id.pbHomeTarget);
-        tvDetailTotalIncome = view.findViewById(R.id.tvDetailTotalIncome);
-        tvDetailTotalExpense = view.findViewById(R.id.tvDetailTotalExpense);
         btnRoomTransfer = view.findViewById(R.id.btnRoomTransfer);
         btnUnifiedTransfer = view.findViewById(R.id.btnUnifiedTransfer);
         btnRoomUtilities = view.findViewById(R.id.btnRoomUtilities);
@@ -259,13 +253,10 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
         cardRecentTransactions = view.findViewById(R.id.cardRecentTransactions);
         rvRecentTransactions = view.findViewById(R.id.rvRecentTransactions);
 
+        donutHistoryChartView = view.findViewById(R.id.donutHistoryChartView);
         tvHistoryTotalIncome = view.findViewById(R.id.tvHistoryTotalIncome);
         tvHistoryTotalExpense = view.findViewById(R.id.tvHistoryTotalExpense);
         tvHistoryNetBalance = view.findViewById(R.id.tvHistoryNetBalance);
-        pbHistoryCashflowRatio = view.findViewById(R.id.pbHistoryCashflowRatio);
-        tvHistoryIncomeRatio = view.findViewById(R.id.tvHistoryIncomeRatio);
-        tvHistoryExpenseRatio = view.findViewById(R.id.tvHistoryExpenseRatio);
-        donutHistoryCategoryChart = view.findViewById(R.id.donutHistoryCategoryChart);
         layoutHistoryCategoryBars = view.findViewById(R.id.layoutHistoryCategoryBars);
         tvEmptyCategoryBars = view.findViewById(R.id.tvEmptyCategoryBars);
         btnHistoryFilterAll = view.findViewById(R.id.btnHistoryFilterAll);
@@ -293,10 +284,12 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
     private void setupAdapters() {
         recentTransactionAdapter = new TransactionAdapter(this);
+        recentTransactionAdapter.setDisplayMode(TransactionAdapter.MODE_RECENT_CARDS);
         rvRecentTransactions.setLayoutManager(new LinearLayoutManager(requireContext()));
         rvRecentTransactions.setAdapter(recentTransactionAdapter);
 
         historyTransactionAdapter = new TransactionAdapter(this);
+        historyTransactionAdapter.setDisplayMode(TransactionAdapter.MODE_MOMO_HISTORY);
         rvHistoryTransactions.setLayoutManager(new LinearLayoutManager(requireContext()));
         rvHistoryTransactions.setAdapter(historyTransactionAdapter);
 
@@ -306,16 +299,22 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
     }
 
     private void setupBottomNav() {
-        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(bottomNavRoomDetail, (v, insets) -> {
-            androidx.core.graphics.Insets systemBars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars());
-            v.setPadding(0, 0, 0, systemBars.bottom);
-            ViewGroup.LayoutParams lp = v.getLayoutParams();
-            if (lp != null) {
-                lp.height = Math.round(76 * getResources().getDisplayMetrics().density) + systemBars.bottom;
-                v.setLayoutParams(lp);
-            }
-            return insets;
-        });
+        if (cardFloatingBottomNav != null) {
+            androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(cardFloatingBottomNav, (v, insets) -> {
+                androidx.core.graphics.Insets systemBars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars());
+                ViewGroup.MarginLayoutParams mlp = (ViewGroup.MarginLayoutParams) v.getLayoutParams();
+                if (mlp != null) {
+                    mlp.bottomMargin = Math.round(12 * getResources().getDisplayMetrics().density) + systemBars.bottom;
+                    v.setLayoutParams(mlp);
+                    int extraPad = Math.round(84 * getResources().getDisplayMetrics().density) + systemBars.bottom;
+                    if (layoutTabHome != null) layoutTabHome.setPadding(0, 0, 0, extraPad);
+                    if (layoutTabHistory != null) layoutTabHistory.setPadding(0, 0, 0, extraPad);
+                    if (layoutTabMembers != null) layoutTabMembers.setPadding(0, 0, 0, extraPad);
+                    if (layoutTabSettings != null) layoutTabSettings.setPadding(0, 0, 0, extraPad);
+                }
+                return insets;
+            });
+        }
         bottomNavRoomDetail.setOnItemSelectedListener(item -> {
             int id = item.getItemId();
             if (id == R.id.nav_room_home) {
@@ -360,7 +359,6 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
             public void onChanged(Double income) {
                 if (income != null) {
                     String formatted = "+" + df.format(income).replace(',', '.') + " ₫";
-                    tvDetailTotalIncome.setText(formatted);
                     tvHistoryTotalIncome.setText(formatted);
                     updateNetBalance();
                 }
@@ -372,7 +370,6 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
             public void onChanged(Double expense) {
                 if (expense != null) {
                     String formatted = "-" + df.format(expense).replace(',', '.') + " ₫";
-                    tvDetailTotalExpense.setText(formatted);
                     tvHistoryTotalExpense.setText(formatted);
                     updateNetBalance();
                 }
@@ -483,36 +480,47 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
         double exp = expense != null ? expense : 0.0;
         double net = inc - exp;
         String prefix = net >= 0 ? "+" : "";
-        tvHistoryNetBalance.setText(prefix + df.format(net).replace(',', '.') + " ₫");
-        if (net < 0) {
-            tvHistoryNetBalance.setTextColor(ContextCompat.getColor(requireContext(), R.color.accent_expense));
-        } else {
-            tvHistoryNetBalance.setTextColor(ContextCompat.getColor(requireContext(), R.color.primary));
+        if (tvHistoryNetBalance != null) {
+            tvHistoryNetBalance.setText(prefix + df.format(net).replace(',', '.') + " ₫");
         }
+        if (tvHistoryTotalIncome != null) {
+            tvHistoryTotalIncome.setText("Tổng thu: +" + df.format(inc).replace(',', '.') + " ₫");
+        }
+        if (tvHistoryTotalExpense != null) {
+            tvHistoryTotalExpense.setText("-" + df.format(exp).replace(',', '.') + " ₫");
+        }
+    }
 
-        if (pbHistoryCashflowRatio != null && tvHistoryIncomeRatio != null && tvHistoryExpenseRatio != null) {
-            double total = inc + exp;
-            if (total > 0) {
-                int incomePct = (int) Math.round((inc / total) * 100);
-                int expensePct = 100 - incomePct;
-                pbHistoryCashflowRatio.setProgress(incomePct);
-                tvHistoryIncomeRatio.setText("Thu: " + incomePct + "%");
-                tvHistoryExpenseRatio.setText("Chi: " + expensePct + "%");
-            } else {
-                pbHistoryCashflowRatio.setProgress(50);
-                tvHistoryIncomeRatio.setText("Thu: 0%");
-                tvHistoryExpenseRatio.setText("Chi: 0%");
-            }
-        }
+    private static final int[] FINTECH_PALETTE = new int[] {
+        Color.parseColor("#EC4899"),
+        Color.parseColor("#F97316"),
+        Color.parseColor("#F59E0B"),
+        Color.parseColor("#3B82F6"),
+        Color.parseColor("#8B5CF6"),
+        Color.parseColor("#10B981"),
+        Color.parseColor("#64748B")
+    };
+
+    private int getCategoryColor(String categoryName, int fallbackIndex) {
+        if (categoryName == null) return Color.parseColor("#64748B");
+        String lower = categoryName.trim().toLowerCase(Locale.ROOT);
+        if (lower.contains("ăn") || lower.contains("uống") || lower.contains("food")) return Color.parseColor("#EF4444");
+        if (lower.contains("di chuyển") || lower.contains("xe") || lower.contains("xăng") || lower.contains("đi lại")) return Color.parseColor("#F59E0B");
+        if (lower.contains("phòng") || lower.contains("nhà")) return Color.parseColor("#3B82F6");
+        if (lower.contains("mua") || lower.contains("sắm") || lower.contains("chợ") || lower.contains("siêu thị")) return Color.parseColor("#6366F1");
+        if (lower.contains("điện") || lower.contains("nước") || lower.contains("hóa đơn")) return Color.parseColor("#10B981");
+        if (lower.contains("giải trí") || lower.contains("phim") || lower.contains("party") || lower.contains("liên hoan")) return Color.parseColor("#EC4899");
+        if (lower.contains("rút")) return Color.parseColor("#64748B");
+        return FINTECH_PALETTE[Math.abs(fallbackIndex) % FINTECH_PALETTE.length];
     }
 
     private void renderCategoryBreakdown(Map<String, Double> map) {
         layoutHistoryCategoryBars.removeAllViews();
         if (map == null || map.isEmpty()) {
-            tvEmptyCategoryBars.setVisibility(View.VISIBLE);
-            if (donutHistoryCategoryChart != null) {
-                donutHistoryCategoryChart.setData(null, null);
+            if (donutHistoryChartView != null) {
+                donutHistoryChartView.setData(map, FINTECH_PALETTE);
             }
+            tvEmptyCategoryBars.setVisibility(View.VISIBLE);
             return;
         }
 
@@ -524,65 +532,99 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
         }
 
         if (totalExpense <= 0) {
-            tvEmptyCategoryBars.setVisibility(View.VISIBLE);
-            if (donutHistoryCategoryChart != null) {
-                donutHistoryCategoryChart.setData(null, null);
+            if (donutHistoryChartView != null) {
+                donutHistoryChartView.setData(map, FINTECH_PALETTE);
             }
+            tvEmptyCategoryBars.setVisibility(View.VISIBLE);
             return;
         }
         tvEmptyCategoryBars.setVisibility(View.GONE);
-        if (donutHistoryCategoryChart != null) {
-            donutHistoryCategoryChart.setData(map, categoryColors);
-        }
 
+        List<com.sharedfund.app.ui.widget.DonutChartView.Slice> sliceList = new ArrayList<>();
         int colorIdx = 0;
         for (Map.Entry<String, Double> entry : map.entrySet()) {
             double amt = entry.getValue() != null ? entry.getValue() : 0.0;
             if (amt <= 0) continue;
-            int percent = (int) Math.round((amt / totalExpense) * 100);
+            float percent = (float) ((amt / totalExpense) * 100.0);
+            int color = getCategoryColor(entry.getKey(), colorIdx);
+            sliceList.add(new com.sharedfund.app.ui.widget.DonutChartView.Slice(entry.getKey(), amt, color, percent));
+            colorIdx++;
+        }
+        java.util.Collections.sort(sliceList, (a, b) -> Double.compare(b.amount, a.amount));
+
+        if (donutHistoryChartView != null) {
+            donutHistoryChartView.setSlices(sliceList);
+        }
+
+        int limit = (!isCategoryListExpanded && sliceList.size() > 3) ? 3 : sliceList.size();
+        for (int i = 0; i < limit; i++) {
+            com.sharedfund.app.ui.widget.DonutChartView.Slice slice = sliceList.get(i);
+            int percent = (int) Math.round(slice.percentage);
+            int color = slice.color;
 
             LinearLayout row = new LinearLayout(requireContext());
-            row.setOrientation(LinearLayout.VERTICAL);
-            row.setPadding(0, 10, 0, 10);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setPadding(0, 16, 0, 16);
 
-            LinearLayout topLabel = new LinearLayout(requireContext());
-            topLabel.setOrientation(LinearLayout.HORIZONTAL);
+            View square = new View(requireContext());
+            LinearLayout.LayoutParams sqParams = new LinearLayout.LayoutParams(28, 28);
+            sqParams.setMarginEnd(20);
+            square.setLayoutParams(sqParams);
+            android.graphics.drawable.GradientDrawable sqDrawable = new android.graphics.drawable.GradientDrawable();
+            sqDrawable.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+            sqDrawable.setCornerRadius(6);
+            sqDrawable.setColor(color);
+            square.setBackground(sqDrawable);
 
-            TextView tvName = new TextView(requireContext());
-            tvName.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-            tvName.setText(entry.getKey() + " (" + percent + "%)");
-            tvName.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary));
-            tvName.setTextSize(15);
-            tvName.setTypeface(null, Typeface.BOLD);
-            tvName.setSingleLine(true);
-            tvName.setEllipsize(TextUtils.TruncateAt.END);
+            TextView tvCategoryInfo = new TextView(requireContext());
+            LinearLayout.LayoutParams infoParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f);
+            tvCategoryInfo.setLayoutParams(infoParams);
+            tvCategoryInfo.setText(slice.label + " (" + percent + "%)");
+            tvCategoryInfo.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary));
+            tvCategoryInfo.setTextSize(13);
 
-            TextView tvAmt = new TextView(requireContext());
-            tvAmt.setText(df.format(amt).replace(',', '.') + " ₫");
-            tvAmt.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary));
-            tvAmt.setTextSize(15);
-            tvAmt.setSingleLine(true);
-            tvAmt.setPadding(8, 0, 0, 0);
+            TextView tvCategoryAmount = new TextView(requireContext());
+            tvCategoryAmount.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            tvCategoryAmount.setText(df.format(slice.amount).replace(',', '.') + " ₫");
+            tvCategoryAmount.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary));
+            tvCategoryAmount.setTextSize(13);
+            tvCategoryAmount.setTypeface(null, Typeface.BOLD);
 
-            topLabel.addView(tvName);
-            topLabel.addView(tvAmt);
-
-            ProgressBar pb = new ProgressBar(requireContext(), null, android.R.attr.progressBarStyleHorizontal);
-            LinearLayout.LayoutParams pbParams = new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, 20);
-            pbParams.topMargin = 10;
-            pb.setLayoutParams(pbParams);
-            pb.setMax(100);
-            pb.setProgress(Math.max(5, percent));
-
-            int color = categoryColors[colorIdx % categoryColors.length];
-            pb.getProgressDrawable().setColorFilter(color, PorterDuff.Mode.SRC_IN);
-
-            row.addView(topLabel);
-            row.addView(pb);
-
+            row.addView(square);
+            row.addView(tvCategoryInfo);
+            row.addView(tvCategoryAmount);
             layoutHistoryCategoryBars.addView(row);
-            colorIdx++;
+        }
+
+        if (sliceList.size() > 3) {
+            TextView btnToggle = new TextView(requireContext());
+            LinearLayout.LayoutParams toggleParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            toggleParams.setMargins(0, 10, 0, 4);
+            btnToggle.setLayoutParams(toggleParams);
+            btnToggle.setGravity(Gravity.CENTER);
+            btnToggle.setPadding(0, 14, 0, 14);
+            btnToggle.setTextSize(12.5f);
+            btnToggle.setTextColor(ContextCompat.getColor(requireContext(), R.color.primary));
+            btnToggle.setTypeface(null, Typeface.BOLD);
+            btnToggle.setBackgroundResource(R.drawable.bg_card);
+
+            if (!isCategoryListExpanded) {
+                int remaining = sliceList.size() - 3;
+                double remainingAmount = 0.0;
+                for (int i = 3; i < sliceList.size(); i++) {
+                    remainingAmount += sliceList.get(i).amount;
+                }
+                btnToggle.setText("Xem thêm " + remaining + " danh mục khác (" + df.format(remainingAmount).replace(',', '.') + " ₫)  ▼");
+            } else {
+                btnToggle.setText("Thu gọn danh mục  ▲");
+            }
+
+            btnToggle.setOnClickListener(v -> {
+                isCategoryListExpanded = !isCategoryListExpanded;
+                renderCategoryBreakdown(map);
+            });
+            layoutHistoryCategoryBars.addView(btnToggle);
         }
     }
 
@@ -804,50 +846,25 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
     private void showRoomTransferSheet() {
         Room room = viewModel.getRoom().getValue();
         double balance = room != null ? room.getBalance() : 0.0;
-        RoomTransferBottomSheet sheet = RoomTransferBottomSheet.newInstance(roomId, balance);
-        this.activeTransferSheet = sheet;
-        sheet.setListener(new RoomTransferBottomSheet.OnTransferListener() {
-            @Override
-            public void onTransferComplete() {
-                if (viewModel != null) viewModel.refresh();
-            }
-
-            @Override
-            public void onRequestQrScan() {
-                startQrScanner();
-            }
-        });
-        sheet.show(getChildFragmentManager(), "room_transfer_sheet");
+        if (getActivity() instanceof com.sharedfund.app.MainActivity) {
+            ((com.sharedfund.app.MainActivity) getActivity()).openRoomTransfer(roomId, balance);
+        }
     }
 
     private void showTransferSheetWithQr(ScannedQrPayment parsed) {
         Room room = viewModel.getRoom().getValue();
         double balance = room != null ? room.getBalance() : 0.0;
-        RoomTransferBottomSheet sheet = RoomTransferBottomSheet.newInstance(roomId, balance);
-        this.activeTransferSheet = sheet;
-        sheet.setListener(new RoomTransferBottomSheet.OnTransferListener() {
-            @Override
-            public void onTransferComplete() {
-                if (viewModel != null) viewModel.refresh();
-            }
-
-            @Override
-            public void onRequestQrScan() {
-                startQrScanner();
-            }
-        });
-        sheet.show(getChildFragmentManager(), "room_transfer_sheet");
-        sheet.setScannedQrData(parsed);
+        if (getActivity() instanceof com.sharedfund.app.MainActivity) {
+            ((com.sharedfund.app.MainActivity) getActivity()).openRoomTransfer(roomId, balance);
+        }
     }
 
     private void showUnifiedTransferSheet() {
         Room room = viewModel.getRoom().getValue();
         double balance = room != null ? room.getBalance() : 0.0;
-        FundActionBottomSheet sheet = FundActionBottomSheet.newInstance(roomId, balance);
-        sheet.setListener(() -> {
-            if (viewModel != null) viewModel.refresh();
-        });
-        sheet.show(getChildFragmentManager(), "fund_action_sheet");
+        if (getActivity() instanceof com.sharedfund.app.MainActivity) {
+            ((com.sharedfund.app.MainActivity) getActivity()).openFundAction(roomId, balance);
+        }
     }
 
     private void showRoomUtilitiesSheet() {

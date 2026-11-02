@@ -378,28 +378,48 @@ public class AppToaster {
         show(context, ToastType.INFO, title, message);
     }
 
+    public static String sanitizeErrorMessage(String raw) {
+        if (raw == null || raw.trim().isEmpty()) {
+            return "Đã xảy ra lỗi, vui lòng thử lại sau.";
+        }
+        String lower = raw.toLowerCase(java.util.Locale.ROOT);
+        if (lower.contains("failed to connect") || lower.contains("timeout") || lower.contains("unable to resolve") || lower.contains("network") || lower.contains("connection")) {
+            return "Không thể kết nối đến máy chủ. Vui lòng kiểm tra lại mạng.";
+        }
+        if (lower.contains("jwt") || lower.contains("unauthorized") || lower.contains("expired") || lower.contains("token")) {
+            return "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
+        }
+        if (lower.contains("insufficient") || lower.contains("số dư không đủ")) {
+            return "Số dư không đủ để thực hiện giao dịch.";
+        }
+        if (lower.contains("http") || lower.contains("pgrst") || lower.contains("syntax") || lower.contains("relation") || lower.contains("column") || lower.contains("failed to run sql") || lower.contains("{") || lower.contains("}")) {
+            return "Hệ thống đang bận hoặc gặp sự cố xử lý. Vui lòng thử lại sau.";
+        }
+        return raw;
+    }
+
     public static void error(Activity activity, String message) {
-        show(activity, ToastType.ERROR, null, message);
+        show(activity, ToastType.ERROR, null, sanitizeErrorMessage(message));
     }
 
     public static void error(Activity activity, String title, String message) {
-        show(activity, ToastType.ERROR, title, message);
+        show(activity, ToastType.ERROR, title, sanitizeErrorMessage(message));
     }
 
     public static void error(Fragment fragment, String message) {
-        show(fragment, ToastType.ERROR, null, message);
+        show(fragment, ToastType.ERROR, null, sanitizeErrorMessage(message));
     }
 
     public static void error(Fragment fragment, String title, String message) {
-        show(fragment, ToastType.ERROR, title, message);
+        show(fragment, ToastType.ERROR, title, sanitizeErrorMessage(message));
     }
 
     public static void error(Context context, String message) {
-        show(context, ToastType.ERROR, null, message);
+        show(context, ToastType.ERROR, null, sanitizeErrorMessage(message));
     }
 
     public static void error(Context context, String title, String message) {
-        show(context, ToastType.ERROR, title, message);
+        show(context, ToastType.ERROR, title, sanitizeErrorMessage(message));
     }
 
     private static int dpToPx(Context context, int dp) {

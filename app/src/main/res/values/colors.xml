@@ -2,7 +2,7 @@
 <resources>
     <color name="primary">#0052CC</color>
     <color name="primary_dark">#003D99</color>
-    <color name="primary_light">#EBF3FF</color>
+    <color name="primary_light">#D9E8FF</color>
     <color name="primary_gradient_start">#0052CC</color>
     <color name="primary_gradient_end">#0077FE</color>
     <color name="accent_income">#10B981</color>

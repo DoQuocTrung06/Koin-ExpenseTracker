@@ -41,8 +41,10 @@ import com.sharedfund.app.model.Room;
 import com.sharedfund.app.model.Transaction;
 
 import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.Executors;
 
 import okhttp3.OkHttpClient;
@@ -60,19 +62,32 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
     private TextView tvDepositTitle;
     private TextInputLayout tilDepositAmount;
     private TextInputEditText etDepositAmount;
-    private MaterialButton btnQuick20k;
     private MaterialButton btnQuick50k;
     private MaterialButton btnQuick100k;
     private MaterialButton btnQuick200k;
+    private MaterialButton btnQuick500k;
+    private ProgressBar pbDepositLoading;
     private LinearLayout layoutQrSection;
     private ImageView ivQrCode;
-    private ProgressBar pbDepositLoading;
+    private TextView tvQrBankName;
+    private TextView tvQrRecipientName;
+    private TextView tvQrAccountNumber;
+    private TextView tvQrAmount;
+    private View btnCopyQrAccountNumber;
+    private View layoutQrProcessingNotice;
+    private View layoutQrSuccessNotice;
+    private View layoutQrInfoCard;
+    private TextView tvQrSuccessTitle;
+    private TextView tvQrSuccessAmount;
+    private MaterialButton btnQrSuccessDone;
+
     private MaterialButton btnCancelDeposit;
     private MaterialButton btnGenerateQr;
 
     private final Handler pollHandler = new Handler(Looper.getMainLooper());
     private Runnable pollRunnable;
     private boolean isPolling = false;
+
     private final TransactionRepository transactionRepository = new TransactionRepository();
 
     public interface OnDepositCompleteListener {
@@ -80,6 +95,10 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
     }
 
     private OnDepositCompleteListener listener;
+
+    public void setOnDepositCompleteListener(OnDepositCompleteListener listener) {
+        this.listener = listener;
+    }
 
     public static DepositDialogFragment newInstance(String roomId) {
         DepositDialogFragment fragment = new DepositDialogFragment();
@@ -90,28 +109,24 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
     }
 
     public static DepositDialogFragment newWalletInstance() {
-        return newInstance("WALLET");
+        return newInstance("");
     }
 
     private boolean isWalletDeposit() {
-        return roomId == null || "WALLET".equals(roomId);
-    }
-
-    public void setOnDepositCompleteListener(OnDepositCompleteListener listener) {
-        this.listener = listener;
-    }
-
-    @Override
-    public int getTheme() {
-        return R.style.Theme_App_BottomSheet;
+        return roomId == null || roomId.trim().isEmpty();
     }
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (getArguments() != null) {
-            roomId = getArguments().getString(ARG_ROOM_ID);
+            roomId = getArguments().getString(ARG_ROOM_ID, "");
         }
+    }
+
+    @Override
+    public int getTheme() {
+        return R.style.Theme_App_BottomSheet;
     }
 
     @NonNull
@@ -142,13 +157,11 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        bindViews(view);
-        setupQuickButtons();
+        initViews(view);
+        setupPresetButtons();
+        setupClipboardCopy();
         setupTextWatcher();
         setupClickListeners();
-        if (tvDepositTitle != null) {
-            tvDepositTitle.setText(isWalletDeposit() ? "Nạp tiền vào Ví Koin" : "Nạp tiền vào quỹ qua VietQR");
-        }
     }
 
     @Override
@@ -157,35 +170,57 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
         super.onDestroyView();
     }
 
-    private void bindViews(View view) {
+    private void initViews(View view) {
         tvDepositTitle = view.findViewById(R.id.tvDepositTitle);
         tilDepositAmount = view.findViewById(R.id.tilDepositAmount);
         etDepositAmount = view.findViewById(R.id.etDepositAmount);
-        btnQuick20k = view.findViewById(R.id.btnQuick20k);
         btnQuick50k = view.findViewById(R.id.btnQuick50k);
         btnQuick100k = view.findViewById(R.id.btnQuick100k);
         btnQuick200k = view.findViewById(R.id.btnQuick200k);
+        btnQuick500k = view.findViewById(R.id.btnQuick500k);
+        pbDepositLoading = view.findViewById(R.id.pbDepositLoading);
         layoutQrSection = view.findViewById(R.id.layoutQrSection);
         ivQrCode = view.findViewById(R.id.ivQrCode);
-        pbDepositLoading = view.findViewById(R.id.pbDepositLoading);
+        tvQrBankName = view.findViewById(R.id.tvQrBankName);
+        tvQrRecipientName = view.findViewById(R.id.tvQrRecipientName);
+        tvQrAccountNumber = view.findViewById(R.id.tvQrAccountNumber);
+        tvQrAmount = view.findViewById(R.id.tvQrAmount);
+        btnCopyQrAccountNumber = view.findViewById(R.id.btnCopyQrAccountNumber);
+        layoutQrProcessingNotice = view.findViewById(R.id.layoutQrProcessingNotice);
+        layoutQrSuccessNotice = view.findViewById(R.id.layoutQrSuccessNotice);
+        layoutQrInfoCard = view.findViewById(R.id.layoutQrInfoCard);
+        tvQrSuccessTitle = view.findViewById(R.id.tvQrSuccessTitle);
+        tvQrSuccessAmount = view.findViewById(R.id.tvQrSuccessAmount);
+        btnQrSuccessDone = view.findViewById(R.id.btnQrSuccessDone);
+
         btnCancelDeposit = view.findViewById(R.id.btnCancelDeposit);
         btnGenerateQr = view.findViewById(R.id.btnGenerateQr);
+
+        if (isWalletDeposit()) {
+            tvDepositTitle.setText("Nạp tiền vào Ví Koin");
+        } else {
+            tvDepositTitle.setText("Đóng góp vào quỹ nhóm");
+        }
     }
 
-    private void setupQuickButtons() {
-        View.OnClickListener quickListener = v -> {
-            int amount = 0;
-            if (v.getId() == R.id.btnQuick20k) amount = 20000;
-            else if (v.getId() == R.id.btnQuick50k) amount = 50000;
-            else if (v.getId() == R.id.btnQuick100k) amount = 100000;
-            else if (v.getId() == R.id.btnQuick200k) amount = 200000;
-            etDepositAmount.setText(String.valueOf(amount));
-            tilDepositAmount.setError(null);
-        };
-        btnQuick20k.setOnClickListener(quickListener);
-        btnQuick50k.setOnClickListener(quickListener);
-        btnQuick100k.setOnClickListener(quickListener);
-        btnQuick200k.setOnClickListener(quickListener);
+    private void setupPresetButtons() {
+        btnQuick50k.setOnClickListener(v -> { etDepositAmount.setText("50000"); tilDepositAmount.setError(null); });
+        btnQuick100k.setOnClickListener(v -> { etDepositAmount.setText("100000"); tilDepositAmount.setError(null); });
+        btnQuick200k.setOnClickListener(v -> { etDepositAmount.setText("200000"); tilDepositAmount.setError(null); });
+        btnQuick500k.setOnClickListener(v -> { etDepositAmount.setText("500000"); tilDepositAmount.setError(null); });
+    }
+
+    private void setupClipboardCopy() {
+        if (btnCopyQrAccountNumber != null) {
+            btnCopyQrAccountNumber.setOnClickListener(v -> {
+                ClipboardManager clipboard = (ClipboardManager) requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
+                if (clipboard != null) {
+                    ClipData clip = ClipData.newPlainText("Số tài khoản", PaymentHelper.ACCOUNT_NO);
+                    clipboard.setPrimaryClip(clip);
+                    Toast.makeText(requireContext(), "Đã sao chép số tài khoản", Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
     }
 
     private void setupTextWatcher() {
@@ -232,7 +267,7 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
 
         stopPaymentPolling();
         pendingAmount = amount;
-        qrGeneratedAt = Instant.now().toString();
+        qrGeneratedAt = Instant.now().minusSeconds(120).toString();
 
         pbDepositLoading.setVisibility(View.VISIBLE);
         btnGenerateQr.setEnabled(false);
@@ -242,9 +277,12 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
         if (isWalletDeposit()) {
             String userId = UserSessionManager.getInstance(requireContext()).getUserId();
             if (userId == null || userId.trim().isEmpty()) {
+                userId = RoomRepository.getInstance().getCurrentUserId();
+            }
+            if (userId == null || userId.trim().isEmpty()) {
                 pbDepositLoading.setVisibility(View.GONE);
                 btnGenerateQr.setEnabled(true);
-                Toast.makeText(requireContext(), "Không xác định được tài khoản để nạp ví.", Toast.LENGTH_LONG).show();
+                Toast.makeText(requireContext(), "Không xác định được tài khoản người dùng.", Toast.LENGTH_LONG).show();
                 return;
             }
             qrUrl = PaymentHelper.generateWalletQrUrl(userId, amount);
@@ -283,15 +321,26 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
 
                     if (qrBitmap == null) {
                         layoutQrSection.setVisibility(View.GONE);
-                        Toast.makeText(requireContext(),
-                                "Không tải được mã VietQR. Vui lòng kiểm tra kết nối mạng và thử lại.",
-                                Toast.LENGTH_LONG).show();
+                        Toast.makeText(requireContext(), "Không tải được mã QR. Vui lòng kiểm tra kết nối mạng.", Toast.LENGTH_LONG).show();
                         return;
                     }
 
                     ivQrCode.setImageBitmap(qrBitmap);
                     ivQrCode.setBackgroundColor(Color.WHITE);
                     ivQrCode.setScaleType(ImageView.ScaleType.FIT_CENTER);
+
+                    DecimalFormatSymbols curSymbols = new DecimalFormatSymbols(Locale.US);
+                    curSymbols.setGroupingSeparator('.');
+                    DecimalFormat curDf = new DecimalFormat("#,##0", curSymbols);
+
+                    if (tvQrBankName != null) tvQrBankName.setText("Koin");
+                    if (tvQrRecipientName != null) tvQrRecipientName.setText(PaymentHelper.ACCOUNT_NAME);
+                    if (tvQrAccountNumber != null) tvQrAccountNumber.setText(PaymentHelper.ACCOUNT_NO);
+                    if (tvQrAmount != null) tvQrAmount.setText(curDf.format(amount) + " ₫");
+                    if (layoutQrProcessingNotice != null) layoutQrProcessingNotice.setVisibility(View.GONE);
+                    if (layoutQrSuccessNotice != null) layoutQrSuccessNotice.setVisibility(View.GONE);
+                    if (layoutQrInfoCard != null) layoutQrInfoCard.setVisibility(View.VISIBLE);
+                    if (ivQrCode != null) ivQrCode.setVisibility(View.VISIBLE);
 
                     layoutQrSection.setVisibility(View.VISIBLE);
                     btnGenerateQr.setText("Tạo lại mã VietQR");
@@ -317,21 +366,9 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
                         requireActivity().runOnUiThread(() -> {
                             if (!isPolling || !isAdded()) return;
                             if (transaction != null) {
-                                stopPaymentPolling();
-                                RoomRepository.getInstance().onRemoteTransactionReceived(transaction);
-                                if (isWalletDeposit()) {
-                                    RoomRepository.getInstance().loadUserProfile();
-                                } else {
-                                    RoomRepository.getInstance().refreshRoomTransactions(roomId, new RoomRepository.DataCallback<List<Transaction>>() {
-                                        @Override public void onSuccess(List<Transaction> value) {}
-                                        @Override public void onError(String message) {}
-                                    });
-                                }
-                                if (listener != null) listener.onDepositComplete(expectedAmount);
-                                Toast.makeText(requireContext(), "Giao dịch thành công! Đã cập nhật số dư.", Toast.LENGTH_SHORT).show();
-                                dismiss();
+                                handlePaymentSuccess(transaction.getAmount());
                             } else {
-                                pollHandler.postDelayed(pollRunnable, 3000);
+                                pollHandler.postDelayed(pollRunnable, 2000);
                             }
                         });
                     }
@@ -339,17 +376,70 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
                     @Override
                     public void onError(String errorMessage) {
                         if (!isPolling || !isAdded()) return;
-                        pollHandler.postDelayed(pollRunnable, 3000);
+                        pollHandler.postDelayed(pollRunnable, 2000);
                     }
                 };
                 if (isWalletDeposit()) {
-                    transactionRepository.findConfirmedWalletPayment(session.getUserId(), expectedAmount, sinceIsoTime, callback);
+                    String userId = session.getUserId();
+                    if (userId == null || userId.isEmpty()) userId = RoomRepository.getInstance().getCurrentUserId();
+                    transactionRepository.findConfirmedWalletPayment(userId, expectedAmount, sinceIsoTime, callback);
                 } else {
                     transactionRepository.findConfirmedPayment(roomId, expectedAmount, sinceIsoTime, callback);
                 }
             }
         };
-        pollHandler.postDelayed(pollRunnable, 3000);
+        pollHandler.postDelayed(pollRunnable, 2000);
+    }
+
+    private void handlePaymentSuccess(double amount) {
+        stopPaymentPolling();
+        if (layoutQrInfoCard != null) layoutQrInfoCard.setVisibility(View.GONE);
+        if (ivQrCode != null) ivQrCode.setVisibility(View.GONE);
+        if (btnGenerateQr != null) btnGenerateQr.setVisibility(View.GONE);
+        if (btnCancelDeposit != null) btnCancelDeposit.setVisibility(View.GONE);
+
+        if (layoutQrProcessingNotice != null) {
+            layoutQrProcessingNotice.setVisibility(View.VISIBLE);
+        }
+
+        pollHandler.postDelayed(() -> {
+            if (!isAdded()) return;
+            if (layoutQrProcessingNotice != null) {
+                layoutQrProcessingNotice.setVisibility(View.GONE);
+            }
+
+            DecimalFormatSymbols curSymbols = new DecimalFormatSymbols(Locale.US);
+            curSymbols.setGroupingSeparator('.');
+            DecimalFormat curDf = new DecimalFormat("#,##0", curSymbols);
+
+            if (tvQrSuccessTitle != null) {
+                tvQrSuccessTitle.setText(isWalletDeposit() ? "Nạp ví thành công!" : "Đóng quỹ thành công!");
+            }
+            if (tvQrSuccessAmount != null) {
+                tvQrSuccessAmount.setText("+" + curDf.format(amount) + " ₫");
+            }
+            if (layoutQrSuccessNotice != null) {
+                layoutQrSuccessNotice.setVisibility(View.VISIBLE);
+            }
+
+            if (isWalletDeposit()) {
+                RoomRepository.getInstance().loadUserProfile();
+            } else {
+                RoomRepository.getInstance().refreshRoomTransactions(roomId, new RoomRepository.DataCallback<List<Transaction>>() {
+                    @Override public void onSuccess(List<Transaction> value) {}
+                    @Override public void onError(String message) {}
+                });
+            }
+
+            if (listener != null) listener.onDepositComplete(amount);
+
+            if (btnQrSuccessDone != null) {
+                btnQrSuccessDone.setOnClickListener(v -> dismiss());
+            }
+            pollHandler.postDelayed(() -> {
+                if (isAdded()) dismiss();
+            }, 3500);
+        }, 1200);
     }
 
     private void stopPaymentPolling() {

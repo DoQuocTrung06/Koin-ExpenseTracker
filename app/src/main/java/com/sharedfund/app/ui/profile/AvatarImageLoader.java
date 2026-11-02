@@ -25,7 +25,7 @@ public final class AvatarImageLoader {
 
     public static void load(ImageView imageView, TextView initials, String url) {
         if (url == null || url.trim().isEmpty()) {
-            initials.setVisibility(View.VISIBLE);
+            if (initials != null) initials.setVisibility(View.VISIBLE);
             imageView.setImageDrawable(null);
             return;
         }
@@ -50,7 +50,7 @@ public final class AvatarImageLoader {
                 imageView.post(() -> {
                     if (!requestedUrl.equals(imageView.getTag())) return;
                     imageView.setImageBitmap(bitmap);
-                    initials.setVisibility(View.GONE);
+                    if (initials != null) initials.setVisibility(View.GONE);
                 });
             }
         });

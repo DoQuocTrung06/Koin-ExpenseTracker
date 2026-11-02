@@ -200,6 +200,9 @@ public class ProfileFragment extends Fragment {
         if (btnEditCover != null) {
             btnEditCover.setColorFilter(Color.WHITE);
         }
+        if (btnEditAvatar != null) {
+            btnEditAvatar.setColorFilter(Color.WHITE);
+        }
     }
 
     private void loadProfileData() {

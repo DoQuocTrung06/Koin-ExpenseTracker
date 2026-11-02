@@ -68,6 +68,7 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
     private EditText etHomeSearchRooms;
     private ImageButton btnClearSearch;
     private final List<Room> allRoomsList = new ArrayList<>();
+    private MaterialButton btnWalletHistory;
     private MaterialButton btnCreateRoom;
     private MaterialButton btnJoinRoom;
     private MaterialButton btnEmptyCreateRoom;
@@ -165,6 +166,7 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
         tvRoomCountBadge = view.findViewById(R.id.tvRoomCountBadge);
         etHomeSearchRooms = view.findViewById(R.id.etHomeSearchRooms);
         btnClearSearch = view.findViewById(R.id.btnClearSearch);
+        btnWalletHistory = view.findViewById(R.id.btnWalletHistory);
         btnCreateRoom = view.findViewById(R.id.btnCreateRoom);
         btnJoinRoom = view.findViewById(R.id.btnJoinRoom);
         btnEmptyCreateRoom = view.findViewById(R.id.btnEmptyCreateRoom);
@@ -181,6 +183,18 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
         }
     }
 
+    private String formatAccountNumber(String name, String userId) {
+        if ("DO QUOC TRUNG".equalsIgnoreCase(name)) {
+            return "1047061615";
+        }
+        if (userId == null || userId.trim().isEmpty()) {
+            return "1047061615";
+        }
+        long hash = Math.abs((long) userId.hashCode());
+        long num = 1000000000L + (hash % 9000000000L);
+        return String.valueOf(num);
+    }
+
     private void updateUserProfileHeader() {
         if (getContext() == null) return;
         UserSessionManager session = UserSessionManager.getInstance(requireContext());
@@ -190,21 +204,17 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
         }
         String userId = session.getUserId();
         if (tvHomeUserIdTag != null) {
-            if (userId != null && !userId.trim().isEmpty()) {
-                String shortId = userId.length() > 8 ? userId.substring(0, 8).toUpperCase(Locale.ROOT) : userId;
-                tvHomeUserIdTag.setText("ID: " + shortId);
-                if (layoutHomeUserId != null) {
-                    layoutHomeUserId.setOnClickListener(v -> {
-                        ClipboardManager clipboard = (ClipboardManager) requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
-                        ClipData clip = ClipData.newPlainText("User ID", userId);
-                        if (clipboard != null) {
-                            clipboard.setPrimaryClip(clip);
-                            AppToaster.info(requireActivity(), "Đã sao chép ID người dùng: " + userId);
-                        }
-                    });
-                }
-            } else {
-                tvHomeUserIdTag.setText("ID: —");
+            final String stk = formatAccountNumber(name != null ? name.trim() : "", userId);
+            tvHomeUserIdTag.setText(stk);
+            if (layoutHomeUserId != null) {
+                layoutHomeUserId.setOnClickListener(v -> {
+                    ClipboardManager clipboard = (ClipboardManager) requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
+                    ClipData clip = ClipData.newPlainText("Số tài khoản", stk);
+                    if (clipboard != null) {
+                        clipboard.setPrimaryClip(clip);
+                        AppToaster.info(requireActivity(), "Đã sao chép số tài khoản: " + stk);
+                    }
+                });
             }
         }
         updateHomeAvatar();
@@ -338,13 +348,20 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
 
         if (btnHomeDepositWithdraw != null) {
             btnHomeDepositWithdraw.setOnClickListener(v -> {
-                WalletTransferBottomSheet sheet = WalletTransferBottomSheet.newInstance();
-                sheet.setOnWalletTransferListener(() -> {
-                    if (viewModel != null) {
-                        viewModel.refreshWalletBalance();
+                if (getActivity() instanceof com.sharedfund.app.MainActivity) {
+                    ((com.sharedfund.app.MainActivity) getActivity()).openWalletTransfer();
+                }
+            });
+        }
+
+        if (btnWalletHistory != null) {
+            btnWalletHistory.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (getActivity() instanceof com.sharedfund.app.MainActivity) {
+                        ((com.sharedfund.app.MainActivity) getActivity()).openWalletTransactions();
                     }
-                });
-                sheet.show(getChildFragmentManager(), "wallet_transfer_sheet");
+                }
             });
         }
 
@@ -653,15 +670,20 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
             public void afterTextChanged(Editable s) {}
         });
 
+        final View btnCancel = dialogView.findViewById(R.id.btnCancelJoinRoom);
+        final View btnConfirm = dialogView.findViewById(R.id.btnConfirmJoinRoom);
+
         final AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
                 .setView(dialogView)
-                .setPositiveButton(R.string.btn_confirm, null)
-                .setNegativeButton(R.string.btn_cancel, null)
+                .setCancelable(true)
                 .create();
 
-        dialog.setOnShowListener(d -> {
-            Button positiveBtn = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
-            positiveBtn.setOnClickListener(v -> {
+        if (btnCancel != null) {
+            btnCancel.setOnClickListener(v -> dialog.dismiss());
+        }
+
+        if (btnConfirm != null) {
+            btnConfirm.setOnClickListener(v -> {
                 String code = etJoinCode.getText() != null ? etJoinCode.getText().toString().trim() : "";
 
                 if (code.isEmpty()) {
@@ -672,7 +694,7 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
                 viewModel.joinRoom(code);
                 dialog.dismiss();
             });
-        });
+        }
 
         dialog.show();
     }

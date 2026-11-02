@@ -2,9 +2,7 @@ package com.sharedfund.app.ui.widget;
 
 import android.content.Context;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.Paint;
-import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.util.AttributeSet;
@@ -40,12 +38,11 @@ public class DonutChartView extends View {
 
     private final List<Slice> slices = new ArrayList<>();
     private double totalAmount = 0.0;
-    private String centerTitle = "Tổng chi tiêu";
+    private String centerTitle = "Tổng chi";
 
     private final Paint arcPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF oval = new RectF();
-    private final Rect textBounds = new Rect();
 
     private final DecimalFormat df;
 
@@ -96,6 +93,20 @@ public class DonutChartView extends View {
         invalidate();
     }
 
+    public void setSlices(List<Slice> newSlices) {
+        slices.clear();
+        totalAmount = 0.0;
+        if (newSlices != null) {
+            for (Slice s : newSlices) {
+                if (s != null && s.amount > 0) {
+                    totalAmount += s.amount;
+                    slices.add(s);
+                }
+            }
+        }
+        invalidate();
+    }
+
     public List<Slice> getSlices() {
         return slices;
     }
@@ -106,11 +117,14 @@ public class DonutChartView extends View {
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        int width = MeasureSpec.getSize(widthMeasureSpec);
-        int density = (int) getResources().getDisplayMetrics().density;
-        int defaultHeight = 220 * density;
+        int widthMode = MeasureSpec.getMode(widthMeasureSpec);
+        int widthSize = MeasureSpec.getSize(widthMeasureSpec);
         int heightMode = MeasureSpec.getMode(heightMeasureSpec);
-        int height = heightMode == MeasureSpec.EXACTLY ? MeasureSpec.getSize(heightMeasureSpec) : defaultHeight;
+        int heightSize = MeasureSpec.getSize(heightMeasureSpec);
+        int density = (int) getResources().getDisplayMetrics().density;
+        int defaultSize = 120 * density;
+        int width = widthMode == MeasureSpec.EXACTLY ? widthSize : defaultSize;
+        int height = heightMode == MeasureSpec.EXACTLY ? heightSize : defaultSize;
         setMeasuredDimension(width, height);
     }
 
@@ -122,11 +136,11 @@ public class DonutChartView extends View {
         int height = getHeight();
         if (width <= 0 || height <= 0) return;
 
-        float padding = 16f * getResources().getDisplayMetrics().density;
+        float padding = 8f * getResources().getDisplayMetrics().density;
         float diameter = Math.min(width, height) - (padding * 2);
         if (diameter <= 0) return;
 
-        float strokeWidth = diameter * 0.16f;
+        float strokeWidth = diameter * 0.18f;
         arcPaint.setStrokeWidth(strokeWidth);
 
         float cx = width / 2f;
@@ -139,10 +153,11 @@ public class DonutChartView extends View {
             canvas.drawArc(oval, 0f, 360f, false, arcPaint);
 
             textPaint.setColor(ContextCompat.getColor(getContext(), R.color.text_secondary));
-            textPaint.setTextSize(13f * getResources().getDisplayMetrics().scaledDensity);
+            textPaint.setTextSize(10.5f * getResources().getDisplayMetrics().scaledDensity);
             textPaint.setTypeface(Typeface.DEFAULT);
             textPaint.setTextAlign(Paint.Align.CENTER);
-            canvas.drawText("Chưa có chi tiêu", cx, cy + (textPaint.getTextSize() / 3f), textPaint);
+            canvas.drawText("Chưa có chi", cx, cy - 2f * getResources().getDisplayMetrics().density, textPaint);
+            canvas.drawText("0 ₫", cx, cy + 12f * getResources().getDisplayMetrics().density, textPaint);
             return;
         }
 
@@ -158,14 +173,14 @@ public class DonutChartView extends View {
 
         textPaint.setTextAlign(Paint.Align.CENTER);
         textPaint.setColor(ContextCompat.getColor(getContext(), R.color.text_secondary));
-        textPaint.setTextSize(12f * getResources().getDisplayMetrics().scaledDensity);
+        textPaint.setTextSize(10f * getResources().getDisplayMetrics().scaledDensity);
         textPaint.setTypeface(Typeface.DEFAULT);
-        canvas.drawText(centerTitle, cx, cy - 8f * getResources().getDisplayMetrics().density, textPaint);
+        canvas.drawText(centerTitle, cx, cy - 4f * getResources().getDisplayMetrics().density, textPaint);
 
         String formattedTotal = df.format(totalAmount) + " ₫";
         textPaint.setColor(ContextCompat.getColor(getContext(), R.color.text_primary));
-        textPaint.setTextSize(16f * getResources().getDisplayMetrics().scaledDensity);
+        textPaint.setTextSize(12f * getResources().getDisplayMetrics().scaledDensity);
         textPaint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
-        canvas.drawText(formattedTotal, cx, cy + 14f * getResources().getDisplayMetrics().density, textPaint);
+        canvas.drawText(formattedTotal, cx, cy + 12f * getResources().getDisplayMetrics().density, textPaint);
     }
 }

@@ -159,6 +159,9 @@ public class AuthRepository {
                         profile.getId(), profile.getEmail(), profile.getFullName(), profile.getAvatarUrl(),
                         token, refreshToken, expiresIn
                 );
+                UserSessionManager.getInstance(context).updateCustomProfile(
+                        profile.getNickname(), profile.getOccupation(), profile.getEducation(), profile.getBio()
+                );
                 RoomRepository.getInstance().configureAccessToken(token);
                 callback.onSuccess(profile);
             }
