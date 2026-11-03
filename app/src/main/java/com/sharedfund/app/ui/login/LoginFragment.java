@@ -1,6 +1,9 @@
 package com.sharedfund.app.ui.login;
 
+import android.animation.ValueAnimator;
+import android.content.Context;
 import android.content.res.ColorStateList;
+import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.LayerDrawable;
 import android.os.Bundle;
@@ -10,12 +13,17 @@ import android.util.Patterns;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
+import android.view.animation.DecelerateInterpolator;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
+import androidx.core.widget.NestedScrollView;
 import androidx.fragment.app.Fragment;
 
 import com.google.android.material.button.MaterialButton;
@@ -35,6 +43,15 @@ public class LoginFragment extends Fragment {
 
     private boolean isLoginMode = true;
     private AuthRepository authRepository;
+    private NestedScrollView scrollLogin;
+    private LinearLayout layoutAuthContainer;
+    private View spacerTop;
+    private View cardAuth;
+    private View layoutSwitchPrompt;
+    private ValueAnimator spacerAnimator;
+    private int lastCalculatedSpacer = -1;
+    private boolean isKeyboardOpen = false;
+    private ViewTreeObserver.OnGlobalLayoutListener keyboardLayoutListener;
 
     private TextView tvAuthTitle;
     private TextView tvAuthSubtitle;
@@ -72,6 +89,7 @@ public class LoginFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         bindViews(view);
+        setupKeyboardHandling(view);
         setupTabToggle();
         setupTextWatchers();
         setupClickListeners();
@@ -79,6 +97,11 @@ public class LoginFragment extends Fragment {
     }
 
     private void bindViews(View view) {
+        scrollLogin = view.findViewById(R.id.scrollLogin);
+        layoutAuthContainer = view.findViewById(R.id.layoutAuthContainer);
+        spacerTop = view.findViewById(R.id.spacerTop);
+        cardAuth = view.findViewById(R.id.cardAuth);
+        layoutSwitchPrompt = view.findViewById(R.id.layoutSwitchPrompt);
         tvAuthTitle = view.findViewById(R.id.tvAuthTitle);
         tvAuthSubtitle = view.findViewById(R.id.tvAuthSubtitle);
         tvSwitchPrompt = view.findViewById(R.id.tvSwitchPrompt);
@@ -113,6 +136,17 @@ public class LoginFragment extends Fragment {
         if (layoutPasswordStrength != null) {
             layoutPasswordStrength.setVisibility(View.GONE);
         }
+        if (etFullName != null) etFullName.setText("");
+        if (etEmail != null) etEmail.setText("");
+        if (etPassword != null) etPassword.setText("");
+        if (etConfirmPassword != null) etConfirmPassword.setText("");
+
+        if (getActivity() != null) {
+            View focus = getActivity().getCurrentFocus();
+            if (focus != null) {
+                focus.clearFocus();
+            }
+        }
 
         if (loginMode) {
             tvAuthTitle.setText("Chào mừng trở lại");
@@ -132,6 +166,17 @@ public class LoginFragment extends Fragment {
 
             tilFullName.setVisibility(View.VISIBLE);
             tilConfirmPassword.setVisibility(View.VISIBLE);
+        }
+
+        if (scrollLogin != null) {
+            scrollLogin.scrollTo(0, 0);
+        }
+        if (getView() != null) {
+            getView().post(() -> {
+                if (keyboardLayoutListener != null) {
+                    keyboardLayoutListener.onGlobalLayout();
+                }
+            });
         }
     }
 
@@ -160,29 +205,87 @@ public class LoginFragment extends Fragment {
             }
         });
 
+        etFullName.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus) {
+                showKeyboard(etFullName);
+                if (scrollLogin != null) {
+                    scrollLogin.postDelayed(() -> {
+                        if (isAdded() && scrollLogin != null) {
+                            scrollLogin.smoothScrollTo(0, 0);
+                        }
+                    }, 160);
+                }
+            }
+        });
+
+        etEmail.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus) {
+                showKeyboard(etEmail);
+                if (scrollLogin != null) {
+                    scrollLogin.postDelayed(() -> {
+                        if (isAdded() && scrollLogin != null) {
+                            scrollLogin.smoothScrollTo(0, 0);
+                        }
+                    }, 160);
+                }
+            }
+        });
+
         etPassword.setOnFocusChangeListener((v, hasFocus) -> {
-            if (hasFocus && !isLoginMode) {
-                layoutPasswordStrength.setVisibility(View.VISIBLE);
-                updatePasswordStrength(getRawPassword(etPassword));
+            if (hasFocus) {
+                showKeyboard(etPassword);
+                if (!isLoginMode) {
+                    layoutPasswordStrength.setVisibility(View.VISIBLE);
+                    updatePasswordStrength(getRawPassword(etPassword));
+                }
+                if (scrollLogin != null) {
+                    scrollLogin.postDelayed(() -> {
+                        if (isAdded() && scrollLogin != null && tilPassword != null) {
+                            scrollLogin.smoothScrollTo(0, tilPassword.getTop());
+                        }
+                    }, 160);
+                }
             } else {
-                layoutPasswordStrength.setVisibility(View.GONE);
+                if (!isLoginMode && etConfirmPassword != null && !etConfirmPassword.hasFocus()) {
+                    layoutPasswordStrength.setVisibility(View.GONE);
+                }
             }
         });
 
+        etConfirmPassword.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus) {
+                showKeyboard(etConfirmPassword);
+                if (scrollLogin != null) {
+                    scrollLogin.postDelayed(() -> {
+                        if (isAdded() && scrollLogin != null && tilConfirmPassword != null) {
+                            scrollLogin.smoothScrollTo(0, tilConfirmPassword.getTop());
+                        }
+                    }, 160);
+                }
+            }
+        });
+
+        etFullName.setOnClickListener(v -> showKeyboard(etFullName));
+        etEmail.setOnClickListener(v -> showKeyboard(etEmail));
         etPassword.setOnClickListener(v -> {
+            showKeyboard(etPassword);
             if (!isLoginMode) {
                 layoutPasswordStrength.setVisibility(View.VISIBLE);
                 updatePasswordStrength(getRawPassword(etPassword));
             }
         });
+        etConfirmPassword.setOnClickListener(v -> showKeyboard(etConfirmPassword));
 
+        tilFullName.setOnClickListener(v -> showKeyboard(etFullName));
+        tilEmail.setOnClickListener(v -> showKeyboard(etEmail));
         tilPassword.setOnClickListener(v -> {
+            showKeyboard(etPassword);
             if (!isLoginMode) {
-                etPassword.requestFocus();
                 layoutPasswordStrength.setVisibility(View.VISIBLE);
                 updatePasswordStrength(getRawPassword(etPassword));
             }
         });
+        tilConfirmPassword.setOnClickListener(v -> showKeyboard(etConfirmPassword));
     }
 
     private void attachClearError(TextInputEditText editText, TextInputLayout layout) {
@@ -261,6 +364,26 @@ public class LoginFragment extends Fragment {
                 validateAndRegister();
             }
         });
+
+        View.OnClickListener dismissKeyboard = v -> {
+            if (getActivity() != null) {
+                View focus = getActivity().getCurrentFocus();
+                if (focus != null) {
+                    InputMethodManager imm =
+                            (InputMethodManager) requireContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+                    if (imm != null) {
+                        imm.hideSoftInputFromWindow(focus.getWindowToken(), 0);
+                    }
+                    focus.clearFocus();
+                }
+            }
+        };
+        if (scrollLogin != null) {
+            scrollLogin.setOnClickListener(dismissKeyboard);
+        }
+        if (layoutAuthContainer != null) {
+            layoutAuthContainer.setOnClickListener(dismissKeyboard);
+        }
     }
 
     private void validateAndLogin() {
@@ -298,7 +421,6 @@ public class LoginFragment extends Fragment {
                         return;
                     }
                     RoomRepository.getInstance().setCurrentUser(profile.getId(), profile.getFullName());
-                    AppToaster.success(requireActivity(), "Đăng nhập thành công!");
                     goToHome();
                 });
             }
@@ -307,7 +429,7 @@ public class LoginFragment extends Fragment {
             public void onError(String errorMessage) {
                 runOnUiThreadIfAttached(() -> {
                     setLoadingState(false);
-                    showAuthError("Đăng nhập thất bại: " + errorMessage);
+                    showAuthError(ErrorMessageHelper.getFriendlyMessage(errorMessage));
                 });
             }
         });
@@ -385,8 +507,6 @@ public class LoginFragment extends Fragment {
                     }
 
                     RoomRepository.getInstance().registerNewUser(profile.getId(), profile.getFullName());
-                    AppToaster.success(requireActivity(), "Đăng ký thành công! Chào mừng "
-                            + profile.getFullName() + "!");
                     goToHome();
                 });
             }
@@ -395,7 +515,7 @@ public class LoginFragment extends Fragment {
             public void onError(String errorMessage) {
                 runOnUiThreadIfAttached(() -> {
                     setLoadingState(false);
-                    showAuthError("Đăng ký thất bại: " + errorMessage);
+                    showAuthError(ErrorMessageHelper.getFriendlyMessage(errorMessage));
                 });
             }
         });
@@ -433,6 +553,112 @@ public class LoginFragment extends Fragment {
 
     private String getRawPassword(TextInputEditText et) {
         return et != null && et.getText() != null ? et.getText().toString() : "";
+    }
+
+    private void setupKeyboardHandling(View rootView) {
+        keyboardLayoutListener = () -> {
+            if (!isAdded() || getView() == null || spacerTop == null || cardAuth == null || layoutSwitchPrompt == null) {
+                return;
+            }
+            Rect r = new Rect();
+            rootView.getWindowVisibleDisplayFrame(r);
+
+            int screenHeight = rootView.getRootView().getHeight();
+            int keypadHeight = screenHeight - r.bottom;
+            boolean keyboardNowVisible = keypadHeight > screenHeight * 0.15;
+            int visibleHeight = r.bottom - r.top;
+
+            int contentHeight = cardAuth.getHeight() + layoutSwitchPrompt.getHeight();
+            if (layoutSwitchPrompt.getLayoutParams() instanceof ViewGroup.MarginLayoutParams) {
+                ViewGroup.MarginLayoutParams mlp = (ViewGroup.MarginLayoutParams) layoutSwitchPrompt.getLayoutParams();
+                contentHeight += mlp.topMargin + mlp.bottomMargin;
+            }
+
+            if (contentHeight <= 0) {
+                cardAuth.post(() -> {
+                    if (isAdded() && keyboardLayoutListener != null) {
+                        keyboardLayoutListener.onGlobalLayout();
+                    }
+                });
+                return;
+            }
+
+            float density = getResources().getDisplayMetrics().density;
+            int minSpacer = (int) (14 * density);
+            int targetSpacer;
+
+            if (keyboardNowVisible) {
+                if (contentHeight + minSpacer * 2 < visibleHeight) {
+                    targetSpacer = (visibleHeight - contentHeight) / 2;
+                } else {
+                    targetSpacer = minSpacer;
+                }
+            } else {
+                targetSpacer = Math.max(minSpacer, (visibleHeight - contentHeight) / 2);
+            }
+
+            if (lastCalculatedSpacer < 0) {
+                lastCalculatedSpacer = targetSpacer;
+                ViewGroup.LayoutParams lp = spacerTop.getLayoutParams();
+                lp.height = targetSpacer;
+                spacerTop.setLayoutParams(lp);
+                isKeyboardOpen = keyboardNowVisible;
+                return;
+            }
+
+            if (lastCalculatedSpacer != targetSpacer || isKeyboardOpen != keyboardNowVisible) {
+                if (!keyboardNowVisible && scrollLogin != null) {
+                    scrollLogin.smoothScrollTo(0, 0);
+                }
+                isKeyboardOpen = keyboardNowVisible;
+                lastCalculatedSpacer = targetSpacer;
+                animateSpacerHeight(targetSpacer);
+            }
+        };
+        rootView.getViewTreeObserver().addOnGlobalLayoutListener(keyboardLayoutListener);
+    }
+
+    private void animateSpacerHeight(int targetHeight) {
+        if (spacerTop == null) return;
+        if (spacerAnimator != null && spacerAnimator.isRunning()) {
+            spacerAnimator.cancel();
+        }
+        int currentHeight = spacerTop.getLayoutParams().height;
+        if (currentHeight == targetHeight) return;
+
+        spacerAnimator = ValueAnimator.ofInt(currentHeight, targetHeight);
+        spacerAnimator.setDuration(260);
+        spacerAnimator.setInterpolator(new DecelerateInterpolator(1.5f));
+        spacerAnimator.addUpdateListener(animation -> {
+            if (spacerTop != null) {
+                ViewGroup.LayoutParams lp = spacerTop.getLayoutParams();
+                lp.height = (int) animation.getAnimatedValue();
+                spacerTop.setLayoutParams(lp);
+            }
+        });
+        spacerAnimator.start();
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        if (spacerAnimator != null && spacerAnimator.isRunning()) {
+            spacerAnimator.cancel();
+            spacerAnimator = null;
+        }
+        if (keyboardLayoutListener != null && getView() != null) {
+            getView().getViewTreeObserver().removeOnGlobalLayoutListener(keyboardLayoutListener);
+            keyboardLayoutListener = null;
+        }
+    }
+
+    private void showKeyboard(View view) {
+        if (view == null || getContext() == null) return;
+        view.requestFocus();
+        InputMethodManager imm = (InputMethodManager) requireContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (imm != null) {
+            imm.showSoftInput(view, InputMethodManager.SHOW_IMPLICIT);
+        }
     }
 
     private void goToHome() {

@@ -82,6 +82,9 @@ public class MemberAdapter extends RecyclerView.Adapter<MemberAdapter.MemberView
                 }
             });
         }
+        if (holder.dividerMember != null) {
+            holder.dividerMember.setVisibility(position == getItemCount() - 1 ? View.GONE : View.VISIBLE);
+        }
 
     }
 
@@ -97,6 +100,7 @@ public class MemberAdapter extends RecyclerView.Adapter<MemberAdapter.MemberView
         private final TextView tvBadge;
         private final TextView tvContribution;
         final ImageView btnMemberMore;
+        final View dividerMember;
 
         private final DecimalFormat df;
 
@@ -108,6 +112,7 @@ public class MemberAdapter extends RecyclerView.Adapter<MemberAdapter.MemberView
             tvBadge = itemView.findViewById(R.id.tvMemberBadge);
             tvContribution = itemView.findViewById(R.id.tvMemberContribution);
             btnMemberMore = itemView.findViewById(R.id.btnMemberMore);
+            dividerMember = itemView.findViewById(R.id.dividerMember);
 
             DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.US);
             symbols.setGroupingSeparator('.');

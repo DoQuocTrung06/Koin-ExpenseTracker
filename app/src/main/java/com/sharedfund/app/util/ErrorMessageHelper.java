@@ -8,6 +8,7 @@ public class ErrorMessageHelper {
         }
         String lower = rawError.toLowerCase();
         if (lower.contains("invalid login") || lower.contains("invalid credentials")
+                || lower.contains("invalid_grant") || lower.contains("invalid_credentials")
                 || lower.contains("invalid email") || lower.contains("wrong password")
                 || lower.contains("email not confirmed") || lower.contains("user not found")) {
             return "Email hoặc mật khẩu không đúng.";

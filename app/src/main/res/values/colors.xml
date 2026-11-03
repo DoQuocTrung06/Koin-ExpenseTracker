@@ -28,4 +28,5 @@
     <color name="icon_frame_bg">#D0E2FF</color>
     <color name="icon_frame_border">#A8C4FF</color>
     <color name="icon_frame_tint">#1A4DC2</color>
+    <color name="divider_dashed">#CBD5E1</color>
 </resources>

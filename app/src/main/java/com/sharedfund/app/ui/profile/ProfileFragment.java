@@ -475,18 +475,22 @@ public class ProfileFragment extends Fragment {
 
     private void saveProfileCoverUrl(String url) {
         if (getContext() == null) return;
+        String userId = UserSessionManager.getInstance(requireContext()).getUserId();
+        String key = "profile_cover_url_" + (userId != null ? userId : "guest");
         requireContext().getSharedPreferences("koin_profile_prefs", Context.MODE_PRIVATE)
                 .edit()
-                .putString("profile_cover_url", url)
+                .putString(key, url)
+                .remove("profile_cover_url")
                 .apply();
         loadProfileCover();
-        AppToaster.success(requireActivity(), "Đã cập nhật ảnh bìa thành công!");
     }
 
     private void loadProfileCover() {
         if (getContext() == null || ivProfileCover == null) return;
+        String userId = UserSessionManager.getInstance(requireContext()).getUserId();
+        String key = "profile_cover_url_" + (userId != null ? userId : "guest");
         String url = requireContext().getSharedPreferences("koin_profile_prefs", Context.MODE_PRIVATE)
-                .getString("profile_cover_url", null);
+                .getString(key, null);
         if (url != null && !url.trim().isEmpty()) {
             ivProfileCover.setVisibility(View.VISIBLE);
             new Thread(() -> {
@@ -512,6 +516,7 @@ public class ProfileFragment extends Fragment {
                 }
             }).start();
         } else {
+            ivProfileCover.setImageDrawable(null);
             ivProfileCover.setVisibility(View.GONE);
         }
     }

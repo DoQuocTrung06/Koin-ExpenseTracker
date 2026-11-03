@@ -118,7 +118,7 @@ public class HomeViewModel extends ViewModel {
             isLoading.setValue(false);
             if (newRoom != null) {
                 applyRoomFilter();
-                actionMessage.setValue("Tạo quỹ \"" + newRoom.getName() + "\" thành công!");
+                
             } else {
                 actionMessage.setValue("Tạo quỹ thất bại!");
             }
@@ -129,7 +129,7 @@ public class HomeViewModel extends ViewModel {
                 new RoomRepository.DataCallback<Room>() {
                     @Override public void onSuccess(Room room) {
                         loadRemoteData();
-                        actionMessage.postValue("Tạo quỹ \"" + room.getName() + "\" thành công!");
+                        
                     }
                     @Override public void onError(String message) {
                         isLoading.postValue(false);
@@ -150,7 +150,7 @@ public class HomeViewModel extends ViewModel {
             isLoading.setValue(false);
             if (room != null) {
                 applyRoomFilter();
-                actionMessage.setValue("Tham gia quỹ \"" + room.getName() + "\" thành công!");
+                
             } else {
                 actionMessage.setValue("Không tìm thấy quỹ với mã tham gia này!");
             }
@@ -161,7 +161,7 @@ public class HomeViewModel extends ViewModel {
                 new RoomRepository.DataCallback<Room>() {
                     @Override public void onSuccess(Room room) {
                         loadRemoteData();
-                        actionMessage.postValue("Tham gia quỹ \"" + room.getName() + "\" thành công!");
+                        
                     }
                     @Override public void onError(String message) {
                         isLoading.postValue(false);

@@ -911,75 +911,80 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
             if (mList != null && !mList.isEmpty()) count = mList.size();
         }
         final int memberCount = Math.max(1, count);
+        final String roomName = room != null ? room.getName() : "Quỹ nhóm";
 
-        LinearLayout layout = new LinearLayout(requireContext());
-        layout.setOrientation(LinearLayout.VERTICAL);
-        int pad = dpToPx(20);
-        layout.setPadding(pad, pad, pad, pad);
+        Dialog dialog = new Dialog(requireContext());
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dialog.setContentView(R.layout.dialog_koin_split_bill);
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+            dialog.getWindow().setLayout(
+                    (int) (getResources().getDisplayMetrics().widthPixels * 0.88),
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+        }
 
-        TextView tvDesc = new TextView(requireContext());
-        tvDesc.setText("Chia đều hóa đơn cho " + memberCount + " thành viên trong quỹ");
-        tvDesc.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary));
-        tvDesc.setTextSize(14);
-        tvDesc.setPadding(0, 0, 0, pad / 2);
-        layout.addView(tvDesc);
+        TextView tvSubtitle = dialog.findViewById(R.id.tvSplitDialogSubtitle);
+        TextInputEditText etAmount = dialog.findViewById(R.id.etSplitAmount);
+        TextView tvResultAmount = dialog.findViewById(R.id.tvSplitResultAmount);
+        TextView tvResultNote = dialog.findViewById(R.id.tvSplitResultNote);
+        MaterialButton btnCancel = dialog.findViewById(R.id.btnSplitCancel);
+        MaterialButton btnCopy = dialog.findViewById(R.id.btnSplitCopy);
 
-        TextInputLayout til = new TextInputLayout(requireContext(), null, com.google.android.material.R.style.Widget_MaterialComponents_TextInputLayout_OutlinedBox);
-        til.setHint("Tổng tiền hóa đơn (₫)");
-        til.setBoxCornerRadii(dpToPx(12), dpToPx(12), dpToPx(12), dpToPx(12));
+        if (tvSubtitle != null) {
+            tvSubtitle.setText("Chia đều hóa đơn cho " + memberCount + " thành viên trong quỹ");
+        }
+        if (tvResultNote != null) {
+            tvResultNote.setText("Chia đều cho " + memberCount + " người");
+        }
 
-        TextInputEditText et = new TextInputEditText(til.getContext());
-        et.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        et.setTextSize(18);
-        et.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary));
-        til.addView(et);
-        layout.addView(til);
+        final double[] currentEach = {0.0};
+        final double[] currentAmt = {0.0};
 
-        TextView tvResult = new TextView(requireContext());
-        tvResult.setTextSize(15);
-        tvResult.setTypeface(null, Typeface.BOLD);
-        tvResult.setTextColor(ContextCompat.getColor(requireContext(), R.color.primary));
-        tvResult.setPadding(0, pad / 2, 0, 0);
-        tvResult.setText("Mỗi người: 0 ₫");
-        layout.addView(tvResult);
-
-        et.addTextChangedListener(new android.text.TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-                String str = s != null ? s.toString().trim() : "";
-                try {
-                    double amt = Double.parseDouble(str);
-                    double each = amt / memberCount;
-                    tvResult.setText("Mỗi người: " + df.format(each).replace(',', '.') + " ₫ (" + memberCount + " người)");
-                } catch (Exception ex) {
-                    tvResult.setText("Mỗi người: 0 ₫");
-                }
-            }
-            @Override public void afterTextChanged(android.text.Editable s) {}
-        });
-
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Chia đều chi phí nhóm")
-                .setView(layout)
-                .setPositiveButton("Sao chép", (dialog, which) -> {
-                    String str = et.getText() != null ? et.getText().toString().trim() : "";
-                    double amt = 0.0;
-                    try { amt = Double.parseDouble(str); } catch (Exception ignored) {}
-                    double each = amt / memberCount;
-                    String roomName = room != null ? room.getName() : "Quỹ nhóm";
-                    String text = "[SharedFund - Chia tiền nhóm]\n"
-                            + "Quỹ: " + roomName + "\n"
-                            + "Tổng tiền: " + df.format(amt).replace(',', '.') + " ₫\n"
-                            + "Số người: " + memberCount + "\n"
-                            + "Mỗi người: " + df.format(each).replace(',', '.') + " ₫";
-                    ClipboardManager clipboard = (ClipboardManager) requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
-                    if (clipboard != null) {
-                        clipboard.setPrimaryClip(ClipData.newPlainText("Split Bill", text));
-                        CopyToast.show(requireContext(), requireView());
+        if (etAmount != null) {
+            etAmount.addTextChangedListener(new android.text.TextWatcher() {
+                @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                    String str = s != null ? s.toString().trim() : "";
+                    try {
+                        double amt = Double.parseDouble(str);
+                        currentAmt[0] = amt;
+                        currentEach[0] = amt / memberCount;
+                        if (tvResultAmount != null) {
+                            tvResultAmount.setText(df.format(currentEach[0]).replace(',', '.') + " ₫");
+                        }
+                    } catch (Exception ex) {
+                        currentAmt[0] = 0.0;
+                        currentEach[0] = 0.0;
+                        if (tvResultAmount != null) {
+                            tvResultAmount.setText("0 ₫");
+                        }
                     }
-                })
-                .setNegativeButton("Đóng", null)
-                .show();
+                }
+                @Override public void afterTextChanged(android.text.Editable s) {}
+            });
+        }
+
+        if (btnCancel != null) {
+            btnCancel.setOnClickListener(v -> dialog.dismiss());
+        }
+
+        if (btnCopy != null) {
+            btnCopy.setOnClickListener(v -> {
+                String text = "🧾 CHIA TIỀN NHÓM - " + roomName + "\n"
+                        + "• Tổng hóa đơn: " + df.format(currentAmt[0]).replace(',', '.') + " ₫\n"
+                        + "• Số thành viên: " + memberCount + " người\n"
+                        + "👉 Mỗi người: " + df.format(currentEach[0]).replace(',', '.') + " ₫";
+                ClipboardManager clipboard = (ClipboardManager) requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
+                if (clipboard != null) {
+                    clipboard.setPrimaryClip(ClipData.newPlainText("Split Bill", text));
+                    CopyToast.show(requireContext(), requireView());
+                }
+                dialog.dismiss();
+            });
+        }
+
+        dialog.show();
     }
 
     private void showRemindDialog() {
@@ -987,32 +992,60 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
         String roomName = room != null ? room.getName() : "Quỹ nhóm";
         String joinCode = room != null && room.getJoinCode() != null ? room.getJoinCode() : "";
 
-        String msg = "[SharedFund - Nhắc nhở đóng quỹ]\n"
-                + "Thân gửi các thành viên quỹ '" + roomName + "',\n"
-                + "Vui lòng kiểm tra và đóng quỹ đúng hạn nhé!\n"
-                + "Mã tham gia quỹ: " + joinCode;
+        String shareMsg = "🔔 LỜI NHẮC ĐÓNG QUỸ CHUNG\n"
+                + "Quỹ: \"" + roomName + "\"\n"
+                + "Chào cả nhà, quỹ đã đến kỳ hạn đóng góp. Mọi người kiểm tra và hoàn thành phần quỹ đúng hạn nhé!\n"
+                + "👉 Mã tham gia: " + joinCode + "\n"
+                + "Cảm ơn mọi người nhiều!";
 
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Nhắc đóng quỹ nhóm")
-                .setMessage(msg)
-                .setPositiveButton("Sao chép", (dialog, which) -> {
-                    ClipboardManager clipboard = (ClipboardManager) requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
-                    if (clipboard != null) {
-                        clipboard.setPrimaryClip(ClipData.newPlainText("Fund Reminder", msg));
-                        CopyToast.show(requireContext(), requireView());
-                    }
-                })
-                .setNeutralButton("Chia sẻ", (dialog, which) -> {
-                    android.content.Intent sendIntent = new android.content.Intent();
-                    sendIntent.setAction(android.content.Intent.ACTION_SEND);
-                    sendIntent.putExtra(android.content.Intent.EXTRA_TEXT, msg);
-                    sendIntent.setType("text/plain");
-                    startActivity(android.content.Intent.createChooser(sendIntent, "Chia sẻ lời nhắc đóng quỹ"));
-                })
-                .setNegativeButton("Đóng", null)
-                .show();
+        Dialog dialog = new Dialog(requireContext());
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dialog.setContentView(R.layout.dialog_koin_remind);
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+            dialog.getWindow().setLayout(
+                    (int) (getResources().getDisplayMetrics().widthPixels * 0.88),
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+        }
+
+        TextView tvMsg = dialog.findViewById(R.id.tvRemindDialogMessage);
+        MaterialButton btnCancel = dialog.findViewById(R.id.btnRemindCancel);
+        MaterialButton btnShare = dialog.findViewById(R.id.btnRemindShare);
+        MaterialButton btnCopy = dialog.findViewById(R.id.btnRemindCopy);
+
+        if (tvMsg != null) {
+            tvMsg.setText(shareMsg);
+        }
+
+        if (btnCancel != null) {
+            btnCancel.setOnClickListener(v -> dialog.dismiss());
+        }
+
+        if (btnShare != null) {
+            btnShare.setOnClickListener(v -> {
+                android.content.Intent sendIntent = new android.content.Intent();
+                sendIntent.setAction(android.content.Intent.ACTION_SEND);
+                sendIntent.putExtra(android.content.Intent.EXTRA_TEXT, shareMsg);
+                sendIntent.setType("text/plain");
+                startActivity(android.content.Intent.createChooser(sendIntent, "Chia sẻ lời nhắc đóng quỹ"));
+                dialog.dismiss();
+            });
+        }
+
+        if (btnCopy != null) {
+            btnCopy.setOnClickListener(v -> {
+                ClipboardManager clipboard = (ClipboardManager) requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
+                if (clipboard != null) {
+                    clipboard.setPrimaryClip(ClipData.newPlainText("Fund Reminder", shareMsg));
+                    CopyToast.show(requireContext(), requireView());
+                }
+                dialog.dismiss();
+            });
+        }
+
+        dialog.show();
     }
-
     private void showChangeBackgroundDialog() {
         if (!isCurrentUserOwner() && !isCurrentUserAdmin()) {
             AppToaster.error(requireActivity(), "Chỉ Trưởng quỹ hoặc Phó quỹ mới có quyền đổi ảnh bìa.");
@@ -1165,7 +1198,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                 if (clipboard != null && room.getJoinCode() != null) {
                     ClipData clip = ClipData.newPlainText("Join Code", room.getJoinCode());
                     clipboard.setPrimaryClip(clip);
-                    CopyToast.show(requireContext(), requireView());
+                    CopyToast.show(requireContext(), v);
                 }
             });
         }
@@ -2075,7 +2108,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                 if (!isAdded()) return;
                 requireActivity().runOnUiThread(() -> {
                     if (pbDetailLoading != null) pbDetailLoading.setVisibility(View.GONE);
-                    AppToaster.success(requireActivity(), "Đã đóng quỹ thành công!");
+                    
                     if (getActivity() instanceof MainActivity) {
                         ((MainActivity) getActivity()).openHome();
                     } else if (getActivity() != null) {
@@ -2102,15 +2135,37 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
     private void confirmLeaveRoom() {
         Room room = viewModel.getRoom().getValue();
         if (room == null || getContext() == null) return;
+        String roomName = room.getName() != null ? room.getName() : "quỹ này";
 
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Xác nhận rời quỹ")
-                .setMessage("Bạn có chắc chắn muốn rời khỏi quỹ \"" + room.getName() + "\"? Bạn sẽ không thể tiếp tục theo dõi hay thao tác trên quỹ này.")
-                .setNegativeButton("Hủy", null)
-                .setPositiveButton("Rời quỹ", (dialog, which) -> executeLeaveRoom())
-                .show();
+        Dialog dialog = new Dialog(requireContext());
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dialog.setContentView(R.layout.dialog_koin_action_confirm);
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+            dialog.getWindow().setLayout(
+                    (int) (getResources().getDisplayMetrics().widthPixels * 0.88),
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+        }
+        TextView tvTitle = dialog.findViewById(R.id.tvConfirmDialogTitle);
+        TextView tvMessage = dialog.findViewById(R.id.tvConfirmDialogMessage);
+        MaterialButton btnCancel = dialog.findViewById(R.id.btnConfirmCancel);
+        MaterialButton btnAction = dialog.findViewById(R.id.btnConfirmAction);
+        if (tvTitle != null) tvTitle.setText("Rời khỏi quỹ này?");
+        if (tvMessage != null) tvMessage.setText("Bạn có chắc chắn muốn rời khỏi quỹ \"" + roomName + "\"? Bạn sẽ không thể tiếp tục theo dõi biến động số dư hay thao tác trên quỹ này.");
+        if (btnAction != null) {
+            btnAction.setText("Rời quỹ");
+            btnAction.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.accent_expense)));
+            btnAction.setOnClickListener(v -> {
+                dialog.dismiss();
+                executeLeaveRoom();
+            });
+        }
+        if (btnCancel != null) {
+            btnCancel.setOnClickListener(v -> dialog.dismiss());
+        }
+        dialog.show();
     }
-
     private void executeLeaveRoom() {
         if (viewModel == null || getContext() == null) return;
         String rawUserId = UserSessionManager.getInstance(requireContext()).getUserId();
@@ -2141,7 +2196,6 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                 if (!isAdded()) return;
                 requireActivity().runOnUiThread(() -> {
                     if (pbDetailLoading != null) pbDetailLoading.setVisibility(View.GONE);
-                    AppToaster.success(requireActivity(), "Đã rời khỏi quỹ!");
                     if (getActivity() instanceof MainActivity) {
                         ((MainActivity) getActivity()).openHome();
                     } else if (getActivity() != null) {
