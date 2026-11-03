@@ -25,6 +25,7 @@
     <color name="white">#FFFFFFFF</color>
     <color name="toast_bg">#FFFFFF</color>
     <color name="toast_text">#1A1A1A</color>
-    <color name="icon_frame_bg">#EBF0FF</color>
-    <color name="icon_frame_tint">#3E6FDF</color>
+    <color name="icon_frame_bg">#D0E2FF</color>
+    <color name="icon_frame_border">#A8C4FF</color>
+    <color name="icon_frame_tint">#1A4DC2</color>
 </resources>
