@@ -7,27 +7,26 @@ import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.Locale;
 
-/**
- * Model biểu diễn Giao dịch (Transaction)
- * Thống nhất theo mục 6.2 tài liệu Giai đoạn 3
- */
 public class Transaction implements Serializable {
     public static final String TYPE_INCOME = "Thu";
     public static final String TYPE_EXPENSE = "Chi";
+    public static final String STATUS_APPROVED = "APPROVED";
+    public static final String STATUS_PENDING = "PENDING";
+    public static final String STATUS_REJECTED = "REJECTED";
 
     private String id;
     @SerializedName("room_id")
     private String roomId;
     private double amount;
-    private String type; // "Thu" hoặc "Chi"
-    private String category; // Ăn uống, Di chuyển, Mua sắm, Thuê phòng, Đóng quỹ,...
-    private String note; // Lời tựa
+    private String type;
+    private String category;
+    private String note;
     @SerializedName("user_name")
-    private String createdBy; // ID hoặc tên hiển thị người tạo
+    private String createdBy;
     @SerializedName("user_id")
     private String userId;
     @SerializedName("created_at")
-    private String createdAt; // Thời gian tạo
+    private String createdAt;
     @SerializedName("transaction_date")
     private String transactionDate;
     @SerializedName("bill_image_url")
@@ -36,6 +35,12 @@ public class Transaction implements Serializable {
     private double balanceAfter;
     @SerializedName("status")
     private String status;
+    @SerializedName("rejection_reason")
+    private String rejectionReason;
+    @SerializedName("approved_by")
+    private String approvedBy;
+    @SerializedName("approved_at")
+    private String approvedAt;
 
     public Transaction() {
     }
@@ -121,6 +126,12 @@ public class Transaction implements Serializable {
     public void setBalanceAfter(double balanceAfter) { this.balanceAfter = balanceAfter; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+    public String getRejectionReason() { return rejectionReason; }
+    public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
+    public String getApprovedBy() { return approvedBy; }
+    public void setApprovedBy(String approvedBy) { this.approvedBy = approvedBy; }
+    public String getApprovedAt() { return approvedAt; }
+    public void setApprovedAt(String approvedAt) { this.approvedAt = approvedAt; }
 
     public String getCreatedAt() {
         return createdAt;
@@ -138,10 +149,18 @@ public class Transaction implements Serializable {
         return TYPE_EXPENSE.equalsIgnoreCase(type) || "EXPENSE".equalsIgnoreCase(type);
     }
 
-    /**
-     * Định dạng số tiền có tiền tố (+) hoặc (-) theo loại giao dịch
-     * Sử dụng DecimalFormatSymbols độc lập locale, đảm bảo không bị cắt số tiền dài.
-     */
+    public boolean isPending() {
+        return STATUS_PENDING.equalsIgnoreCase(status);
+    }
+
+    public boolean isApproved() {
+        return STATUS_APPROVED.equalsIgnoreCase(status) || "COMPLETED".equalsIgnoreCase(status);
+    }
+
+    public boolean isRejected() {
+        return STATUS_REJECTED.equalsIgnoreCase(status);
+    }
+
     public String getFormattedAmount() {
         DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.US);
         symbols.setGroupingSeparator('.');

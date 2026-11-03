@@ -28,8 +28,6 @@
             android:layout_height="wrap_content"
             android:gravity="center_vertical"
             android:orientation="horizontal">
-
-            <!-- Room Icon Badge -->
             <FrameLayout
                 android:layout_width="44dp"
                 android:layout_height="44dp"
@@ -88,8 +86,6 @@
                     android:text="Số dư quỹ"
                     android:textColor="@color/text_tertiary"
                     android:textSize="11sp" />
-
-                <!-- Auto-sizing and single-line to prevent cutting/wrapping long balances -->
                 <TextView
                     android:id="@+id/tvRoomBalance"
                     android:layout_width="wrap_content"
@@ -108,8 +104,6 @@
                     app:autoSizeTextType="uniform" />
             </LinearLayout>
         </LinearLayout>
-
-        <!-- Divider line -->
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
@@ -143,8 +137,6 @@
                 android:layout_width="0dp"
                 android:layout_height="1dp"
                 android:layout_weight="1" />
-
-            <!-- Join code container with ripple feedback -->
             <LinearLayout
                 android:id="@+id/btnCopyCode"
                 android:layout_width="wrap_content"

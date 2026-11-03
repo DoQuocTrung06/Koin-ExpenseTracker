@@ -17,14 +17,34 @@ public class Profile implements Serializable {
     @SerializedName("avatar_url")
     private String avatarUrl;
 
+    @SerializedName("wallet_balance")
+    private double walletBalance;
+
+    @SerializedName("nickname")
+    private String nickname;
+
+    @SerializedName("occupation")
+    private String occupation;
+
+    @SerializedName("education")
+    private String education;
+
+    @SerializedName("bio")
+    private String bio;
+
     public Profile() {
     }
 
     public Profile(String id, String email, String fullName, String avatarUrl) {
+        this(id, email, fullName, avatarUrl, 0.0);
+    }
+
+    public Profile(String id, String email, String fullName, String avatarUrl, double walletBalance) {
         this.id = id;
         this.email = email;
         this.fullName = fullName;
         this.avatarUrl = avatarUrl;
+        this.walletBalance = walletBalance;
     }
 
     public String getId() {
@@ -57,5 +77,45 @@ public class Profile implements Serializable {
 
     public void setAvatarUrl(String avatarUrl) {
         this.avatarUrl = avatarUrl;
+    }
+
+    public double getWalletBalance() {
+        return walletBalance;
+    }
+
+    public void setWalletBalance(double walletBalance) {
+        this.walletBalance = walletBalance;
+    }
+
+    public String getNickname() {
+        return nickname;
+    }
+
+    public void setNickname(String nickname) {
+        this.nickname = nickname;
+    }
+
+    public String getOccupation() {
+        return occupation;
+    }
+
+    public void setOccupation(String occupation) {
+        this.occupation = occupation;
+    }
+
+    public String getEducation() {
+        return education;
+    }
+
+    public void setEducation(String education) {
+        this.education = education;
+    }
+
+    public String getBio() {
+        return bio;
+    }
+
+    public void setBio(String bio) {
+        this.bio = bio;
     }
 }

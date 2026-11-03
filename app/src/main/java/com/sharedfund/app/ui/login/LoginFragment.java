@@ -1,5 +1,8 @@
 package com.sharedfund.app.ui.login;
 
+import android.content.res.ColorStateList;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.LayerDrawable;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -9,10 +12,10 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 
 import com.google.android.material.button.MaterialButton;
@@ -23,40 +26,38 @@ import com.sharedfund.app.R;
 import com.sharedfund.app.data.AuthRepository;
 import com.sharedfund.app.data.RoomRepository;
 import com.sharedfund.app.data.UserSessionManager;
+import com.sharedfund.app.model.Profile;
+import com.sharedfund.app.ui.widget.AppToaster;
+import com.sharedfund.app.util.PasswordStrengthEvaluator;
 
-/**
- * Màn hình Đăng nhập / Đăng ký (LoginFragment)
- * Hỗ trợ toggle giữa 2 chế độ: Login và Register với validation đầy đủ.
- * Tích hợp UserSessionManager để lưu phiên đăng nhập.
- * Đăng nhập và đăng ký qua Supabase Auth API.
- */
 public class LoginFragment extends Fragment {
 
     private boolean isLoginMode = true;
     private AuthRepository authRepository;
 
-    // Tab buttons
-    private MaterialButton btnTabLogin;
-    private MaterialButton btnTabRegister;
-
-    // Title
     private TextView tvAuthTitle;
     private TextView tvAuthSubtitle;
+    private TextView tvSwitchPrompt;
+    private TextView tvSwitchAction;
 
-    // Form fields
     private TextInputLayout tilFullName;
     private TextInputEditText etFullName;
     private TextInputLayout tilEmail;
     private TextInputEditText etEmail;
     private TextInputLayout tilPassword;
     private TextInputEditText etPassword;
+    private View layoutPasswordStrength;
+    private TextView tvStrengthLabel;
+    private ProgressBar pbPasswordStrength;
+    private TextView tvRuleLength;
+    private TextView tvRuleCase;
+    private TextView tvRuleDigit;
+    private TextView tvRuleSpecial;
     private TextInputLayout tilConfirmPassword;
     private TextInputEditText etConfirmPassword;
 
-    // Actions
     private ProgressBar pbAuthLoading;
     private MaterialButton btnAuthAction;
-    private MaterialButton btnSkipLogin;
 
     @Nullable
     @Override
@@ -77,97 +78,179 @@ public class LoginFragment extends Fragment {
     }
 
     private void bindViews(View view) {
-        btnTabLogin = view.findViewById(R.id.btnTabLogin);
-        btnTabRegister = view.findViewById(R.id.btnTabRegister);
         tvAuthTitle = view.findViewById(R.id.tvAuthTitle);
         tvAuthSubtitle = view.findViewById(R.id.tvAuthSubtitle);
+        tvSwitchPrompt = view.findViewById(R.id.tvSwitchPrompt);
+        tvSwitchAction = view.findViewById(R.id.tvSwitchAction);
         tilFullName = view.findViewById(R.id.tilFullName);
         etFullName = view.findViewById(R.id.etFullName);
         tilEmail = view.findViewById(R.id.tilEmail);
         etEmail = view.findViewById(R.id.etEmail);
         tilPassword = view.findViewById(R.id.tilPassword);
         etPassword = view.findViewById(R.id.etPassword);
+        layoutPasswordStrength = view.findViewById(R.id.layoutPasswordStrength);
+        tvStrengthLabel = view.findViewById(R.id.tvStrengthLabel);
+        pbPasswordStrength = view.findViewById(R.id.pbPasswordStrength);
+        tvRuleLength = view.findViewById(R.id.tvRuleLength);
+        tvRuleCase = view.findViewById(R.id.tvRuleCase);
+        tvRuleDigit = view.findViewById(R.id.tvRuleDigit);
+        tvRuleSpecial = view.findViewById(R.id.tvRuleSpecial);
         tilConfirmPassword = view.findViewById(R.id.tilConfirmPassword);
         etConfirmPassword = view.findViewById(R.id.etConfirmPassword);
         pbAuthLoading = view.findViewById(R.id.pbAuthLoading);
         btnAuthAction = view.findViewById(R.id.btnAuthAction);
-        btnSkipLogin = view.findViewById(R.id.btnSkipLogin);
     }
 
-    // ==========================================
-    // TAB TOGGLE LOGIC
-    // ==========================================
-
     private void setupTabToggle() {
-        btnTabLogin.setOnClickListener(v -> switchToMode(true));
-        btnTabRegister.setOnClickListener(v -> switchToMode(false));
+        tvSwitchAction.setOnClickListener(v -> switchToMode(!isLoginMode));
+        switchToMode(true);
     }
 
     private void switchToMode(boolean loginMode) {
         isLoginMode = loginMode;
         clearAllErrors();
+        if (layoutPasswordStrength != null) {
+            layoutPasswordStrength.setVisibility(View.GONE);
+        }
 
         if (loginMode) {
-            // --- Login mode ---
-            btnTabLogin.setBackgroundTintList(
-                    android.content.res.ColorStateList.valueOf(
-                            requireContext().getColor(R.color.primary)));
-            btnTabLogin.setTextColor(requireContext().getColor(R.color.white));
-            btnTabRegister.setBackgroundTintList(
-                    android.content.res.ColorStateList.valueOf(
-                            android.graphics.Color.TRANSPARENT));
-            btnTabRegister.setTextColor(requireContext().getColor(R.color.text_secondary));
-
-            tvAuthTitle.setText("Đăng nhập tài khoản");
-            tvAuthSubtitle.setText("Quản lý chi tiêu quỹ chung cùng hội bạn");
+            tvAuthTitle.setText("Chào mừng trở lại");
+            tvAuthSubtitle.setText("Đăng nhập để tiếp tục quản lý quỹ cùng bạn bè");
             btnAuthAction.setText("Đăng nhập");
+            tvSwitchPrompt.setText("Chưa có tài khoản? ");
+            tvSwitchAction.setText("Đăng ký miễn phí");
 
             tilFullName.setVisibility(View.GONE);
             tilConfirmPassword.setVisibility(View.GONE);
         } else {
-            // --- Register mode ---
-            btnTabRegister.setBackgroundTintList(
-                    android.content.res.ColorStateList.valueOf(
-                            requireContext().getColor(R.color.primary)));
-            btnTabRegister.setTextColor(requireContext().getColor(R.color.white));
-            btnTabLogin.setBackgroundTintList(
-                    android.content.res.ColorStateList.valueOf(
-                            android.graphics.Color.TRANSPARENT));
-            btnTabLogin.setTextColor(requireContext().getColor(R.color.text_secondary));
-
             tvAuthTitle.setText("Tạo tài khoản mới");
-            tvAuthSubtitle.setText("Đăng ký để bắt đầu quản lý quỹ nhóm");
+            tvAuthSubtitle.setText("Tham gia cùng bạn bè để quản lý quỹ chung");
             btnAuthAction.setText("Đăng ký");
+            tvSwitchPrompt.setText("Đã có tài khoản? ");
+            tvSwitchAction.setText("Đăng nhập");
 
             tilFullName.setVisibility(View.VISIBLE);
             tilConfirmPassword.setVisibility(View.VISIBLE);
         }
     }
 
-    // ==========================================
-    // TEXT WATCHERS - Xóa lỗi khi người dùng gõ
-    // ==========================================
-
     private void setupTextWatchers() {
         attachClearError(etFullName, tilFullName);
         attachClearError(etEmail, tilEmail);
-        attachClearError(etPassword, tilPassword);
         attachClearError(etConfirmPassword, tilConfirmPassword);
+
+        etPassword.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                if (tilPassword.getError() != null) {
+                    tilPassword.setError(null);
+                }
+                if (!isLoginMode) {
+                    updatePasswordStrength(s != null ? s.toString() : "");
+                }
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+            }
+        });
+
+        etPassword.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus && !isLoginMode) {
+                layoutPasswordStrength.setVisibility(View.VISIBLE);
+                updatePasswordStrength(getRawPassword(etPassword));
+            } else {
+                layoutPasswordStrength.setVisibility(View.GONE);
+            }
+        });
+
+        etPassword.setOnClickListener(v -> {
+            if (!isLoginMode) {
+                layoutPasswordStrength.setVisibility(View.VISIBLE);
+                updatePasswordStrength(getRawPassword(etPassword));
+            }
+        });
+
+        tilPassword.setOnClickListener(v -> {
+            if (!isLoginMode) {
+                etPassword.requestFocus();
+                layoutPasswordStrength.setVisibility(View.VISIBLE);
+                updatePasswordStrength(getRawPassword(etPassword));
+            }
+        });
     }
 
     private void attachClearError(TextInputEditText editText, TextInputLayout layout) {
         editText.addTextChangedListener(new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-                if (layout.getError() != null) layout.setError(null);
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
             }
-            @Override public void afterTextChanged(Editable s) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                if (layout.getError() != null) {
+                    layout.setError(null);
+                }
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+            }
         });
     }
 
-    // ==========================================
-    // CLICK LISTENERS
-    // ==========================================
+    private void updatePasswordStrength(String password) {
+        if (layoutPasswordStrength == null || !isAdded()) return;
+
+        PasswordStrengthEvaluator.Evaluation eval = PasswordStrengthEvaluator.evaluate(password);
+        tvStrengthLabel.setText(eval.getLabel());
+        pbPasswordStrength.setProgress(eval.getProgressPercent());
+
+        int color;
+        if (eval.getLevel() == PasswordStrengthEvaluator.Level.STRONG) {
+            color = ContextCompat.getColor(requireContext(), R.color.accent_income);
+        } else if (eval.getLevel() == PasswordStrengthEvaluator.Level.MEDIUM) {
+            color = ContextCompat.getColor(requireContext(), R.color.accent_amber);
+        } else if (eval.getLevel() == PasswordStrengthEvaluator.Level.WEAK) {
+            color = ContextCompat.getColor(requireContext(), R.color.accent_expense);
+        } else {
+            color = ContextCompat.getColor(requireContext(), R.color.text_tertiary);
+        }
+
+        tvStrengthLabel.setTextColor(color);
+
+        Drawable progressDrawable = pbPasswordStrength.getProgressDrawable();
+        if (progressDrawable instanceof LayerDrawable) {
+            Drawable item = ((LayerDrawable) progressDrawable).findDrawableByLayerId(android.R.id.progress);
+            if (item != null) {
+                item.mutate().setTint(color);
+            }
+        } else {
+            pbPasswordStrength.setProgressTintList(ColorStateList.valueOf(color));
+        }
+
+        updateRuleText(tvRuleLength, eval.hasMinLength(), "Tối thiểu 8 ký tự");
+        updateRuleText(tvRuleCase, eval.hasUpperAndLower(), "Chữ hoa & chữ thường");
+        updateRuleText(tvRuleDigit, eval.hasDigit(), "Có ít nhất 1 chữ số");
+        updateRuleText(tvRuleSpecial, eval.hasSpecial(), "Ký tự đặc biệt (!@#...)");
+    }
+
+    private void updateRuleText(TextView tv, boolean satisfied, String text) {
+        if (tv == null || !isAdded()) return;
+        int passedColor = ContextCompat.getColor(requireContext(), R.color.accent_income);
+        int normalColor = ContextCompat.getColor(requireContext(), R.color.text_tertiary);
+        if (satisfied) {
+            tv.setText("✓ " + text);
+            tv.setTextColor(passedColor);
+        } else {
+            tv.setText("• " + text);
+            tv.setTextColor(normalColor);
+        }
+    }
 
     private void setupClickListeners() {
         btnAuthAction.setOnClickListener(v -> {
@@ -177,19 +260,12 @@ public class LoginFragment extends Fragment {
                 validateAndRegister();
             }
         });
-
-        // Không hỗ trợ đăng nhập khách: mọi dữ liệu phải gắn với user Supabase đã xác thực.
-        btnSkipLogin.setVisibility(View.GONE);
     }
-
-    // ==========================================
-    // VALIDATE & LOGIN
-    // ==========================================
 
     private void validateAndLogin() {
         clearAllErrors();
         String email = getText(etEmail);
-        String pass = getText(etPassword);
+        String pass = getRawPassword(etPassword);
         boolean hasError = false;
 
         if (email.isEmpty()) {
@@ -213,7 +289,7 @@ public class LoginFragment extends Fragment {
         setLoadingState(true);
         authRepository.signIn(email, pass, new AuthRepository.AuthCallback() {
             @Override
-            public void onSuccess(com.sharedfund.app.model.Profile profile) {
+            public void onSuccess(Profile profile) {
                 runOnUiThreadIfAttached(() -> {
                     setLoadingState(false);
                     if (profile == null || profile.getId() == null || profile.getId().trim().isEmpty()) {
@@ -221,7 +297,7 @@ public class LoginFragment extends Fragment {
                         return;
                     }
                     RoomRepository.getInstance().setCurrentUser(profile.getId(), profile.getFullName());
-                    Toast.makeText(requireContext(), "Đăng nhập thành công!", Toast.LENGTH_SHORT).show();
+                    AppToaster.success(requireActivity(), "Đăng nhập thành công!");
                     goToHome();
                 });
             }
@@ -236,16 +312,12 @@ public class LoginFragment extends Fragment {
         });
     }
 
-    // ==========================================
-    // VALIDATE & REGISTER
-    // ==========================================
-
     private void validateAndRegister() {
         clearAllErrors();
         String fullName = getText(etFullName);
         String email = getText(etEmail);
-        String pass = getText(etPassword);
-        String confirmPass = getText(etConfirmPassword);
+        String pass = getRawPassword(etPassword);
+        String confirmPass = getRawPassword(etConfirmPassword);
         boolean hasError = false;
 
         if (fullName.isEmpty()) {
@@ -266,9 +338,18 @@ public class LoginFragment extends Fragment {
 
         if (pass.isEmpty()) {
             tilPassword.setError("Vui lòng nhập mật khẩu");
+            layoutPasswordStrength.setVisibility(View.VISIBLE);
+            updatePasswordStrength("");
             hasError = true;
-        } else if (pass.length() < 6) {
-            tilPassword.setError("Mật khẩu phải có ít nhất 6 ký tự");
+        } else if (pass.length() < 8) {
+            tilPassword.setError("Mật khẩu phải có ít nhất 8 ký tự");
+            layoutPasswordStrength.setVisibility(View.VISIBLE);
+            updatePasswordStrength(pass);
+            hasError = true;
+        } else if (!PasswordStrengthEvaluator.hasLettersAndNumbers(pass)) {
+            tilPassword.setError("Mật khẩu phải bao gồm cả chữ và số");
+            layoutPasswordStrength.setVisibility(View.VISIBLE);
+            updatePasswordStrength(pass);
             hasError = true;
         }
 
@@ -286,7 +367,7 @@ public class LoginFragment extends Fragment {
         UserSessionManager.getInstance(requireContext()).clearSession();
         authRepository.signUp(email, pass, fullName, new AuthRepository.AuthCallback() {
             @Override
-            public void onSuccess(com.sharedfund.app.model.Profile profile) {
+            public void onSuccess(Profile profile) {
                 runOnUiThreadIfAttached(() -> {
                     setLoadingState(false);
                     if (profile == null || profile.getId() == null || profile.getId().trim().isEmpty()) {
@@ -296,18 +377,15 @@ public class LoginFragment extends Fragment {
 
                     UserSessionManager sessions = UserSessionManager.getInstance(requireContext());
                     if (sessions.getAccessToken() == null || sessions.getAccessToken().isEmpty()) {
-                        // Supabase đang yêu cầu xác nhận email trước khi đăng nhập.
                         sessions.clearSession();
-                        Toast.makeText(requireContext(),
-                                "Tài khoản đã được tạo. Hãy xác nhận email rồi đăng nhập.",
-                                Toast.LENGTH_LONG).show();
+                        AppToaster.info(requireActivity(), "Tài khoản đã được tạo. Hãy xác nhận email rồi đăng nhập.");
                         switchToMode(true);
                         return;
                     }
 
                     RoomRepository.getInstance().registerNewUser(profile.getId(), profile.getFullName());
-                    Toast.makeText(requireContext(), "Đăng ký thành công! Chào mừng "
-                            + profile.getFullName() + "!", Toast.LENGTH_SHORT).show();
+                    AppToaster.success(requireActivity(), "Đăng ký thành công! Chào mừng "
+                            + profile.getFullName() + "!");
                     goToHome();
                 });
             }
@@ -322,11 +400,6 @@ public class LoginFragment extends Fragment {
         });
     }
 
-    // ==========================================
-    // HELPER
-    // ==========================================
-
-
     private void runOnUiThreadIfAttached(Runnable action) {
         if (isAdded() && getActivity() != null) {
             getActivity().runOnUiThread(() -> {
@@ -337,15 +410,13 @@ public class LoginFragment extends Fragment {
 
     private void showAuthError(String message) {
         if (!isAdded()) return;
-        Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show();
+        AppToaster.error(requireActivity(), message);
     }
 
     private void setLoadingState(boolean loading) {
         pbAuthLoading.setVisibility(loading ? View.VISIBLE : View.GONE);
         btnAuthAction.setEnabled(!loading);
-        btnSkipLogin.setEnabled(!loading);
-        btnTabLogin.setEnabled(!loading);
-        btnTabRegister.setEnabled(!loading);
+        tvSwitchAction.setEnabled(!loading);
     }
 
     private void clearAllErrors() {
@@ -356,7 +427,11 @@ public class LoginFragment extends Fragment {
     }
 
     private String getText(TextInputEditText et) {
-        return et.getText() != null ? et.getText().toString().trim() : "";
+        return et != null && et.getText() != null ? et.getText().toString().trim() : "";
+    }
+
+    private String getRawPassword(TextInputEditText et) {
+        return et != null && et.getText() != null ? et.getText().toString() : "";
     }
 
     private void goToHome() {

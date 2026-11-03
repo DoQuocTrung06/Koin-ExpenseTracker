@@ -32,7 +32,10 @@ public class AuthRepository {
 
     public AuthRepository(Context context) {
         this.context = context.getApplicationContext();
-        this.httpClient = new OkHttpClient();
+        this.httpClient = new OkHttpClient.Builder()
+                .dns(SafeDns.getInstance())
+                .authenticator(new SupabaseAuthenticator(this.context))
+                .build();
         this.gson = new Gson();
     }
 
@@ -66,11 +69,10 @@ public class AuthRepository {
                     try {
                         JsonObject root = JsonParser.parseString(responseBody).getAsJsonObject();
                         String userId = "";
-                        String token = "";
+                        String token = root.has("access_token") ? root.get("access_token").getAsString() : "";
+                        String refreshToken = root.has("refresh_token") ? root.get("refresh_token").getAsString() : "";
+                        long expiresIn = root.has("expires_in") ? root.get("expires_in").getAsLong() : 3600;
 
-                        if (root.has("access_token")) {
-                            token = root.get("access_token").getAsString();
-                        }
                         if (root.has("user")) {
                             JsonObject userObj = root.getAsJsonObject("user");
                             userId = userObj.get("id").getAsString();
@@ -79,7 +81,7 @@ public class AuthRepository {
                         }
 
                         Profile profile = new Profile(userId, email, fullName, "");
-                        saveProfileToDatabase(profile, token, callback);
+                        saveProfileToDatabase(profile, token, refreshToken, expiresIn, callback);
                     } catch (Exception e) {
                         callback.onError("Parse error: " + e.getMessage());
                     }
@@ -116,6 +118,8 @@ public class AuthRepository {
                     try {
                         JsonObject root = JsonParser.parseString(responseBody).getAsJsonObject();
                         String token = root.has("access_token") ? root.get("access_token").getAsString() : "";
+                        String refreshToken = root.has("refresh_token") ? root.get("refresh_token").getAsString() : "";
+                        long expiresIn = root.has("expires_in") ? root.get("expires_in").getAsLong() : 3600;
                         String userId = "";
 
                         if (root.has("user")) {
@@ -123,7 +127,7 @@ public class AuthRepository {
                             userId = userObj.get("id").getAsString();
                         }
 
-                        fetchProfileFromDatabase(userId, email, token, callback);
+                        fetchProfileFromDatabase(userId, email, token, refreshToken, expiresIn, callback);
                     } catch (Exception e) {
                         callback.onError("Parse error: " + e.getMessage());
                     }
@@ -134,10 +138,8 @@ public class AuthRepository {
         });
     }
 
-    private void saveProfileToDatabase(Profile profile, String token, AuthCallback callback) {
+    private void saveProfileToDatabase(Profile profile, String token, String refreshToken, long expiresIn, AuthCallback callback) {
         if (token == null || token.trim().isEmpty()) {
-            // Email confirmation is enabled: Auth user exists, but there is no authenticated
-            // session yet, so the client must not pretend the profile row was persisted.
             callback.onSuccess(profile);
             return;
         }
@@ -145,7 +147,7 @@ public class AuthRepository {
         Request request = new Request.Builder()
                 .url(SupabaseConfig.REST_URL + "/profiles")
                 .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
-                .addHeader("Authorization", "Bearer " + (token.isEmpty() ? SupabaseConfig.SUPABASE_ANON_KEY : token))
+                .addHeader("Authorization", "Bearer " + token)
                 .addHeader("Content-Type", "application/json")
                 .addHeader("Prefer", "resolution=merge-duplicates")
                 .post(body)
@@ -155,8 +157,13 @@ public class AuthRepository {
             @Override
             public void onFailure(Call call, IOException e) {
                 UserSessionManager.getInstance(context).saveSession(
-                        profile.getId(), profile.getEmail(), profile.getFullName(), profile.getAvatarUrl(), token
+                        profile.getId(), profile.getEmail(), profile.getFullName(), profile.getAvatarUrl(),
+                        token, refreshToken, expiresIn
                 );
+                UserSessionManager.getInstance(context).updateCustomProfile(
+                        profile.getNickname(), profile.getOccupation(), profile.getEducation(), profile.getBio()
+                );
+                RoomRepository.getInstance().configureAccessToken(token);
                 callback.onSuccess(profile);
             }
 
@@ -170,13 +177,16 @@ public class AuthRepository {
                     return;
                 }
                 UserSessionManager.getInstance(context).saveSession(
-                        profile.getId(), profile.getEmail(), profile.getFullName(), profile.getAvatarUrl(), token);
+                        profile.getId(), profile.getEmail(), profile.getFullName(), profile.getAvatarUrl(),
+                        token, refreshToken, expiresIn
+                );
+                RoomRepository.getInstance().configureAccessToken(token);
                 callback.onSuccess(profile);
             }
         });
     }
 
-    private void fetchProfileFromDatabase(String userId, String email, String token, AuthCallback callback) {
+    private void fetchProfileFromDatabase(String userId, String email, String token, String refreshToken, long expiresIn, AuthCallback callback) {
         Request request = new Request.Builder()
                 .url(SupabaseConfig.REST_URL + "/profiles?id=eq." + userId + "&select=*")
                 .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
@@ -212,9 +222,39 @@ public class AuthRepository {
                 }
 
                 UserSessionManager.getInstance(context).saveSession(
-                        profile.getId(), profile.getEmail(), profile.getFullName(), profile.getAvatarUrl(), token
+                        profile.getId(), profile.getEmail(), profile.getFullName(), profile.getAvatarUrl(),
+                        token, refreshToken, expiresIn
                 );
+                RoomRepository.getInstance().configureAccessToken(token);
                 callback.onSuccess(profile);
+            }
+        });
+    }
+
+    public void updateProfile(Profile profile, String token, AuthCallback callback) {
+        if (profile == null || profile.getId() == null) return;
+        RequestBody body = RequestBody.create(gson.toJson(profile), JSON_MEDIA_TYPE);
+        Request request = new Request.Builder()
+                .url(SupabaseConfig.REST_URL + "/profiles?id=eq." + profile.getId())
+                .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
+                .addHeader("Authorization", "Bearer " + token)
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Prefer", "resolution=merge-duplicates")
+                .patch(body)
+                .build();
+        httpClient.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                if (callback != null) callback.onError(e.getMessage());
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) {
+                if (response.isSuccessful()) {
+                    if (callback != null) callback.onSuccess(profile);
+                } else {
+                    if (callback != null) callback.onError("Update failed: " + response.code());
+                }
             }
         });
     }

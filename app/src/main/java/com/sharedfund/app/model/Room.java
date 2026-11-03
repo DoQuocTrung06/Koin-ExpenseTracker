@@ -9,10 +9,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/**
- * Model biểu diễn Quỹ chung (Room / Shared Fund)
- * Thống nhất theo mục 6.1 tài liệu Giai đoạn 3
- */
 public class Room implements Serializable {
     private String id;
     private String name;
@@ -29,7 +25,6 @@ public class Room implements Serializable {
     private String createdBy;
     @SerializedName("target_amount")
     private double targetAmount;
-    @SerializedName("currency")
     private String currency;
     @SerializedName("is_archived")
     private boolean archived;
@@ -39,18 +34,24 @@ public class Room implements Serializable {
         this.members = new ArrayList<>();
     }
 
-    public Room(String name, String description, String joinCode, double balance, List<String> members) {
-        this(null, name, joinCode, balance, description, members != null ? members.size() : 0, members, null);
+    public Room(String name, double balance) {
+        this.name = name;
+        this.balance = balance;
+        this.members = new ArrayList<>();
     }
 
-    public Room(String id, String name, String joinCode, double balance, String description, int memberCount, List<String> members, String createdAt) {
+    public Room(String id, String name, String joinCode, double balance, String description, int memberCount, List<String> members) {
         this.id = id;
         this.name = name;
         this.joinCode = joinCode;
         this.balance = balance;
         this.description = description;
         this.memberCount = memberCount;
-        this.members = members != null ? members : new ArrayList<>();
+        this.members = members != null ? members : new ArrayList<String>();
+    }
+
+    public Room(String id, String name, String joinCode, double balance, String description, int memberCount, List<String> members, String createdAt) {
+        this(id, name, joinCode, balance, description, memberCount, members);
         this.createdAt = createdAt;
     }
 
@@ -95,7 +96,10 @@ public class Room implements Serializable {
     }
 
     public int getMemberCount() {
-        return memberCount;
+        if (members != null && !members.isEmpty()) {
+            return members.size();
+        }
+        return memberCount > 0 ? memberCount : 1;
     }
 
     public void setMemberCount(int memberCount) {
@@ -118,8 +122,14 @@ public class Room implements Serializable {
         this.createdAt = createdAt;
     }
 
-    public String getCreatedBy() { return createdBy; }
-    public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
+    public String getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(String createdBy) {
+        this.createdBy = createdBy;
+    }
+
     public double getTargetAmount() { return targetAmount; }
     public void setTargetAmount(double targetAmount) { this.targetAmount = targetAmount; }
     public String getCurrency() { return currency; }
@@ -129,11 +139,6 @@ public class Room implements Serializable {
     public String getCurrentUserRole() { return currentUserRole; }
     public void setCurrentUserRole(String currentUserRole) { this.currentUserRole = currentUserRole; }
 
-    /**
-     * Định dạng số tiền sang định dạng tiền tệ VNĐ chuẩn hóa (ví dụ: 1.500.000 ₫)
-     * Sử dụng DecimalFormatSymbols độc lập với cài đặt ngôn ngữ hệ điều hành để đảm bảo
-     * không bị lỗi dấu phân cách hay cắt số tiền dài.
-     */
     public String getFormattedBalance() {
         DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.US);
         symbols.setGroupingSeparator('.');

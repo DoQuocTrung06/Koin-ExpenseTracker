@@ -3,34 +3,49 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="?attr/selectableItemBackground"
-    android:clickable="true"
-    android:focusable="true"
-    android:gravity="center_vertical"
-    android:orientation="horizontal"
-    android:paddingStart="16dp"
-    android:paddingTop="12dp"
-    android:paddingEnd="16dp"
-    android:paddingBottom="12dp">
+    android:orientation="vertical">
 
-    <!-- Category Icon badge -->
-    <FrameLayout
-        android:id="@+id/iconContainer"
-        android:layout_width="44dp"
-        android:layout_height="44dp"
-        android:background="@drawable/bg_circle_icon">
-
-        <ImageView
-            android:id="@+id/ivTxIcon"
-            android:layout_width="22dp"
-            android:layout_height="22dp"
-            android:layout_gravity="center"
-            android:contentDescription="Transaction Category"
-            android:src="@drawable/ic_restaurant" />
-    </FrameLayout>
-
-    <!-- Info Column -->
     <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingTop="12dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="12dp">
+
+        <FrameLayout
+            android:id="@+id/layoutTxAvatarContainer"
+            android:layout_width="40dp"
+            android:layout_height="40dp">
+
+            <ImageView
+                android:id="@+id/ivTxAvatar"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@drawable/bg_avatar_circle"
+                android:clipToOutline="true"
+                android:contentDescription="Avatar"
+                android:scaleType="centerCrop" />
+
+            <TextView
+                android:id="@+id/tvTxInitials"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@drawable/bg_avatar_circle"
+                android:clipToOutline="true"
+                android:gravity="center"
+                android:textColor="@color/white"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+        </FrameLayout>
+
+        <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="14dp"
@@ -39,89 +54,93 @@
 
         <TextView
             android:id="@+id/tvTxNote"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:ellipsize="end"
             android:maxLines="1"
-            android:text="Ăn tối lẩu gà lá é quán Tao Ngộ"
+            android:text="Transaction Note"
             android:textColor="@color/text_primary"
-            android:textSize="14sp"
+            android:textSize="14.5sp"
             android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvTxTime"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="Date Time"
+            android:textColor="@color/text_secondary"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/tvTxCreator"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="Member"
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp" />
+    </LinearLayout>
 
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="3dp"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
+            android:layout_marginStart="10dp"
+            android:gravity="end"
+            android:orientation="vertical">
 
             <TextView
-                android:id="@+id/tvTxCreator"
+                android:id="@+id/tvTxAmount"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:ellipsize="end"
+                android:gravity="end"
                 android:maxLines="1"
-                android:text="Bảo Linh"
-                android:textColor="@color/text_secondary"
-                android:textSize="12sp" />
+                android:singleLine="true"
+                android:text="0 ₫"
+                android:textColor="@color/text_primary"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                app:autoSizeMaxTextSize="15sp"
+                app:autoSizeMinTextSize="11sp"
+                app:autoSizeStepGranularity="1sp"
+                app:autoSizeTextType="uniform" />
 
             <TextView
+                android:id="@+id/tvTxStatus"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="  ·  "
-                android:textColor="@color/text_tertiary"
-                android:textSize="12sp" />
+                android:layout_marginTop="4dp"
+                android:background="@drawable/bg_pending_badge"
+                android:paddingStart="6dp"
+                android:paddingTop="2dp"
+                android:paddingEnd="6dp"
+                android:paddingBottom="2dp"
+                android:text="Chờ duyệt"
+                android:textColor="@color/accent_amber"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
 
             <TextView
-                android:id="@+id/tvTxTime"
+                android:id="@+id/tvTxCategory"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="13/10/2026 19:45"
-                android:textColor="@color/text_tertiary"
-                android:textSize="11sp" />
+                android:visibility="gone" />
         </LinearLayout>
+
     </LinearLayout>
 
-    <!-- Amount and Category Pill Column (guaranteed no cutting/wrapping of long amounts) -->
-    <LinearLayout
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="10dp"
-        android:gravity="end"
-        android:orientation="vertical">
-
-        <TextView
-            android:id="@+id/tvTxAmount"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:ellipsize="end"
-            android:gravity="end"
-            android:maxLines="1"
-            android:singleLine="true"
-            android:text="-450.000 ₫"
-            android:textColor="@color/accent_expense"
-            android:textSize="15sp"
-            android:textStyle="bold"
-            app:autoSizeMaxTextSize="15sp"
-            app:autoSizeMinTextSize="11sp"
-            app:autoSizeStepGranularity="1sp"
-            app:autoSizeTextType="uniform" />
-
-        <TextView
-            android:id="@+id/tvTxCategory"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:background="@drawable/bg_card"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:paddingStart="8dp"
-            android:paddingTop="2dp"
-            android:paddingEnd="8dp"
-            android:paddingBottom="2dp"
-            android:text="Ăn uống"
-            android:textColor="@color/text_secondary"
-            android:textSize="11sp" />
-    </LinearLayout>
+    <View
+        android:id="@+id/viewTxDivider"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginStart="70dp"
+        android:layout_marginEnd="16dp"
+        android:background="@color/border_light" />
 
 </LinearLayout>
