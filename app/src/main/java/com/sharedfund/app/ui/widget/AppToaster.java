@@ -386,6 +386,12 @@ public class AppToaster {
         if (lower.contains("jwt") || lower.contains("unauthorized") || lower.contains("expired") || lower.contains("token")) {
             return "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
         }
+        if (lower.contains("invalid login") || lower.contains("invalid credentials") || lower.contains("invalid_credentials") || lower.contains("invalid_grant") || lower.contains("wrong password") || lower.contains("email not confirmed") || lower.contains("email hoặc mật khẩu")) {
+            return "Email hoặc mật khẩu không đúng.";
+        }
+        if (lower.contains("user already registered") || lower.contains("email already exists") || lower.contains("email này đã")) {
+            return "Email này đã được đăng ký.";
+        }
         if (lower.contains("insufficient") || lower.contains("số dư không đủ")) {
             return "Số dư không đủ để thực hiện giao dịch.";
         }

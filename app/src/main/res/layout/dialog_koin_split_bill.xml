@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_dialog_card"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextView
+        android:id="@+id/tvSplitDialogTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="start"
+        android:text="Chia đều chi phí nhóm"
+        android:textAlignment="viewStart"
+        android:textColor="@color/text_primary"
+        android:textSize="18sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/tvSplitDialogSubtitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:gravity="start"
+        android:text="Chia đều hóa đơn cho các thành viên trong quỹ"
+        android:textAlignment="viewStart"
+        android:textColor="@color/text_secondary"
+        android:textSize="14sp" />
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/tilSplitAmount"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:hint="Tổng tiền hóa đơn"
+        android:textColorHint="@color/text_secondary"
+        app:boxBackgroundColor="@color/surface"
+        app:boxCornerRadiusBottomEnd="14dp"
+        app:boxCornerRadiusBottomStart="14dp"
+        app:boxCornerRadiusTopEnd="14dp"
+        app:boxCornerRadiusTopStart="14dp"
+        app:boxStrokeColor="@color/primary"
+        app:suffixText="₫"
+        app:suffixTextColor="@color/text_secondary">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/etSplitAmount"
+            android:layout_width="match_parent"
+            android:layout_height="54dp"
+            android:inputType="numberDecimal"
+            android:textColor="@color/text_primary"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:layout_marginBottom="22dp"
+        android:background="@drawable/bg_input_box"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Mỗi người cần đóng:"
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/tvSplitResultAmount"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="0 ₫"
+            android:textColor="@color/primary"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSplitCancel"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_marginEnd="8dp"
+            android:layout_weight="1"
+            android:backgroundTint="@color/surface_variant"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:text="Đóng"
+            android:textAllCaps="false"
+            android:textColor="@color/text_secondary"
+            android:textSize="14.5sp"
+            android:textStyle="bold"
+            app:cornerRadius="12dp"
+            app:elevation="0dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSplitCopy"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1.4"
+            android:backgroundTint="@color/primary"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:text="Sao chép kết quả"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white"
+            android:textSize="14.5sp"
+            android:textStyle="bold"
+            app:cornerRadius="12dp"
+            app:elevation="0dp" />
+    </LinearLayout>
+
+</LinearLayout>

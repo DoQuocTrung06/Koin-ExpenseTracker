@@ -39,6 +39,8 @@ import com.sharedfund.app.data.TransactionRepository;
 import com.sharedfund.app.data.UserSessionManager;
 import com.sharedfund.app.model.Room;
 import com.sharedfund.app.model.Transaction;
+import com.sharedfund.app.util.CopyToast;
+import com.sharedfund.app.util.ErrorMessageHelper;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
@@ -203,7 +205,7 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
                 if (clipboard != null) {
                     ClipData clip = ClipData.newPlainText("Số tài khoản", PaymentHelper.ACCOUNT_NO);
                     clipboard.setPrimaryClip(clip);
-                    Toast.makeText(requireContext(), "Đã sao chép số tài khoản", Toast.LENGTH_SHORT).show();
+                    CopyToast.show(requireContext(), requireView());
                 }
             });
         }

@@ -18,12 +18,16 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-
+import android.widget.Toast;
 import com.sharedfund.app.ui.widget.AppToaster;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import android.app.Dialog;
+import android.view.Window;
+import android.content.res.ColorStateList;
+import androidx.core.content.ContextCompat;
 import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -38,6 +42,7 @@ import com.sharedfund.app.adapter.RoomAdapter;
 import com.sharedfund.app.data.RoomRepository;
 import com.sharedfund.app.data.UserSessionManager;
 import com.sharedfund.app.model.Room;
+import com.sharedfund.app.util.CopyToast;
 import com.sharedfund.app.ui.profile.AvatarImageLoader;
 
 import java.text.DecimalFormat;
@@ -209,7 +214,7 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
                     ClipData clip = ClipData.newPlainText("Số tài khoản", stk);
                     if (clipboard != null) {
                         clipboard.setPrimaryClip(clip);
-                        AppToaster.info(requireActivity(), "Đã sao chép số tài khoản: " + stk);
+                        CopyToast.show(requireContext(), requireView());
                     }
                 });
             }
@@ -321,8 +326,6 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
                                 .show();
                     } else if (msg.toLowerCase().contains("thất bại") || msg.toLowerCase().contains("lỗi")) {
                         AppToaster.error(requireActivity(), msg);
-                    } else {
-                        AppToaster.success(requireActivity(), msg);
                     }
                 }
             }
@@ -515,19 +518,38 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
     
 
     private void confirmDrawerLogout() {
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Đăng xuất")
-                .setMessage("Bạn có chắc muốn đăng xuất khỏi tài khoản này?")
-                .setNegativeButton("Hủy", null)
-                .setPositiveButton("Đăng xuất", (dialog, which) -> {
-                    com.sharedfund.app.data.SupabaseRealtimeClient.getInstance().disconnect();
-                    com.sharedfund.app.data.UserSessionManager.getInstance(requireContext()).clearSession();
-                    com.sharedfund.app.data.RoomRepository.getInstance().setCurrentUser("", "");
-                    hideAccountDrawer();
-                    AppToaster.info(requireActivity(), "Đã đăng xuất!");
-                    if (getActivity() instanceof MainActivity) ((MainActivity) getActivity()).openLogin();
-                })
-                .show();
+        Dialog dialog = new Dialog(requireContext());
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dialog.setContentView(R.layout.dialog_koin_action_confirm);
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+            dialog.getWindow().setLayout(
+                    (int) (getResources().getDisplayMetrics().widthPixels * 0.88),
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+        }
+        TextView tvTitle = dialog.findViewById(R.id.tvConfirmDialogTitle);
+        TextView tvMessage = dialog.findViewById(R.id.tvConfirmDialogMessage);
+        MaterialButton btnCancel = dialog.findViewById(R.id.btnConfirmCancel);
+        MaterialButton btnAction = dialog.findViewById(R.id.btnConfirmAction);
+        if (tvTitle != null) tvTitle.setText("Đăng xuất khỏi tài khoản?");
+        if (tvMessage != null) tvMessage.setText("Bạn sẽ cần đăng nhập lại để tiếp tục quản lý các quỹ chung.");
+        if (btnAction != null) {
+            btnAction.setText("Đăng xuất");
+            btnAction.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.accent_expense)));
+            btnAction.setOnClickListener(v -> {
+                dialog.dismiss();
+                com.sharedfund.app.data.SupabaseRealtimeClient.getInstance().disconnect();
+                com.sharedfund.app.data.UserSessionManager.getInstance(requireContext()).clearSession();
+                com.sharedfund.app.data.RoomRepository.getInstance().setCurrentUser("", "");
+                hideAccountDrawer();
+                if (getActivity() instanceof MainActivity) ((MainActivity) getActivity()).openLogin();
+            });
+        }
+        if (btnCancel != null) {
+            btnCancel.setOnClickListener(v -> dialog.dismiss());
+        }
+        dialog.show();
     }
 
     @Override
@@ -543,7 +565,7 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
         ClipData clip = ClipData.newPlainText("Join Code", room.getJoinCode());
         if (clipboard != null) {
             clipboard.setPrimaryClip(clip);
-            AppToaster.info(requireActivity(), getString(R.string.copied_code) + " (" + room.getJoinCode() + ")");
+            CopyToast.show(requireContext(), requireView());
         }
     }
 

@@ -183,11 +183,19 @@ public class WalletStatementAdapter extends RecyclerView.Adapter<WalletStatement
                             title = "Nạp tiền vào ví Koin";
                         } else if ("Rút tiền".equalsIgnoreCase(tx.getCategory())) {
                             title = "Rút tiền về ngân hàng";
+                        } else if (tx.getRoomId() != null && !tx.getRoomId().trim().isEmpty()) {
+                            if (WalletTransactionsFragment.isWalletIncome(tx)) {
+                                title = "Rút quỹ về Ví Koin";
+                            } else {
+                                title = "Góp quỹ";
+                            }
                         } else {
                             title = tx.getCategory() != null ? tx.getCategory() : "Giao dịch";
                         }
                     } else if (title.toUpperCase().startsWith("SF NAP")) {
                         title = "Nạp tiền vào ví Koin";
+                    } else if (title.toUpperCase().startsWith("SF RUT")) {
+                        title = "Rút quỹ về Ví Koin";
                     }
                 }
                 tvMbRowTitle.setText(title);
@@ -208,18 +216,30 @@ public class WalletStatementAdapter extends RecyclerView.Adapter<WalletStatement
                 }
                 tvMbRowSubtitle.setText(sub);
 
-                tvMbRowAmount.setText(tx.getFormattedAmount());
-                if (tx.isIncome()) {
+                boolean isPositive;
+                if (mode == MODE_WALLET) {
+                    isPositive = WalletTransactionsFragment.isWalletIncome(tx);
+                } else {
+                    isPositive = tx.isIncome();
+                }
+                String amountStr = (isPositive ? "+" : "-") + df.format(tx.getAmount()) + " ₫";
+                tvMbRowAmount.setText(amountStr);
+                if (isPositive) {
                     tvMbRowAmount.setTextColor(ContextCompat.getColor(itemView.getContext(), R.color.accent_income));
                 } else {
                     tvMbRowAmount.setTextColor(ContextCompat.getColor(itemView.getContext(), R.color.text_primary));
                 }
 
-                if (tx.getBalanceAfter() > 0) {
+                if (mode == MODE_WALLET) {
                     tvMbRowBalanceAfter.setVisibility(View.VISIBLE);
                     tvMbRowBalanceAfter.setText("Số dư: " + df.format(tx.getBalanceAfter()) + " ₫");
                 } else {
-                    tvMbRowBalanceAfter.setVisibility(View.GONE);
+                    if (tx.getBalanceAfter() > 0) {
+                        tvMbRowBalanceAfter.setVisibility(View.VISIBLE);
+                        tvMbRowBalanceAfter.setText("Số dư: " + df.format(tx.getBalanceAfter()) + " ₫");
+                    } else {
+                        tvMbRowBalanceAfter.setVisibility(View.GONE);
+                    }
                 }
 
                 row.setOnClickListener(new View.OnClickListener() {

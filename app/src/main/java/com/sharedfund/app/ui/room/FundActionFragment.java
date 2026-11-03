@@ -30,12 +30,13 @@ import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 import com.google.gson.JsonObject;
 import com.sharedfund.app.R;
-import com.sharedfund.app.ui.widget.AppToaster;
 import com.sharedfund.app.data.RoomRepository;
 import com.sharedfund.app.data.TransactionRepository;
 import com.sharedfund.app.data.UserSessionManager;
 import com.sharedfund.app.ui.widget.CategoryChipHelper;
 import com.sharedfund.app.util.VietnameseCurrencyWords;
+import com.sharedfund.app.util.CopyToast;
+import com.sharedfund.app.util.ErrorMessageHelper;
 import com.sharedfund.app.model.Room;
 import com.sharedfund.app.model.Transaction;
 
@@ -555,9 +556,9 @@ public class FundActionFragment extends Fragment {
                     layoutProcessingNotice.setVisibility(View.GONE);
                     layoutFundActionForm.setVisibility(View.VISIBLE);
                     layoutBottomActionDock.setVisibility(View.VISIBLE);
-                    String friendly = AppToaster.sanitizeErrorMessage(errorMessage);
+                    String friendly = ErrorMessageHelper.getFriendlyMessage(errorMessage);
                     tilContributeAmount.setError(friendly);
-                    AppToaster.error(requireActivity(), "Góp quỹ thất bại", friendly);
+                    Toast.makeText(requireContext(), friendly, Toast.LENGTH_LONG).show();
                 });
             }
         });
@@ -607,8 +608,9 @@ public class FundActionFragment extends Fragment {
                             layoutProcessingNotice.setVisibility(View.GONE);
                             layoutFundActionForm.setVisibility(View.VISIBLE);
                             layoutBottomActionDock.setVisibility(View.VISIBLE);
-                            tilWithdrawAmount.setError(errorMessage);
-                            Toast.makeText(requireContext(), "Rút quỹ thất bại: " + errorMessage, Toast.LENGTH_LONG).show();
+                            String friendly = ErrorMessageHelper.getFriendlyMessage(errorMessage);
+                            tilWithdrawAmount.setError(friendly);
+                            Toast.makeText(requireContext(), friendly, Toast.LENGTH_LONG).show();
                         });
                     }
                 });
@@ -639,7 +641,7 @@ public class FundActionFragment extends Fragment {
             ClipboardManager clipboard = (ClipboardManager) requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
             ClipData clip = ClipData.newPlainText("TxID", finalTxId);
             if (clipboard != null) clipboard.setPrimaryClip(clip);
-            AppToaster.info(requireActivity(), "Đã sao chép mã: " + finalTxId);
+            CopyToast.show(requireContext(), requireView());
         });
 
         btnSuccessDone.setOnClickListener(v -> requireActivity().getSupportFragmentManager().popBackStack());

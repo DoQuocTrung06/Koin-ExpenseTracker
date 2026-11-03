@@ -23,4 +23,11 @@
     <color name="auth_icon_tint">#94A3B8</color>
     <color name="nav_pill_blue">#1E3A5F</color>
     <color name="white">#FFFFFFFF</color>
+    <color name="toast_bg">#1A1A1A</color>
+    <color name="toast_text">#FFFFFF</color>
+    <color name="icon_frame_bg">#1B2E52</color>
+    <color name="icon_frame_border">#2D4A80</color>
+    <color name="icon_frame_tint">#7BA3FF</color>
+    <color name="divider_dashed">#3B495D</color>
+    <color name="ripple_card">#1F3B82F6</color>
 </resources>

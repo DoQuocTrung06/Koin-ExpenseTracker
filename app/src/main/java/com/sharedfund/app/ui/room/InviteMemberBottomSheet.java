@@ -22,7 +22,8 @@ import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
 import com.journeyapps.barcodescanner.BarcodeEncoder;
 import com.sharedfund.app.R;
-import com.sharedfund.app.ui.widget.AppToaster;
+import com.sharedfund.app.util.CopyToast;
+import android.widget.Toast;
 
 public class InviteMemberBottomSheet extends BottomSheetDialogFragment {
 
@@ -82,7 +83,7 @@ public class InviteMemberBottomSheet extends BottomSheetDialogFragment {
             ClipData clip = ClipData.newPlainText("Join Code", joinCode);
             if (clipboard != null) {
                 clipboard.setPrimaryClip(clip);
-                AppToaster.info(requireActivity(), "Đã sao chép mã tham gia: " + joinCode);
+                CopyToast.show(requireContext(), requireView());
             }
         });
 

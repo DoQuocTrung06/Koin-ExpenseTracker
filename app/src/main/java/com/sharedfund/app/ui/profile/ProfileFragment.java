@@ -16,8 +16,11 @@ import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
 import com.sharedfund.app.MainActivity;
 import com.sharedfund.app.ui.widget.AppToaster;
+import com.sharedfund.app.util.CopyToast;
+import com.sharedfund.app.util.ErrorMessageHelper;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -431,7 +434,7 @@ public class ProfileFragment extends Fragment {
                 ClipboardManager cm = (ClipboardManager) requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
                 if (cm != null) {
                     cm.setPrimaryClip(ClipData.newPlainText("User ID", uid));
-                    AppToaster.info(requireActivity(), "Đã sao chép ID người dùng vào bộ nhớ tạm");
+                    CopyToast.show(requireContext(), requireView());
                 }
             }
         }
@@ -472,18 +475,22 @@ public class ProfileFragment extends Fragment {
 
     private void saveProfileCoverUrl(String url) {
         if (getContext() == null) return;
+        String userId = UserSessionManager.getInstance(requireContext()).getUserId();
+        String key = "profile_cover_url_" + (userId != null ? userId : "guest");
         requireContext().getSharedPreferences("koin_profile_prefs", Context.MODE_PRIVATE)
                 .edit()
-                .putString("profile_cover_url", url)
+                .putString(key, url)
+                .remove("profile_cover_url")
                 .apply();
         loadProfileCover();
-        AppToaster.success(requireActivity(), "Đã cập nhật ảnh bìa thành công!");
     }
 
     private void loadProfileCover() {
         if (getContext() == null || ivProfileCover == null) return;
+        String userId = UserSessionManager.getInstance(requireContext()).getUserId();
+        String key = "profile_cover_url_" + (userId != null ? userId : "guest");
         String url = requireContext().getSharedPreferences("koin_profile_prefs", Context.MODE_PRIVATE)
-                .getString("profile_cover_url", null);
+                .getString(key, null);
         if (url != null && !url.trim().isEmpty()) {
             ivProfileCover.setVisibility(View.VISIBLE);
             new Thread(() -> {
@@ -509,6 +516,7 @@ public class ProfileFragment extends Fragment {
                 }
             }).start();
         } else {
+            ivProfileCover.setImageDrawable(null);
             ivProfileCover.setVisibility(View.GONE);
         }
     }
@@ -578,7 +586,7 @@ public class ProfileFragment extends Fragment {
                 requireActivity().runOnUiThread(() -> {
                     if (!isAdded()) return;
                     setAvatarLoading(false);
-                    AppToaster.error(requireActivity(), "Không cập nhật được ảnh đại diện: " + message);
+                    AppToaster.error(requireActivity(), "Không cập nhật được ảnh đại diện: " + ErrorMessageHelper.getFriendlyMessage(message));
                 });
             }
         };
