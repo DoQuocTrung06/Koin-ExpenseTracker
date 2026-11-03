@@ -28,6 +28,7 @@ import com.sharedfund.app.data.RoomRepository;
 import com.sharedfund.app.data.UserSessionManager;
 import com.sharedfund.app.model.Profile;
 import com.sharedfund.app.ui.widget.AppToaster;
+import com.sharedfund.app.util.ErrorMessageHelper;
 import com.sharedfund.app.util.PasswordStrengthEvaluator;
 
 public class LoginFragment extends Fragment {
