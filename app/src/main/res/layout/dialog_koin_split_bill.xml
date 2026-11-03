@@ -81,15 +81,6 @@
             android:textColor="@color/primary"
             android:textSize="22sp"
             android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/tvSplitResultNote"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
-            android:text="Chia đều cho 0 người"
-            android:textColor="@color/text_tertiary"
-            android:textSize="12.5sp" />
     </LinearLayout>
 
     <LinearLayout

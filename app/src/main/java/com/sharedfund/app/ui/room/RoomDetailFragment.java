@@ -927,15 +927,11 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
         TextView tvSubtitle = dialog.findViewById(R.id.tvSplitDialogSubtitle);
         TextInputEditText etAmount = dialog.findViewById(R.id.etSplitAmount);
         TextView tvResultAmount = dialog.findViewById(R.id.tvSplitResultAmount);
-        TextView tvResultNote = dialog.findViewById(R.id.tvSplitResultNote);
         MaterialButton btnCancel = dialog.findViewById(R.id.btnSplitCancel);
         MaterialButton btnCopy = dialog.findViewById(R.id.btnSplitCopy);
 
         if (tvSubtitle != null) {
             tvSubtitle.setText("Chia đều hóa đơn cho " + memberCount + " thành viên trong quỹ");
-        }
-        if (tvResultNote != null) {
-            tvResultNote.setText("Chia đều cho " + memberCount + " người");
         }
 
         final double[] currentEach = {0.0};

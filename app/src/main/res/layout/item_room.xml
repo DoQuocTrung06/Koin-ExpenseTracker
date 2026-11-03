@@ -9,11 +9,10 @@
     android:layout_marginBottom="12dp"
     android:clickable="true"
     android:focusable="true"
-    android:foreground="?attr/selectableItemBackground"
     app:cardBackgroundColor="@color/surface"
     app:cardCornerRadius="16dp"
     app:cardElevation="2dp"
-    app:rippleColor="@color/primary_light"
+    app:rippleColor="@color/ripple_card"
     app:strokeColor="@color/border"
     app:strokeWidth="1dp">
 
