@@ -42,6 +42,8 @@ import com.sharedfund.app.data.SafeDns;
 import com.sharedfund.app.data.TransactionRepository;
 import com.sharedfund.app.data.UserSessionManager;
 import com.sharedfund.app.model.Transaction;
+import com.sharedfund.app.util.CopyToast;
+import com.sharedfund.app.util.ErrorMessageHelper;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
@@ -266,7 +268,7 @@ public class WalletTransferFragment extends androidx.fragment.app.Fragment {
                 if (clipboard != null) {
                     ClipData clip = ClipData.newPlainText("Số tài khoản", PaymentHelper.ACCOUNT_NO);
                     clipboard.setPrimaryClip(clip);
-                    Toast.makeText(requireContext(), "Đã sao chép số tài khoản", Toast.LENGTH_SHORT).show();
+                    CopyToast.show(requireContext(), requireView());
                 }
             });
         }
@@ -622,8 +624,9 @@ public class WalletTransferFragment extends androidx.fragment.app.Fragment {
                         if (!isAdded()) return;
                         requireActivity().runOnUiThread(() -> {
                             setWithdrawLoading(false);
-                            tilWithdrawAmount.setError(message);
-                            Toast.makeText(requireContext(), "Rút tiền thất bại: " + message, Toast.LENGTH_LONG).show();
+                            String friendly = ErrorMessageHelper.getFriendlyMessage(message);
+                            tilWithdrawAmount.setError(friendly);
+                            Toast.makeText(requireContext(), friendly, Toast.LENGTH_LONG).show();
                         });
                     }
                 });

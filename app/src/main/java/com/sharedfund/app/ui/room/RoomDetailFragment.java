@@ -53,6 +53,8 @@ import java.io.InputStream;
 import android.widget.FrameLayout;
 import com.sharedfund.app.MainActivity;
 import com.sharedfund.app.R;
+import com.sharedfund.app.util.CopyToast;
+import com.sharedfund.app.util.ErrorMessageHelper;
 import com.sharedfund.app.adapter.MemberAdapter;
 import com.sharedfund.app.data.RoomRepository;
 import com.sharedfund.app.data.UserSessionManager;
@@ -62,6 +64,7 @@ import com.sharedfund.app.model.Transaction;
 import com.sharedfund.app.ui.transaction.TransactionAdapter;
 import com.sharedfund.app.ui.transaction.TransactionDetailBottomSheet;
 import com.sharedfund.app.ui.widget.AppToaster;
+import android.widget.Toast;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
@@ -592,6 +595,11 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
     }
 
     private void renderRoomData(Room room) {
+        if (room == null) return;
+        if (this.roomId == null || this.roomId.isEmpty()) {
+            this.roomId = room.getId();
+            initPendingJoinRequests();
+        }
         tvHeaderRoomName.setText(room.getName());
         tvDetailBalance.setText(room.getFormattedBalance());
         tvDetailJoinCode.setText("Mã: " + (room.getJoinCode() != null ? room.getJoinCode() : "—"));
@@ -967,7 +975,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                     ClipboardManager clipboard = (ClipboardManager) requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
                     if (clipboard != null) {
                         clipboard.setPrimaryClip(ClipData.newPlainText("Split Bill", text));
-                        AppToaster.show(RoomDetailFragment.this, AppToaster.ToastType.SUCCESS, "Đã sao chép: " + df.format(each).replace(',', '.') + " ₫/người");
+                        CopyToast.show(requireContext(), requireView());
                     }
                 })
                 .setNegativeButton("Đóng", null)
@@ -991,7 +999,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                     ClipboardManager clipboard = (ClipboardManager) requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
                     if (clipboard != null) {
                         clipboard.setPrimaryClip(ClipData.newPlainText("Fund Reminder", msg));
-                        AppToaster.show(RoomDetailFragment.this, AppToaster.ToastType.SUCCESS, "Đã sao chép tin nhắn nhắc đóng quỹ!");
+                        CopyToast.show(requireContext(), requireView());
                     }
                 })
                 .setNeutralButton("Chia sẻ", (dialog, which) -> {
@@ -1157,7 +1165,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                 if (clipboard != null && room.getJoinCode() != null) {
                     ClipData clip = ClipData.newPlainText("Join Code", room.getJoinCode());
                     clipboard.setPrimaryClip(clip);
-                    AppToaster.success(requireActivity(), "Đã sao chép mã tham gia!");
+                    CopyToast.show(requireContext(), requireView());
                 }
             });
         }
@@ -1244,7 +1252,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                         if (!isAdded()) return;
                         requireActivity().runOnUiThread(() -> {
                             if (pbDetailLoading != null) pbDetailLoading.setVisibility(View.GONE);
-                            AppToaster.error(requireActivity(), "Cập nhật thất bại: " + message);
+                            AppToaster.error(requireActivity(), "Cập nhật thất bại: " + ErrorMessageHelper.getFriendlyMessage(message));
                         });
                     }
                 });
@@ -1346,9 +1354,46 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
         dialog.show();
     }
 
+    private String getEffectiveRoomId() {
+        if (roomId != null && !roomId.isEmpty()) {
+            return roomId;
+        }
+        if (viewModel != null && viewModel.getRoom().getValue() != null) {
+            return viewModel.getRoom().getValue().getId();
+        }
+        return "";
+    }
+
+    private Set<String> getResolvedJoinRequests(Context context, String targetRoomId) {
+        if (context == null) return new HashSet<>();
+        String effectiveId = (targetRoomId != null && !targetRoomId.isEmpty()) ? targetRoomId : getEffectiveRoomId();
+        Set<String> set = context.getSharedPreferences("shared_fund_join_requests", Context.MODE_PRIVATE)
+                .getStringSet("resolved_" + effectiveId, new HashSet<>());
+        return new HashSet<>(set);
+    }
+
+    private void markJoinRequestResolved(Context context, String targetRoomId, PendingJoinRequest request) {
+        if (context == null || request == null) return;
+        String effectiveId = (targetRoomId != null && !targetRoomId.isEmpty()) ? targetRoomId : getEffectiveRoomId();
+        Set<String> set = getResolvedJoinRequests(context, effectiveId);
+        if (request.email != null) set.add(request.email);
+        if (request.applicantName != null) set.add(request.applicantName);
+        context.getSharedPreferences("shared_fund_join_requests", Context.MODE_PRIVATE)
+                .edit()
+                .putStringSet("resolved_" + effectiveId, set)
+                .apply();
+    }
+
+    private boolean isJoinRequestResolved(Context context, String targetRoomId, String email, String applicantName) {
+        if (context == null) return false;
+        String effectiveId = (targetRoomId != null && !targetRoomId.isEmpty()) ? targetRoomId : getEffectiveRoomId();
+        Set<String> set = getResolvedJoinRequests(context, effectiveId);
+        return (email != null && set.contains(email)) || (applicantName != null && set.contains(applicantName));
+    }
+
     private void initPendingJoinRequests() {
         pendingJoinRequests.clear();
-        if (isRoomPrivate) {
+        if (isRoomPrivate && !isJoinRequestResolved(getContext(), getEffectiveRoomId(), "user3_test_realtime@sharedfund.com", "Lê Hoàng Nam")) {
             pendingJoinRequests.add(new PendingJoinRequest("Lê Hoàng Nam", "user3_test_realtime@sharedfund.com", "Vừa xong", "Xin vào quỹ ăn sáng chung nhóm"));
         }
         updateJoinRequestsBadge();
@@ -1421,14 +1466,13 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                         : "Bất kỳ ai có mã tham gia đều có thể vào quỹ ngay lập tức.");
             }
             if (isRoomPrivate) {
-                if (pendingJoinRequests.isEmpty()) {
+                if (pendingJoinRequests.isEmpty() && !isJoinRequestResolved(getContext(), getEffectiveRoomId(), "user3_test_realtime@sharedfund.com", "Lê Hoàng Nam")) {
                     pendingJoinRequests.add(new PendingJoinRequest("Lê Hoàng Nam", "user3_test_realtime@sharedfund.com", "Vừa xong", "Xin vào quỹ ăn sáng chung nhóm"));
                 }
             } else {
                 pendingJoinRequests.clear();
             }
             updateJoinRequestsBadge();
-
             AppToaster.success(requireActivity(), isRoomPrivate 
                     ? "Đã đặt trạng thái quỹ: Riêng tư" 
                     : "Đã đặt trạng thái quỹ: Công khai");
@@ -1512,8 +1556,8 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                                 public void onSuccess(Boolean value) {
                                     if (getActivity() == null) return;
                                     requireActivity().runOnUiThread(() -> {
-                                        AppToaster.success(requireActivity(), "Đã mời " + member.getDisplayName() + " ra khỏi quỹ.");
                                         viewModel.loadMembers();
+                                        AppToaster.success(requireActivity(), "Đã mời " + member.getDisplayName() + " ra khỏi quỹ.");
                                     });
                                 }
 
@@ -1521,7 +1565,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                                 public void onError(String message) {
                                     if (getActivity() == null) return;
                                     requireActivity().runOnUiThread(() -> {
-                                        AppToaster.error(requireActivity(), "Không thể xóa thành viên: " + message);
+                                        AppToaster.error(requireActivity(), "Không thể xóa thành viên: " + ErrorMessageHelper.getFriendlyMessage(message));
                                     });
                                 }
                             });
@@ -1990,14 +2034,16 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                     btnAccept.setCornerRadius(dpToPx(10));
 
                     btnReject.setOnClickListener(v -> {
-                        pendingJoinRequests.remove(idx);
+                        markJoinRequestResolved(dialog.getContext(), getEffectiveRoomId(), req);
+                        pendingJoinRequests.remove(req);
                         updateJoinRequestsBadge();
                         AppToaster.info(requireActivity(), "Đã từ chối yêu cầu tham gia.");
                         run();
                     });
 
                     btnAccept.setOnClickListener(v -> {
-                        pendingJoinRequests.remove(idx);
+                        markJoinRequestResolved(dialog.getContext(), getEffectiveRoomId(), req);
+                        pendingJoinRequests.remove(req);
                         updateJoinRequestsBadge();
                         AppToaster.success(requireActivity(), "Đã phê duyệt " + req.applicantName + " vào quỹ!");
                         viewModel.loadMembers();
@@ -2137,7 +2183,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
             ClipData clip = ClipData.newPlainText("Join Code", r.getJoinCode());
             if (clipboard != null) {
                 clipboard.setPrimaryClip(clip);
-                AppToaster.info(requireActivity(), getString(R.string.copied_code) + " (" + r.getJoinCode() + ")");
+                CopyToast.show(requireContext(), requireView());
             }
         }
     }
@@ -2181,8 +2227,8 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                                         }
                                     }
                                 });
-                                AppToaster.success(requireActivity(), "Đã duyệt khoản chi thành công!");
                                 if (viewModel != null) viewModel.refresh();
+                                AppToaster.success(requireActivity(), "Đã duyệt khoản chi thành công!");
                             });
                         }
                     }
@@ -2190,7 +2236,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                     @Override
                     public void onError(String errorMessage) {
                         if (isAdded()) {
-                            requireActivity().runOnUiThread(() -> AppToaster.error(requireActivity(), "Phê duyệt thất bại: " + errorMessage));
+                            requireActivity().runOnUiThread(() -> AppToaster.error(requireActivity(), "Phê duyệt thất bại: " + ErrorMessageHelper.getFriendlyMessage(errorMessage)));
                         }
                     }
                 });
@@ -2230,8 +2276,8 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                                         }
                                     }
                                 });
-                                AppToaster.info(requireActivity(), "Đã từ chối khoản chi!");
                                 if (viewModel != null) viewModel.refresh();
+                                AppToaster.info(requireActivity(), "Đã từ chối khoản chi!");
                             });
                         }
                     }
@@ -2239,7 +2285,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                     @Override
                     public void onError(String errorMessage) {
                         if (isAdded()) {
-                            requireActivity().runOnUiThread(() -> AppToaster.error(requireActivity(), "Từ chối thất bại: " + errorMessage));
+                            requireActivity().runOnUiThread(() -> AppToaster.error(requireActivity(), "Từ chối thất bại: " + ErrorMessageHelper.getFriendlyMessage(errorMessage)));
                         }
                     }
                 });

@@ -26,12 +26,18 @@ import com.sharedfund.app.data.RoomRepository;
 import com.sharedfund.app.data.TransactionRepository;
 import com.sharedfund.app.data.UserSessionManager;
 import com.sharedfund.app.model.Transaction;
+import android.widget.Toast;
+import com.sharedfund.app.ui.transaction.TransactionAdapter;
 import com.sharedfund.app.ui.transaction.TransactionDetailBottomSheet;
-import com.sharedfund.app.ui.widget.AppToaster;
+import com.sharedfund.app.util.CopyToast;
+import com.sharedfund.app.util.ErrorMessageHelper;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
@@ -77,6 +83,14 @@ public class WalletTransactionsFragment extends Fragment {
         setupListeners(view);
         setupRecyclerView();
         loadWalletBalance();
+        RoomRepository.getInstance().getUserWalletLiveData().observe(getViewLifecycleOwner(), balance -> {
+            if (balance != null) {
+                if (tvWalletCurrentBalance != null) {
+                    tvWalletCurrentBalance.setText(df.format(balance) + " ₫");
+                }
+                recalculateBalancesAndNotify(balance);
+            }
+        });
         loadHistory();
     }
 
@@ -107,7 +121,7 @@ public class WalletTransactionsFragment extends Fragment {
                 ClipData clip = ClipData.newPlainText("Số tài khoản", stk);
                 if (clipboard != null) {
                     clipboard.setPrimaryClip(clip);
-                    AppToaster.info(requireActivity(), "Đã sao chép số tài khoản: " + stk);
+                    CopyToast.show(requireContext(), requireView());
                 }
             });
         }
@@ -162,6 +176,25 @@ public class WalletTransactionsFragment extends Fragment {
         }
     }
 
+    private void recalculateBalancesAndNotify(double balance) {
+        if (allPersonalTransactions == null || allPersonalTransactions.isEmpty()) {
+            return;
+        }
+        double runningBalance = balance;
+        for (Transaction tx : allPersonalTransactions) {
+            tx.setBalanceAfter(Math.max(0, runningBalance));
+            double amt = tx.getAmount();
+            if (isWalletIncome(tx)) {
+                runningBalance = runningBalance - amt;
+            } else {
+                runningBalance = runningBalance + amt;
+            }
+        }
+        if (adapter != null) {
+            adapter.notifyDataSetChanged();
+        }
+    }
+
     private void loadHistory() {
         String userId = UserSessionManager.getInstance(requireContext()).getUserId();
         if (userId == null || userId.trim().isEmpty()) {
@@ -185,7 +218,38 @@ public class WalletTransactionsFragment extends Fragment {
 
                     allPersonalTransactions.clear();
                     if (data != null) {
-                        allPersonalTransactions.addAll(data);
+                        List<Transaction> filtered = new ArrayList<>();
+                        for (Transaction tx : data) {
+                            if (isRetainedWalletTransaction(tx)) {
+                                filtered.add(tx);
+                            }
+                        }
+
+                        Collections.sort(filtered, new Comparator<Transaction>() {
+                            @Override
+                            public int compare(Transaction o1, Transaction o2) {
+                                Date d1 = TransactionAdapter.parseDate(o1.getCreatedAt());
+                                Date d2 = TransactionAdapter.parseDate(o2.getCreatedAt());
+                                if (d1 == null && d2 == null) return 0;
+                                if (d1 == null) return 1;
+                                if (d2 == null) return -1;
+                                return d2.compareTo(d1);
+                            }
+                        });
+
+                        Double liveBalance = RoomRepository.getInstance().getUserWalletLiveData().getValue();
+                        double runningBalance = liveBalance != null ? liveBalance : RoomRepository.getInstance().getUserWalletBalance();
+                        for (Transaction tx : filtered) {
+                            tx.setBalanceAfter(Math.max(0, runningBalance));
+                            double amt = tx.getAmount();
+                            if (isWalletIncome(tx)) {
+                                runningBalance = runningBalance - amt;
+                            } else {
+                                runningBalance = runningBalance + amt;
+                            }
+                        }
+
+                        allPersonalTransactions.addAll(filtered);
                     }
                     applyFilter();
                 });
@@ -198,16 +262,57 @@ public class WalletTransactionsFragment extends Fragment {
                     if (!isAdded()) return;
                     pbWalletLoading.setVisibility(View.GONE);
                     layoutEmptyWallet.setVisibility(View.VISIBLE);
+                    Toast.makeText(requireContext(), ErrorMessageHelper.getFriendlyMessage(errorMessage), Toast.LENGTH_SHORT).show();
                 });
             }
         });
     }
 
-    private boolean isIncomeTx(Transaction tx) {
+    public static boolean isWithdrawToWallet(Transaction tx) {
         if (tx == null) return false;
-        if (tx.isIncome()) return true;
-        String type = tx.getType();
-        return type != null && "INCOME".equalsIgnoreCase(type);
+        String note = tx.getNote() != null ? tx.getNote().toLowerCase() : "";
+        String cat = tx.getCategory() != null ? tx.getCategory().toLowerCase() : "";
+        if (note.contains("rút quỹ") || note.contains("rut quy")
+                || note.contains("rút tiền về ví") || note.contains("rut tien ve vi")
+                || note.contains("rút về ví") || note.contains("rut ve vi")
+                || note.contains("rút ví") || note.contains("rut vi")
+                || note.startsWith("sf rut") || note.startsWith("sf_rut")) {
+            return true;
+        }
+        if (cat.contains("rút") || cat.contains("rut")) {
+            return true;
+        }
+        if ((cat.equals("khác") || cat.equals("khac")) && (note.contains("ví") || note.contains("vi") || note.contains("koin") || note.isEmpty())) {
+            return true;
+        }
+        return false;
+    }
+
+    public static boolean isWalletIncome(Transaction tx) {
+        if (tx == null) return false;
+        boolean hasRoom = tx.getRoomId() != null && !tx.getRoomId().trim().isEmpty();
+        if (!hasRoom) {
+            return tx.isIncome();
+        } else {
+            return tx.isExpense() && isWithdrawToWallet(tx);
+        }
+    }
+
+    public static boolean isRetainedWalletTransaction(Transaction tx) {
+        if (tx == null) return false;
+        boolean hasRoom = tx.getRoomId() != null && !tx.getRoomId().trim().isEmpty();
+        if (!hasRoom) {
+            return tx.isIncome() || tx.isExpense();
+        } else {
+            if (tx.isIncome()) {
+                return true;
+            }
+            return tx.isExpense() && isWithdrawToWallet(tx);
+        }
+    }
+
+    private boolean isIncomeTx(Transaction tx) {
+        return isWalletIncome(tx);
     }
 
     private void setFilter(int filter) {

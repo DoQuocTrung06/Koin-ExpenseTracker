@@ -36,12 +36,13 @@ import com.google.zxing.RGBLuminanceSource;
 import com.google.zxing.Result;
 import com.google.zxing.common.HybridBinarizer;
 import com.sharedfund.app.R;
-import com.sharedfund.app.ui.widget.AppToaster;
 import com.sharedfund.app.data.RoomRepository;
 import com.sharedfund.app.data.TransactionRepository;
 import com.sharedfund.app.data.UserSessionManager;
 import com.sharedfund.app.ui.widget.CategoryChipHelper;
 import com.sharedfund.app.util.VietnameseCurrencyWords;
+import com.sharedfund.app.util.CopyToast;
+import com.sharedfund.app.util.ErrorMessageHelper;
 import com.sharedfund.app.model.Room;
 import com.sharedfund.app.model.ScannedQrPayment;
 import com.sharedfund.app.model.Transaction;
@@ -628,7 +629,7 @@ public class RoomTransferFragment extends Fragment {
                 android.content.ClipboardManager clipboard = (android.content.ClipboardManager) requireContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE);
                 android.content.ClipData clip = android.content.ClipData.newPlainText("TxID", finalTxId);
                 if (clipboard != null) clipboard.setPrimaryClip(clip);
-                AppToaster.info(requireActivity(), "Đã sao chép mã: " + finalTxId);
+                CopyToast.show(requireContext(), requireView());
             });
         }
 
@@ -715,8 +716,9 @@ public class RoomTransferFragment extends Fragment {
                             if (layoutBottomTransferDock != null) {
                                 layoutBottomTransferDock.setVisibility(View.VISIBLE);
                             }
-                            tilTransferWalletAmount.setError(errorMessage);
-                            Toast.makeText(requireContext(), "Chuyển tiền thất bại: " + errorMessage, Toast.LENGTH_LONG).show();
+                            String friendly = ErrorMessageHelper.getFriendlyMessage(errorMessage);
+                            tilTransferWalletAmount.setError(friendly);
+                            Toast.makeText(requireContext(), friendly, Toast.LENGTH_LONG).show();
                         });
                     }
                 });
@@ -803,8 +805,9 @@ public class RoomTransferFragment extends Fragment {
                             if (layoutBottomTransferDock != null) {
                                 layoutBottomTransferDock.setVisibility(View.VISIBLE);
                             }
-                            tilTransferBankAmount.setError(errorMessage);
-                            Toast.makeText(requireContext(), "Chuyển tiền thất bại: " + errorMessage, Toast.LENGTH_LONG).show();
+                            String friendly = ErrorMessageHelper.getFriendlyMessage(errorMessage);
+                            tilTransferBankAmount.setError(friendly);
+                            Toast.makeText(requireContext(), friendly, Toast.LENGTH_LONG).show();
                         });
                     }
                 });

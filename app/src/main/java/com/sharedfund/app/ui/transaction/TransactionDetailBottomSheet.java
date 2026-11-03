@@ -22,6 +22,7 @@ import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.google.android.material.button.MaterialButton;
 import com.sharedfund.app.R;
 import com.sharedfund.app.model.Transaction;
+import com.sharedfund.app.util.CopyToast;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
@@ -111,7 +112,7 @@ public class TransactionDetailBottomSheet extends BottomSheetDialogFragment {
             ClipData clip = ClipData.newPlainText("Transaction Code", code);
             if (clipboard != null) {
                 clipboard.setPrimaryClip(clip);
-                Toast.makeText(requireContext(), "Đã sao chép mã: " + code, Toast.LENGTH_SHORT).show();
+                CopyToast.show(requireContext(), requireView());
             }
         });
 
@@ -129,6 +130,9 @@ public class TransactionDetailBottomSheet extends BottomSheetDialogFragment {
             if (transaction.isIncome()) {
                 tvDetailType.setText("Góp tiền vào quỹ");
                 tvDetailRecipient.setText("Quỹ nhóm");
+            } else if (com.sharedfund.app.ui.home.WalletTransactionsFragment.isWithdrawToWallet(transaction)) {
+                tvDetailType.setText("Rút quỹ về Ví Koin");
+                tvDetailRecipient.setText("Ví cá nhân Koin");
             } else {
                 tvDetailType.setText("Chi tiêu quỹ nhóm");
                 tvDetailRecipient.setText("Thụ hưởng khoản chi");

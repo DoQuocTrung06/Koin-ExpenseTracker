@@ -18,7 +18,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-
+import android.widget.Toast;
 import com.sharedfund.app.ui.widget.AppToaster;
 
 import androidx.annotation.NonNull;
@@ -38,6 +38,7 @@ import com.sharedfund.app.adapter.RoomAdapter;
 import com.sharedfund.app.data.RoomRepository;
 import com.sharedfund.app.data.UserSessionManager;
 import com.sharedfund.app.model.Room;
+import com.sharedfund.app.util.CopyToast;
 import com.sharedfund.app.ui.profile.AvatarImageLoader;
 
 import java.text.DecimalFormat;
@@ -209,7 +210,7 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
                     ClipData clip = ClipData.newPlainText("Số tài khoản", stk);
                     if (clipboard != null) {
                         clipboard.setPrimaryClip(clip);
-                        AppToaster.info(requireActivity(), "Đã sao chép số tài khoản: " + stk);
+                        CopyToast.show(requireContext(), requireView());
                     }
                 });
             }
@@ -543,7 +544,7 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
         ClipData clip = ClipData.newPlainText("Join Code", room.getJoinCode());
         if (clipboard != null) {
             clipboard.setPrimaryClip(clip);
-            AppToaster.info(requireActivity(), getString(R.string.copied_code) + " (" + room.getJoinCode() + ")");
+            CopyToast.show(requireContext(), requireView());
         }
     }
 

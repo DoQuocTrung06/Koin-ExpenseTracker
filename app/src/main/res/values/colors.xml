@@ -23,4 +23,8 @@
     <color name="auth_icon_tint">#758397</color>
     <color name="nav_pill_blue">#DFECFC</color>
     <color name="white">#FFFFFFFF</color>
+    <color name="toast_bg">#FFFFFF</color>
+    <color name="toast_text">#1A1A1A</color>
+    <color name="icon_frame_bg">#EBF0FF</color>
+    <color name="icon_frame_tint">#3E6FDF</color>
 </resources>

@@ -16,8 +16,11 @@ import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
 import com.sharedfund.app.MainActivity;
 import com.sharedfund.app.ui.widget.AppToaster;
+import com.sharedfund.app.util.CopyToast;
+import com.sharedfund.app.util.ErrorMessageHelper;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -431,7 +434,7 @@ public class ProfileFragment extends Fragment {
                 ClipboardManager cm = (ClipboardManager) requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
                 if (cm != null) {
                     cm.setPrimaryClip(ClipData.newPlainText("User ID", uid));
-                    AppToaster.info(requireActivity(), "Đã sao chép ID người dùng vào bộ nhớ tạm");
+                    CopyToast.show(requireContext(), requireView());
                 }
             }
         }
@@ -578,7 +581,7 @@ public class ProfileFragment extends Fragment {
                 requireActivity().runOnUiThread(() -> {
                     if (!isAdded()) return;
                     setAvatarLoading(false);
-                    AppToaster.error(requireActivity(), "Không cập nhật được ảnh đại diện: " + message);
+                    AppToaster.error(requireActivity(), "Không cập nhật được ảnh đại diện: " + ErrorMessageHelper.getFriendlyMessage(message));
                 });
             }
         };
