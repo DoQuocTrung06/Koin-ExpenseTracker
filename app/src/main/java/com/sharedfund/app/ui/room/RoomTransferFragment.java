@@ -1,16 +1,12 @@
 package com.sharedfund.app.ui.room;
 
-import android.app.Dialog;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.Color;
-import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.Window;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.widget.ImageButton;
@@ -34,7 +30,6 @@ import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
-import com.google.gson.JsonObject;
 import com.google.zxing.BinaryBitmap;
 import com.google.zxing.MultiFormatReader;
 import com.google.zxing.RGBLuminanceSource;
@@ -551,7 +546,7 @@ public class RoomTransferFragment extends Fragment {
         if (room != null && room.getCreatedBy() != null) {
             return room.getCreatedBy().equalsIgnoreCase(myId);
         }
-        return true;
+        return false;
     }
 
     private void showVerificationDialog(String type, double amount, String source, String destName, String destAccount, String destBank, String note, Runnable onConfirm) {

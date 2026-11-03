@@ -22,13 +22,11 @@ public class PasswordStrengthTest {
         assertFalse(emptyEval.hasUpperAndLower());
         assertFalse(emptyEval.hasDigit());
         assertFalse(emptyEval.hasSpecial());
-        assertFalse(PasswordStrengthEvaluator.isRegistrationValid(""));
 
         PasswordStrengthEvaluator.Evaluation nullEval = PasswordStrengthEvaluator.evaluate(null);
         assertNotNull(nullEval);
         assertEquals(PasswordStrengthEvaluator.Level.EMPTY, nullEval.getLevel());
         assertEquals(0, nullEval.getProgressPercent());
-        assertFalse(PasswordStrengthEvaluator.isRegistrationValid(null));
     }
 
     @Test
@@ -38,14 +36,12 @@ public class PasswordStrengthTest {
         assertEquals(33, shortEval.getProgressPercent());
         assertEquals("Mật khẩu yếu", shortEval.getLabel());
         assertFalse(shortEval.hasMinLength());
-        assertFalse(PasswordStrengthEvaluator.isRegistrationValid("12345"));
 
         PasswordStrengthEvaluator.Evaluation shortMixed = PasswordStrengthEvaluator.evaluate("Aa1!xyz");
         assertEquals(PasswordStrengthEvaluator.Level.WEAK, shortMixed.getLevel());
         assertEquals(33, shortMixed.getProgressPercent());
         assertEquals("Mật khẩu yếu", shortMixed.getLabel());
         assertFalse(shortMixed.hasMinLength());
-        assertFalse(PasswordStrengthEvaluator.isRegistrationValid("Aa1!xyz"));
     }
 
     @Test
@@ -55,7 +51,6 @@ public class PasswordStrengthTest {
         assertEquals(33, evalLetters.getProgressPercent());
         assertFalse(evalLetters.hasMinLength());
         assertFalse(evalLetters.hasDigit());
-        assertFalse(PasswordStrengthEvaluator.isRegistrationValid("abcdefg"));
 
         PasswordStrengthEvaluator.Evaluation evalDigitsOnly = PasswordStrengthEvaluator.evaluate("12345678");
         assertEquals(PasswordStrengthEvaluator.Level.WEAK, evalDigitsOnly.getLevel());
@@ -63,7 +58,6 @@ public class PasswordStrengthTest {
         assertTrue(evalDigitsOnly.hasMinLength());
         assertTrue(evalDigitsOnly.hasDigit());
         assertFalse(evalDigitsOnly.hasUpperAndLower());
-        assertFalse(PasswordStrengthEvaluator.isRegistrationValid("12345678"));
 
         PasswordStrengthEvaluator.Evaluation evalLettersOnly = PasswordStrengthEvaluator.evaluate("PasswordLong");
         assertEquals(PasswordStrengthEvaluator.Level.WEAK, evalLettersOnly.getLevel());
@@ -71,7 +65,6 @@ public class PasswordStrengthTest {
         assertTrue(evalLettersOnly.hasMinLength());
         assertTrue(evalLettersOnly.hasUpperAndLower());
         assertFalse(evalLettersOnly.hasDigit());
-        assertFalse(PasswordStrengthEvaluator.isRegistrationValid("PasswordLong"));
     }
 
     @Test
@@ -84,7 +77,6 @@ public class PasswordStrengthTest {
         assertTrue(eval1.hasDigit());
         assertFalse(eval1.hasUpperAndLower());
         assertFalse(eval1.hasSpecial());
-        assertTrue(PasswordStrengthEvaluator.isRegistrationValid("password123"));
 
         PasswordStrengthEvaluator.Evaluation eval2 = PasswordStrengthEvaluator.evaluate("Password123");
         assertEquals(PasswordStrengthEvaluator.Level.MEDIUM, eval2.getLevel());
@@ -94,7 +86,6 @@ public class PasswordStrengthTest {
         assertTrue(eval2.hasUpperAndLower());
         assertTrue(eval2.hasDigit());
         assertFalse(eval2.hasSpecial());
-        assertTrue(PasswordStrengthEvaluator.isRegistrationValid("Password123"));
     }
 
     @Test
@@ -107,7 +98,6 @@ public class PasswordStrengthTest {
         assertTrue(eval1.hasUpperAndLower());
         assertTrue(eval1.hasDigit());
         assertTrue(eval1.hasSpecial());
-        assertTrue(PasswordStrengthEvaluator.isRegistrationValid("Password123!"));
 
         PasswordStrengthEvaluator.Evaluation eval2 = PasswordStrengthEvaluator.evaluate("Secure@2026!");
         assertEquals(PasswordStrengthEvaluator.Level.STRONG, eval2.getLevel());
@@ -116,18 +106,6 @@ public class PasswordStrengthTest {
         assertTrue(eval2.hasUpperAndLower());
         assertTrue(eval2.hasDigit());
         assertTrue(eval2.hasSpecial());
-        assertTrue(PasswordStrengthEvaluator.isRegistrationValid("Secure@2026!"));
-    }
-
-    @Test
-    public void testRegistrationValidityRules() {
-        assertFalse(PasswordStrengthEvaluator.isRegistrationValid(""));
-        assertFalse(PasswordStrengthEvaluator.isRegistrationValid("short"));
-        assertFalse(PasswordStrengthEvaluator.isRegistrationValid("12345678"));
-        assertFalse(PasswordStrengthEvaluator.isRegistrationValid("abcdefgh"));
-        assertFalse(PasswordStrengthEvaluator.isRegistrationValid("ABCDEFGH"));
-        assertTrue(PasswordStrengthEvaluator.isRegistrationValid("Abcdefg1"));
-        assertTrue(PasswordStrengthEvaluator.isRegistrationValid("user1234"));
     }
 
     @Test

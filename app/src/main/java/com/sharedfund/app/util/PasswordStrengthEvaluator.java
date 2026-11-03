@@ -108,9 +108,4 @@ public class PasswordStrengthEvaluator {
         boolean hasDigit = DIGIT_PATTERN.matcher(password).find();
         return hasLetter && hasDigit;
     }
-
-    public static boolean isRegistrationValid(String password) {
-        if (password == null) return false;
-        return password.length() >= 8 && hasLettersAndNumbers(password);
-    }
 }

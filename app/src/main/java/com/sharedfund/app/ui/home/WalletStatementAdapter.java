@@ -154,16 +154,41 @@ public class WalletStatementAdapter extends RecyclerView.Adapter<WalletStatement
                 TextView tvMbRowBalanceAfter = row.findViewById(R.id.tvMbRowBalanceAfter);
 
                 String title = tx.getNote();
-                if (title == null || title.trim().isEmpty()) {
-                    if ("Nạp ví SePay".equalsIgnoreCase(tx.getCategory())) {
-                        title = "Nạp tiền vào ví Koin";
-                    } else if ("Rút tiền".equalsIgnoreCase(tx.getCategory())) {
-                        title = "Rút tiền về ngân hàng";
-                    } else {
-                        title = tx.getCategory() != null ? tx.getCategory() : "Giao dịch";
+                if (mode == MODE_ROOM) {
+                    String rawCat = tx.getCategory() != null ? tx.getCategory().trim() : "";
+                    String rawNote = tx.getNote() != null ? tx.getNote().trim() : "";
+                    if (rawNote.contains("[STK:")) {
+                        int idx = rawNote.indexOf("[STK:");
+                        int endIdx = rawNote.indexOf("]", idx);
+                        String userNotePart = rawNote.substring(0, idx).trim();
+                        if (!userNotePart.isEmpty()) {
+                            title = userNotePart;
+                        } else if (endIdx > idx) {
+                            title = "Chuyển tiền (" + rawNote.substring(idx + 1, endIdx) + ")";
+                        } else {
+                            title = "Chuyển tiền ngân hàng";
+                        }
+                    } else if (rawNote.isEmpty() || rawNote.equalsIgnoreCase("Góp quỹ từ Ví Koin") || rawNote.equalsIgnoreCase("Rút quỹ về Ví Koin") || rawNote.equalsIgnoreCase("Rút tiền về Ví Koin")) {
+                        if (tx.isIncome()) {
+                            title = "Góp quỹ";
+                        } else if (!rawCat.isEmpty() && !rawCat.equalsIgnoreCase("Giao dịch") && !rawCat.equalsIgnoreCase("Khác")) {
+                            title = "Chi " + rawCat.toLowerCase();
+                        } else {
+                            title = "Chi tiêu quỹ";
+                        }
                     }
-                } else if (title.toUpperCase().startsWith("SF NAP")) {
-                    title = "Nạp tiền vào ví Koin";
+                } else {
+                    if (title == null || title.trim().isEmpty()) {
+                        if ("Nạp ví SePay".equalsIgnoreCase(tx.getCategory())) {
+                            title = "Nạp tiền vào ví Koin";
+                        } else if ("Rút tiền".equalsIgnoreCase(tx.getCategory())) {
+                            title = "Rút tiền về ngân hàng";
+                        } else {
+                            title = tx.getCategory() != null ? tx.getCategory() : "Giao dịch";
+                        }
+                    } else if (title.toUpperCase().startsWith("SF NAP")) {
+                        title = "Nạp tiền vào ví Koin";
+                    }
                 }
                 tvMbRowTitle.setText(title);
 

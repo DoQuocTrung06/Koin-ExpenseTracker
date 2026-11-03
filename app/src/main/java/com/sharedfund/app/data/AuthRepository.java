@@ -34,6 +34,7 @@ public class AuthRepository {
         this.context = context.getApplicationContext();
         this.httpClient = new OkHttpClient.Builder()
                 .dns(SafeDns.getInstance())
+                .authenticator(new SupabaseAuthenticator(this.context))
                 .build();
         this.gson = new Gson();
     }

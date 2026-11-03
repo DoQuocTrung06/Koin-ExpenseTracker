@@ -217,6 +217,7 @@ public class UserSessionManager {
     }
 
     public void clearSession() {
+        com.sharedfund.app.data.SupabaseRealtimeClient.getInstance().disconnect();
         SharedPreferences.Editor editor = preferences.edit();
         editor.clear();
         editor.apply();

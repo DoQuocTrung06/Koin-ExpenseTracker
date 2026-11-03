@@ -184,10 +184,6 @@ public class RoomViewModel extends ViewModel {
         return filteredTransactionsLiveData;
     }
 
-    public LiveData<List<Transaction>> getAllTransactions() {
-        return allTransactionsLiveData;
-    }
-
     public LiveData<Map<String, Double>> getCategoryStats() {
         return categoryStatsLiveData;
     }
@@ -241,6 +237,11 @@ public class RoomViewModel extends ViewModel {
     public void deleteRoom(String adminUserId, RoomRepository.DataCallback<Boolean> callback) {
         if (roomId == null) return;
         repository.deleteRoom(roomId, adminUserId, callback);
+    }
+
+    public void removeMember(String targetUserId, RoomRepository.DataCallback<Boolean> callback) {
+        if (roomId == null) return;
+        repository.removeMember(roomId, targetUserId, callback);
     }
 
     @Override

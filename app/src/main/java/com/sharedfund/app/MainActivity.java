@@ -1,7 +1,6 @@
 package com.sharedfund.app;
 
 import android.os.Bundle;
-import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
@@ -16,8 +15,6 @@ import com.sharedfund.app.ui.home.HomeFragment;
 import com.sharedfund.app.ui.login.LoginFragment;
 import com.sharedfund.app.ui.profile.ProfileFragment;
 import com.sharedfund.app.ui.room.RoomDetailFragment;
-import com.sharedfund.app.ui.statistics.StatisticsFragment;
-import com.sharedfund.app.ui.transaction.TransactionFragment;
 import com.sharedfund.app.ui.widget.AppToaster;
 
 public class MainActivity extends AppCompatActivity {
@@ -109,14 +106,6 @@ public class MainActivity extends AppCompatActivity {
 
     public void openRoomDetail(String roomId) {
         loadFragment(RoomDetailFragment.newInstance(roomId), true);
-    }
-
-    public void openTransactions(String roomId) {
-        loadFragment(TransactionFragment.newInstance(roomId), true);
-    }
-
-    public void openStatistics(String roomId) {
-        loadFragment(StatisticsFragment.newInstance(roomId), true);
     }
 
     public void openProfile() {

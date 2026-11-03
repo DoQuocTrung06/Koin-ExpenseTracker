@@ -55,11 +55,6 @@ import okhttp3.Response;
 
 public class WalletTransferFragment extends androidx.fragment.app.Fragment {
 
-    public interface OnWalletTransferListener {
-        void onTransferComplete();
-    }
-
-    private OnWalletTransferListener listener;
 
     private View btnTabDeposit;
     private View btnTabWithdraw;
@@ -117,10 +112,6 @@ public class WalletTransferFragment extends androidx.fragment.app.Fragment {
 
     public static WalletTransferFragment newInstance() {
         return new WalletTransferFragment();
-    }
-
-    public void setOnWalletTransferListener(OnWalletTransferListener listener) {
-        this.listener = listener;
     }
 
     @Nullable
@@ -368,7 +359,13 @@ public class WalletTransferFragment extends androidx.fragment.app.Fragment {
                     }
 
                     ivQrCode.setImageBitmap(qrBitmap);
-                    ivQrCode.setBackgroundColor(Color.WHITE);
+                    android.graphics.drawable.GradientDrawable qrBg = new android.graphics.drawable.GradientDrawable();
+                    qrBg.setColor(Color.WHITE);
+                    qrBg.setCornerRadius(16f * getResources().getDisplayMetrics().density);
+                    ivQrCode.setBackground(qrBg);
+                    int pad = (int) (12 * getResources().getDisplayMetrics().density);
+                    ivQrCode.setPadding(pad, pad, pad, pad);
+                    ivQrCode.setClipToOutline(true);
                     ivQrCode.setScaleType(ImageView.ScaleType.FIT_CENTER);
 
                     DecimalFormatSymbols curSymbols = new DecimalFormatSymbols(Locale.US);
@@ -454,7 +451,6 @@ public class WalletTransferFragment extends androidx.fragment.app.Fragment {
                 layoutQrSuccessNotice.setVisibility(View.VISIBLE);
             }
             RoomRepository.getInstance().loadUserProfile();
-            if (listener != null) listener.onTransferComplete();
 
             if (btnQrSuccessDone != null) {
                 btnQrSuccessDone.setOnClickListener(v -> requireActivity().getSupportFragmentManager().popBackStack());
@@ -595,8 +591,7 @@ public class WalletTransferFragment extends androidx.fragment.app.Fragment {
                         requireActivity().runOnUiThread(() -> {
                             setWithdrawLoading(false);
                             RoomRepository.getInstance().loadUserProfile();
-                            if (listener != null) listener.onTransferComplete();
-
+                
                             DecimalFormatSymbols sym = new DecimalFormatSymbols(Locale.US);
                             sym.setGroupingSeparator('.');
                             DecimalFormat curDf = new DecimalFormat("#,##0", sym);

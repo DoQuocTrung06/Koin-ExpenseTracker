@@ -189,26 +189,42 @@
                         android:id="@+id/btnCancelEditProfileInfo"
                         style="@style/Widget.Material3.Button.TextButton"
                         android:layout_width="wrap_content"
-                        android:layout_height="36dp"
-                        android:layout_marginEnd="4dp"
-                        android:padding="0dp"
+                        android:layout_height="32dp"
+                        android:layout_marginEnd="6dp"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        android:minWidth="0dp"
+                        android:paddingStart="8dp"
+                        android:paddingEnd="8dp"
                         android:text="Hủy"
+                        android:textAllCaps="false"
                         android:textColor="@color/text_secondary"
-                        android:textSize="13sp"
+                        android:textSize="12.5sp"
                         android:visibility="gone" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnEditProfileInfo"
-                        style="@style/Widget.Material3.Button.TextButton"
                         android:layout_width="wrap_content"
-                        android:layout_height="36dp"
-                        android:padding="0dp"
+                        android:layout_height="32dp"
+                        android:backgroundTint="#F8FAFC"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        android:minWidth="0dp"
+                        android:paddingStart="12dp"
+                        android:paddingEnd="12dp"
                         android:text="Chỉnh sửa"
-                        android:textColor="@color/primary"
-                        android:textSize="13sp"
+                        android:textAllCaps="false"
+                        android:textColor="#334155"
+                        android:textSize="12.5sp"
+                        android:textStyle="bold"
+                        app:cornerRadius="16dp"
+                        app:elevation="0dp"
                         app:icon="@drawable/ic_edit"
-                        app:iconSize="16dp"
-                        app:iconTint="@color/primary" />
+                        app:iconPadding="4dp"
+                        app:iconSize="14dp"
+                        app:iconTint="#334155"
+                        app:strokeColor="#CBD5E1"
+                        app:strokeWidth="1dp" />
                 </LinearLayout>
 
                 <LinearLayout
@@ -633,15 +649,19 @@
             android:layout_marginEnd="16dp"
             app:cardBackgroundColor="@color/surface"
             app:cardCornerRadius="16dp"
-            app:cardElevation="1dp"
+            app:cardElevation="0dp"
             app:strokeColor="@color/border"
             app:strokeWidth="1dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:padding="16dp">
+                android:paddingStart="16dp"
+                android:paddingTop="10dp"
+                android:paddingEnd="16dp"
+                android:paddingBottom="10dp">
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -656,7 +676,7 @@
                         android:layout_height="wrap_content"
                         android:text="0"
                         android:textColor="@color/primary"
-                        android:textSize="22sp"
+                        android:textSize="20sp"
                         android:textStyle="bold" />
 
                     <TextView
@@ -664,14 +684,16 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
                         android:gravity="center"
-                        android:text="Quỹ\ntham gia"
+                        android:singleLine="true"
+                        android:text="Quỹ tham gia"
                         android:textColor="@color/text_secondary"
-                        android:textSize="11sp" />
+                        android:textSize="12sp" />
                 </LinearLayout>
 
                 <View
                     android:layout_width="1dp"
-                    android:layout_height="match_parent"
+                    android:layout_height="28dp"
+                    android:layout_gravity="center_vertical"
                     android:background="@color/border" />
 
                 <LinearLayout
@@ -682,29 +704,23 @@
                     android:orientation="vertical">
 
                     <TextView
-                        android:id="@+id/tvProfileTxCount"
+                        android:id="@+id/tvProfileAdminCount"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:ellipsize="end"
-                        android:maxLines="1"
-                        android:singleLine="true"
-                        android:text="0 ₫"
-                        android:textColor="@color/accent_income"
+                        android:text="0"
+                        android:textColor="@color/primary"
                         android:textSize="20sp"
-                        android:textStyle="bold"
-                        app:autoSizeMaxTextSize="20sp"
-                        app:autoSizeMinTextSize="12sp"
-                        app:autoSizeStepGranularity="1sp"
-                        app:autoSizeTextType="uniform" />
+                        android:textStyle="bold" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
                         android:gravity="center"
-                        android:text="Tổng\nđóng góp"
+                        android:singleLine="true"
+                        android:text="Quản trị quỹ"
                         android:textColor="@color/text_secondary"
-                        android:textSize="11sp" />
+                        android:textSize="12sp" />
                 </LinearLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>

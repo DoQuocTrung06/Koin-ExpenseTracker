@@ -35,14 +35,6 @@ public class HomeViewModel extends ViewModel {
         filteredRooms.setValue(SearchHelper.filterRooms(all, query));
     }
 
-    public void setSearchQuery(String query) {
-        searchQuery.setValue(query != null ? query : "");
-    }
-
-    public LiveData<String> getSearchQuery() {
-        return searchQuery;
-    }
-
     public LiveData<List<Room>> getRooms() {
         return filteredRooms;
     }
@@ -53,10 +45,6 @@ public class HomeViewModel extends ViewModel {
 
     public LiveData<Double> getUserWalletBalance() {
         return repository.getUserWalletLiveData();
-    }
-
-    public LiveData<Double> getTotalBalance() {
-        return repository.getTotalBalanceLiveData();
     }
 
     public LiveData<Double> getPersonalWalletBalance() { return personalWalletBalance; }

@@ -32,6 +32,7 @@ public class ProfileRepository {
 
     private final OkHttpClient client = new OkHttpClient.Builder()
             .dns(SafeDns.getInstance())
+            .authenticator(new SupabaseAuthenticator(com.sharedfund.app.SharedFundApp.getInstance()))
             .build();
     private final ExecutorService io = Executors.newSingleThreadExecutor();
 

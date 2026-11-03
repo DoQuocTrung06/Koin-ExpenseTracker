@@ -28,7 +28,7 @@ public class Room implements Serializable {
     private String currency;
     @SerializedName("is_archived")
     private boolean archived;
-    private String currentUserRole = "MEMBER";
+    private transient String currentUserRole;
 
     public Room() {
         this.members = new ArrayList<>();

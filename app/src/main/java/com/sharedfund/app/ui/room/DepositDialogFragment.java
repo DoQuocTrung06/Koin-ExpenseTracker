@@ -90,26 +90,12 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
 
     private final TransactionRepository transactionRepository = new TransactionRepository();
 
-    public interface OnDepositCompleteListener {
-        void onDepositComplete(double amount);
-    }
-
-    private OnDepositCompleteListener listener;
-
-    public void setOnDepositCompleteListener(OnDepositCompleteListener listener) {
-        this.listener = listener;
-    }
-
     public static DepositDialogFragment newInstance(String roomId) {
         DepositDialogFragment fragment = new DepositDialogFragment();
         Bundle args = new Bundle();
         args.putString(ARG_ROOM_ID, roomId);
         fragment.setArguments(args);
         return fragment;
-    }
-
-    public static DepositDialogFragment newWalletInstance() {
-        return newInstance("");
     }
 
     private boolean isWalletDeposit() {
@@ -326,7 +312,13 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
                     }
 
                     ivQrCode.setImageBitmap(qrBitmap);
-                    ivQrCode.setBackgroundColor(Color.WHITE);
+                    android.graphics.drawable.GradientDrawable qrBg = new android.graphics.drawable.GradientDrawable();
+                    qrBg.setColor(Color.WHITE);
+                    qrBg.setCornerRadius(16f * getResources().getDisplayMetrics().density);
+                    ivQrCode.setBackground(qrBg);
+                    int pad = (int) (12 * getResources().getDisplayMetrics().density);
+                    ivQrCode.setPadding(pad, pad, pad, pad);
+                    ivQrCode.setClipToOutline(true);
                     ivQrCode.setScaleType(ImageView.ScaleType.FIT_CENTER);
 
                     DecimalFormatSymbols curSymbols = new DecimalFormatSymbols(Locale.US);
@@ -431,7 +423,6 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
                 });
             }
 
-            if (listener != null) listener.onDepositComplete(amount);
 
             if (btnQrSuccessDone != null) {
                 btnQrSuccessDone.setOnClickListener(v -> dismiss());

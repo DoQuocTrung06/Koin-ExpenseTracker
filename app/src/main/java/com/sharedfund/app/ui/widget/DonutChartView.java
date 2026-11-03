@@ -64,11 +64,6 @@ public class DonutChartView extends View {
         df = new DecimalFormat("#,##0", symbols);
     }
 
-    public void setCenterTitle(String title) {
-        this.centerTitle = title;
-        invalidate();
-    }
-
     public void setData(Map<String, Double> categoryMap, int[] colors) {
         slices.clear();
         totalAmount = 0.0;
@@ -105,10 +100,6 @@ public class DonutChartView extends View {
             }
         }
         invalidate();
-    }
-
-    public List<Slice> getSlices() {
-        return slices;
     }
 
     public double getTotalAmount() {
@@ -152,7 +143,7 @@ public class DonutChartView extends View {
             arcPaint.setColor(ContextCompat.getColor(getContext(), R.color.border));
             canvas.drawArc(oval, 0f, 360f, false, arcPaint);
 
-            textPaint.setColor(ContextCompat.getColor(getContext(), R.color.text_secondary));
+            textPaint.setColor(ContextCompat.getColor(getContext(), R.color.text_primary));
             textPaint.setTextSize(10.5f * getResources().getDisplayMetrics().scaledDensity);
             textPaint.setTypeface(Typeface.DEFAULT);
             textPaint.setTextAlign(Paint.Align.CENTER);
@@ -172,14 +163,25 @@ public class DonutChartView extends View {
         }
 
         textPaint.setTextAlign(Paint.Align.CENTER);
-        textPaint.setColor(ContextCompat.getColor(getContext(), R.color.text_secondary));
+        textPaint.setColor(ContextCompat.getColor(getContext(), R.color.text_primary));
         textPaint.setTextSize(10f * getResources().getDisplayMetrics().scaledDensity);
         textPaint.setTypeface(Typeface.DEFAULT);
         canvas.drawText(centerTitle, cx, cy - 4f * getResources().getDisplayMetrics().density, textPaint);
 
         String formattedTotal = df.format(totalAmount) + " ₫";
         textPaint.setColor(ContextCompat.getColor(getContext(), R.color.text_primary));
-        textPaint.setTextSize(12f * getResources().getDisplayMetrics().scaledDensity);
+        float totalTextSizeSp = 12f;
+        if (formattedTotal.length() > 14) {
+            totalTextSizeSp = 8.5f;
+        } else if (formattedTotal.length() > 10) {
+            totalTextSizeSp = 10f;
+        }
+        textPaint.setTextSize(totalTextSizeSp * getResources().getDisplayMetrics().scaledDensity);
+        float maxAvailableWidth = (diameter - strokeWidth * 2) * 0.9f;
+        while (totalTextSizeSp > 6.5f && textPaint.measureText(formattedTotal) > maxAvailableWidth) {
+            totalTextSizeSp -= 0.5f;
+            textPaint.setTextSize(totalTextSizeSp * getResources().getDisplayMetrics().scaledDensity);
+        }
         textPaint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
         canvas.drawText(formattedTotal, cx, cy + 12f * getResources().getDisplayMetrics().density, textPaint);
     }

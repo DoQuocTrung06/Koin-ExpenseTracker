@@ -47,13 +47,16 @@ public class TransactionRepository {
     }
 
     private String getEffectiveToken() {
-        if ((accessToken == null || accessToken.equals(SupabaseConfig.SUPABASE_ANON_KEY)) && SharedFundApp.getInstance() != null) {
+        if (SharedFundApp.getInstance() != null) {
             String token = UserSessionManager.getInstance(SharedFundApp.getInstance()).getAccessToken();
             if (token != null && !token.trim().isEmpty()) {
                 return token;
             }
         }
-        return accessToken;
+        if (accessToken != null && !accessToken.trim().isEmpty()) {
+            return accessToken;
+        }
+        return SupabaseConfig.SUPABASE_ANON_KEY;
     }
 
     public void getTransactionsByRoom(String roomId, DataCallback<List<Transaction>> callback) {

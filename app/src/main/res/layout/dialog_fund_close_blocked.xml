@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_dialog_card"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextView
+        android:id="@+id/tvBlockedTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="start"
+        android:text="Không thể đóng quỹ"
+        android:textAlignment="viewStart"
+        android:textColor="@color/text_primary"
+        android:textSize="18sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/tvBlockedMessage"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:layout_marginBottom="24dp"
+        android:gravity="start"
+        android:lineSpacingExtra="3.5dp"
+        android:text="Quỹ hiện vẫn còn số dư. Vui lòng giải ngân hoặc chi hết số dư trước khi đóng quỹ."
+        android:textAlignment="viewStart"
+        android:textColor="@color/text_secondary"
+        android:textSize="14sp" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnBlockedUnderstood"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:backgroundTint="@color/primary"
+        android:insetTop="0dp"
+        android:insetBottom="0dp"
+        android:text="Đã hiểu"
+        android:textAllCaps="false"
+        android:textColor="@android:color/white"
+        android:textSize="14.5sp"
+        android:textStyle="bold"
+        app:cornerRadius="12dp"
+        app:elevation="0dp" />
+
+</LinearLayout>

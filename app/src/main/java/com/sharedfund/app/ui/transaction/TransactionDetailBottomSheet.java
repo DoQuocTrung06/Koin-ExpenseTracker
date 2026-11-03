@@ -216,7 +216,11 @@ public class TransactionDetailBottomSheet extends BottomSheetDialogFragment {
 
         final EditText input = new EditText(requireContext());
         input.setHint("Nhập lý do cụ thể (bắt buộc)...");
-        input.setPadding(40, 30, 40, 30);
+        input.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary));
+        input.setHintTextColor(ContextCompat.getColor(requireContext(), R.color.text_tertiary));
+        int padH = (int) (16 * getResources().getDisplayMetrics().density);
+        int padV = (int) (12 * getResources().getDisplayMetrics().density);
+        input.setPadding(padH, padV, padH, padV);
         builder.setView(input);
 
         builder.setPositiveButton("Xác nhận từ chối", (dialog, which) -> {

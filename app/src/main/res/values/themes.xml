@@ -47,10 +47,5 @@
         <item name="android:textSize">15sp</item>
     </style>
 
-    <style name="Widget.App.BottomNavigationView.ActiveIndicator" parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
-        <item name="android:color">@color/primary_light</item>
-        <item name="android:width">56dp</item>
-        <item name="android:height">32dp</item>
-    </style>
 
 </resources>

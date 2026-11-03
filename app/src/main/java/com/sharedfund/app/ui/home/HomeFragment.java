@@ -3,7 +3,6 @@ package com.sharedfund.app.ui.home;
 import androidx.appcompat.app.AlertDialog;
 import androidx.activity.OnBackPressedCallback;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-import com.sharedfund.app.ui.room.DepositDialogFragment;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
@@ -13,14 +12,12 @@ import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.sharedfund.app.ui.widget.AppToaster;
 
@@ -523,6 +520,7 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
                 .setMessage("Bạn có chắc muốn đăng xuất khỏi tài khoản này?")
                 .setNegativeButton("Hủy", null)
                 .setPositiveButton("Đăng xuất", (dialog, which) -> {
+                    com.sharedfund.app.data.SupabaseRealtimeClient.getInstance().disconnect();
                     com.sharedfund.app.data.UserSessionManager.getInstance(requireContext()).clearSession();
                     com.sharedfund.app.data.RoomRepository.getInstance().setCurrentUser("", "");
                     hideAccountDrawer();

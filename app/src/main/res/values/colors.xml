@@ -3,16 +3,12 @@
     <color name="primary">#0052CC</color>
     <color name="primary_dark">#003D99</color>
     <color name="primary_light">#D9E8FF</color>
-    <color name="primary_gradient_start">#0052CC</color>
-    <color name="primary_gradient_end">#0077FE</color>
     <color name="accent_income">#10B981</color>
     <color name="accent_income_light">#D1FAE5</color>
     <color name="accent_expense">#EF4444</color>
     <color name="accent_expense_light">#FEE2E2</color>
     <color name="accent_amber">#F59E0B</color>
     <color name="accent_amber_light">#FEF3C7</color>
-    <color name="accent_cyan">#06B6D4</color>
-    <color name="accent_cyan_light">#CFFAFE</color>
     <color name="accent_blue">#0052CC</color>
     <color name="accent_blue_light">#EBF3FF</color>
     <color name="background">#F8FAFC</color>
@@ -25,7 +21,6 @@
     <color name="border_light">#F1F5F9</color>
     <color name="auth_input_background">#E8F1FE</color>
     <color name="auth_icon_tint">#758397</color>
-
-    <color name="black">#FF000000</color>
+    <color name="nav_pill_blue">#DFECFC</color>
     <color name="white">#FFFFFFFF</color>
 </resources>

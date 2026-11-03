@@ -1,5 +1,6 @@
 package com.sharedfund.app.adapter;
 
+import android.graphics.Color;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -21,15 +22,29 @@ import java.util.Locale;
 
 public class MemberAdapter extends RecyclerView.Adapter<MemberAdapter.MemberViewHolder> {
 
+    public interface OnMemberMoreClickListener {
+        void onMemberMoreClick(RoomMember member);
+    }
+
     private List<RoomMember> members = new ArrayList<>();
-    private double totalContribution = 0;
+    private OnMemberMoreClickListener moreClickListener;
+    private String currentUserId;
+    private boolean isCurrentUserOwner;
+    private boolean isCurrentUserTreasurer;
+
+    public void setOnMemberMoreClickListener(OnMemberMoreClickListener listener) {
+        this.moreClickListener = listener;
+    }
+
+    public void setCurrentUserPermissions(String currentUserId, boolean isOwner, boolean isTreasurer) {
+        this.currentUserId = currentUserId;
+        this.isCurrentUserOwner = isOwner;
+        this.isCurrentUserTreasurer = isTreasurer;
+        notifyDataSetChanged();
+    }
 
     public void setMembers(List<RoomMember> members) {
         this.members = members != null ? members : new ArrayList<>();
-        totalContribution = 0;
-        for (RoomMember m : this.members) {
-            totalContribution += m.getContributedAmount();
-        }
         notifyDataSetChanged();
     }
 
@@ -44,7 +59,30 @@ public class MemberAdapter extends RecyclerView.Adapter<MemberAdapter.MemberView
     @Override
     public void onBindViewHolder(@NonNull MemberViewHolder holder, int position) {
         RoomMember member = members.get(position);
-        holder.bind(member, totalContribution);
+        holder.bind(member);
+
+        boolean isSelf = currentUserId != null && currentUserId.equals(member.getUserId());
+        boolean targetIsOwner = "OWNER".equalsIgnoreCase(member.getRole());
+        boolean targetIsTreasurer = "TREASURER".equalsIgnoreCase(member.getRole());
+
+        boolean canShowMore = false;
+        if (!isSelf) {
+            if (isCurrentUserOwner) {
+                canShowMore = !targetIsOwner;
+            } else if (isCurrentUserTreasurer) {
+                canShowMore = !targetIsOwner && !targetIsTreasurer;
+            }
+        }
+
+        if (holder.btnMemberMore != null) {
+            holder.btnMemberMore.setVisibility(canShowMore ? View.VISIBLE : View.GONE);
+            holder.btnMemberMore.setOnClickListener(v -> {
+                if (moreClickListener != null) {
+                    moreClickListener.onMemberMoreClick(member);
+                }
+            });
+        }
+
     }
 
     @Override
@@ -58,7 +96,7 @@ public class MemberAdapter extends RecyclerView.Adapter<MemberAdapter.MemberView
         private final TextView tvName;
         private final TextView tvBadge;
         private final TextView tvContribution;
-        private final TextView tvPercent;
+        final ImageView btnMemberMore;
 
         private final DecimalFormat df;
 
@@ -69,14 +107,14 @@ public class MemberAdapter extends RecyclerView.Adapter<MemberAdapter.MemberView
             tvName = itemView.findViewById(R.id.tvMemberName);
             tvBadge = itemView.findViewById(R.id.tvMemberBadge);
             tvContribution = itemView.findViewById(R.id.tvMemberContribution);
-            tvPercent = itemView.findViewById(R.id.tvMemberPercent);
+            btnMemberMore = itemView.findViewById(R.id.btnMemberMore);
 
             DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.US);
             symbols.setGroupingSeparator('.');
             df = new DecimalFormat("#,##0", symbols);
         }
 
-        void bind(RoomMember member, double totalContribution) {
+        void bind(RoomMember member) {
             tvInitials.setText(member.getInitials());
             tvInitials.setVisibility(View.VISIBLE);
             if (ivAvatar != null) {
@@ -84,22 +122,23 @@ public class MemberAdapter extends RecyclerView.Adapter<MemberAdapter.MemberView
             }
             tvName.setText(member.getDisplayName());
 
-            if (member.isAdmin()) {
+            String role = member.getRole();
+            if ("OWNER".equalsIgnoreCase(role)) {
                 tvBadge.setVisibility(View.VISIBLE);
-                tvBadge.setText("OWNER".equalsIgnoreCase(member.getRole()) ? "★ Trưởng quỹ" : "★ Quản trị");
+                tvBadge.setText("★ Chủ quỹ");
+                tvBadge.setBackgroundResource(R.drawable.bg_role_badge_owner);
+                tvBadge.setTextColor(Color.parseColor("#B45309"));
+            } else if ("TREASURER".equalsIgnoreCase(role)) {
+                tvBadge.setVisibility(View.VISIBLE);
+                tvBadge.setText("★ Phó quỹ");
+                tvBadge.setBackgroundResource(R.drawable.bg_role_badge_vice);
+                tvBadge.setTextColor(Color.parseColor("#334155"));
             } else {
                 tvBadge.setVisibility(View.GONE);
             }
 
             String formattedAmount = df.format(member.getContributedAmount()) + " ₫";
             tvContribution.setText("Đã góp: " + formattedAmount);
-
-            if (totalContribution > 0) {
-                double percent = (member.getContributedAmount() / totalContribution) * 100;
-                tvPercent.setText(String.format(Locale.getDefault(), "%.0f%%", percent));
-            } else {
-                tvPercent.setText("0%");
-            }
         }
     }
 }

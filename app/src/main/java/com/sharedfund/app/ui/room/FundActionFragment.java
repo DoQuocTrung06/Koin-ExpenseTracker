@@ -405,7 +405,7 @@ public class FundActionFragment extends Fragment {
         if (room != null && room.getCreatedBy() != null) {
             return room.getCreatedBy().equalsIgnoreCase(myId);
         }
-        return true;
+        return false;
     }
 
     private void validateAndProceedContribute() {

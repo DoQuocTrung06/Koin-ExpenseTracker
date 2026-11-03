@@ -3,6 +3,7 @@ package com.sharedfund.app.ui.profile;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
@@ -37,12 +38,9 @@ import com.sharedfund.app.data.ProfileRepository;
 import com.sharedfund.app.data.RoomRepository;
 import com.sharedfund.app.data.UserSessionManager;
 import com.sharedfund.app.model.Profile;
-import com.sharedfund.app.model.Transaction;
+import com.sharedfund.app.model.Room;
 
-import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
 import java.util.List;
-import java.util.Locale;
 
 public class ProfileFragment extends Fragment {
 
@@ -61,7 +59,7 @@ public class ProfileFragment extends Fragment {
     private EditText etProfileEducation;
     private EditText etProfileBio;
     private TextView tvProfileRoomCount;
-    private TextView tvProfileTxCount;
+    private TextView tvProfileAdminCount;
     private View layoutProfileTopBar;
     private View rowProfileUserId;
     private View cardPersonalDetails;
@@ -184,7 +182,7 @@ public class ProfileFragment extends Fragment {
         etProfileEducation = view.findViewById(R.id.etProfileEducation);
         etProfileBio = view.findViewById(R.id.etProfileBio);
         tvProfileRoomCount = view.findViewById(R.id.tvProfileRoomCount);
-        tvProfileTxCount = view.findViewById(R.id.tvProfileTxCount);
+        tvProfileAdminCount = view.findViewById(R.id.tvProfileAdminCount);
         btnProfileBack = view.findViewById(R.id.btnProfileBack);
         btnEditProfileInfo = view.findViewById(R.id.btnEditProfileInfo);
         btnCancelEditProfileInfo = view.findViewById(R.id.btnCancelEditProfileInfo);
@@ -248,32 +246,31 @@ public class ProfileFragment extends Fragment {
         }
 
         RoomRepository repo = RoomRepository.getInstance();
-        int roomCount = repo.getRoomsLiveData().getValue() != null
-                ? repo.getRoomsLiveData().getValue().size() : 0;
+        List<Room> roomList = repo.getRoomsLiveData().getValue();
+        int roomCount = roomList != null ? roomList.size() : 0;
 
-        double totalContributed = 0.0;
-        List<Transaction> txList = repo.getTransactionsLiveData().getValue();
-        if (txList != null) {
+        int adminCount = 0;
+        if (roomList != null && getContext() != null) {
             String currentUserId = session.getUserId();
-            String currentUserName = profile != null ? profile.getFullName() : null;
-            for (Transaction tx : txList) {
-                if (Transaction.TYPE_INCOME.equals(tx.getType())) {
-                    String author = tx.getCreatedBy();
-                    if (author == null || "Bạn".equalsIgnoreCase(author)
-                            || (currentUserName != null && currentUserName.equalsIgnoreCase(author))
-                            || (currentUserId != null && currentUserId.equals(author))) {
-                        totalContributed += tx.getAmount();
-                    }
+            for (Room room : roomList) {
+                if (room == null) continue;
+                boolean isOwner = "OWNER".equalsIgnoreCase(room.getCurrentUserRole())
+                        || (currentUserId != null && currentUserId.equals(room.getCreatedBy()));
+                boolean isTreasurer = "TREASURER".equalsIgnoreCase(room.getCurrentUserRole())
+                        || (currentUserId != null && requireContext().getSharedPreferences("room_roles_" + room.getId(), Context.MODE_PRIVATE)
+                                .getBoolean("treasurer_" + currentUserId, false));
+                if (isOwner || isTreasurer) {
+                    adminCount++;
                 }
             }
         }
 
-        DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.US);
-        symbols.setGroupingSeparator('.');
-        DecimalFormat df = new DecimalFormat("#,##0", symbols);
-
-        tvProfileRoomCount.setText(String.valueOf(roomCount));
-        tvProfileTxCount.setText(df.format(totalContributed) + " ₫");
+        if (tvProfileRoomCount != null) {
+            tvProfileRoomCount.setText(String.valueOf(roomCount));
+        }
+        if (tvProfileAdminCount != null) {
+            tvProfileAdminCount.setText(String.valueOf(adminCount));
+        }
     }
 
     private void setupClickListeners() {
@@ -327,6 +324,10 @@ public class ProfileFragment extends Fragment {
         if (btnEditProfileInfo != null) {
             btnEditProfileInfo.setText("Lưu thay đổi");
             btnEditProfileInfo.setIconResource(R.drawable.ic_check);
+            btnEditProfileInfo.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.primary)));
+            btnEditProfileInfo.setTextColor(Color.WHITE);
+            btnEditProfileInfo.setIconTint(ColorStateList.valueOf(Color.WHITE));
+            btnEditProfileInfo.setStrokeWidth(0);
         }
         if (btnCancelEditProfileInfo != null) {
             btnCancelEditProfileInfo.setVisibility(View.VISIBLE);
@@ -355,6 +356,11 @@ public class ProfileFragment extends Fragment {
         if (btnEditProfileInfo != null) {
             btnEditProfileInfo.setText("Chỉnh sửa");
             btnEditProfileInfo.setIconResource(R.drawable.ic_edit);
+            btnEditProfileInfo.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.surface_variant)));
+            btnEditProfileInfo.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary));
+            btnEditProfileInfo.setIconTint(ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.text_primary)));
+            btnEditProfileInfo.setStrokeWidth((int) (1 * getResources().getDisplayMetrics().density));
+            btnEditProfileInfo.setStrokeColor(ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.border)));
         }
         if (btnCancelEditProfileInfo != null) {
             btnCancelEditProfileInfo.setVisibility(View.GONE);
@@ -372,6 +378,11 @@ public class ProfileFragment extends Fragment {
         if (btnEditProfileInfo != null) {
             btnEditProfileInfo.setText("Chỉnh sửa");
             btnEditProfileInfo.setIconResource(R.drawable.ic_edit);
+            btnEditProfileInfo.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.surface_variant)));
+            btnEditProfileInfo.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary));
+            btnEditProfileInfo.setIconTint(ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.text_primary)));
+            btnEditProfileInfo.setStrokeWidth((int) (1 * getResources().getDisplayMetrics().density));
+            btnEditProfileInfo.setStrokeColor(ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.border)));
         }
         if (btnCancelEditProfileInfo != null) {
             btnCancelEditProfileInfo.setVisibility(View.GONE);
