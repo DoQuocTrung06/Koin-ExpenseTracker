@@ -79,7 +79,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
                         android:lineSpacingExtra="3dp"
-                        android:text="Phó quỹ hỗ trợ duyệt chi tiêu, duyệt thành viên tham gia và cập nhật thông tin quỹ (tối đa 3 Phó quỹ). Chạm vào thành viên bên dưới để bổ nhiệm/bãi nhiệm hoặc chuyển quyền Trưởng quỹ."
+                        android:text="Phó quỹ hỗ trợ duyệt chi tiêu, duyệt thành viên tham gia và cập nhật thông tin quỹ (tối đa 3 Phó quỹ). Chạm vào thành viên bên dưới để bổ nhiệm/bãi nhiệm hoặc chuyển quyền Chủ quỹ."
                         android:textColor="@color/text_secondary"
                         android:textSize="13sp" />
                 </LinearLayout>

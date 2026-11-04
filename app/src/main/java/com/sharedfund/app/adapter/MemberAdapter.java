@@ -8,6 +8,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.sharedfund.app.R;
@@ -17,6 +18,7 @@ import com.sharedfund.app.ui.profile.AvatarImageLoader;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
@@ -44,8 +46,27 @@ public class MemberAdapter extends RecyclerView.Adapter<MemberAdapter.MemberView
     }
 
     public void setMembers(List<RoomMember> members) {
-        this.members = members != null ? members : new ArrayList<>();
+        if (members != null) {
+            this.members = new ArrayList<>(members);
+            Collections.sort(this.members, (m1, m2) -> {
+                int r1 = getRoleRank(m1 != null ? m1.getRole() : null);
+                int r2 = getRoleRank(m2 != null ? m2.getRole() : null);
+                if (r1 != r2) return Integer.compare(r1, r2);
+                String n1 = m1 != null ? m1.getDisplayName() : "";
+                String n2 = m2 != null ? m2.getDisplayName() : "";
+                return n1.compareToIgnoreCase(n2);
+            });
+        } else {
+            this.members = new ArrayList<>();
+        }
         notifyDataSetChanged();
+    }
+
+    private static int getRoleRank(String role) {
+        if (role == null) return 2;
+        if ("OWNER".equalsIgnoreCase(role) || "ADMIN".equalsIgnoreCase(role)) return 0;
+        if ("TREASURER".equalsIgnoreCase(role) || "VICE".equalsIgnoreCase(role)) return 1;
+        return 2;
     }
 
     @NonNull
@@ -132,12 +153,12 @@ public class MemberAdapter extends RecyclerView.Adapter<MemberAdapter.MemberView
                 tvBadge.setVisibility(View.VISIBLE);
                 tvBadge.setText("★ Chủ quỹ");
                 tvBadge.setBackgroundResource(R.drawable.bg_role_badge_owner);
-                tvBadge.setTextColor(Color.parseColor("#B45309"));
+                tvBadge.setTextColor(ContextCompat.getColor(itemView.getContext(), R.color.role_owner_text));
             } else if ("TREASURER".equalsIgnoreCase(role)) {
                 tvBadge.setVisibility(View.VISIBLE);
                 tvBadge.setText("★ Phó quỹ");
                 tvBadge.setBackgroundResource(R.drawable.bg_role_badge_vice);
-                tvBadge.setTextColor(Color.parseColor("#334155"));
+                tvBadge.setTextColor(ContextCompat.getColor(itemView.getContext(), R.color.role_vice_text));
             } else {
                 tvBadge.setVisibility(View.GONE);
             }

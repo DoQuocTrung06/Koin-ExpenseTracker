@@ -258,7 +258,7 @@
                         android:layout_marginBottom="12dp"
                         android:background="@drawable/bg_card"
                         android:padding="12dp"
-                        android:text="Trưởng quỹ có quyền rút tiền trực tiếp về ví cá nhân."
+                        android:text="Chủ quỹ có quyền rút tiền trực tiếp về ví cá nhân."
                         android:textColor="@color/text_secondary"
                         android:textSize="12.5sp" />
 

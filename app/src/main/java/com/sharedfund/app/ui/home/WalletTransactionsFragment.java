@@ -276,6 +276,7 @@ public class WalletTransactionsFragment extends Fragment {
                 || note.contains("rút tiền về ví") || note.contains("rut tien ve vi")
                 || note.contains("rút về ví") || note.contains("rut ve vi")
                 || note.contains("rút ví") || note.contains("rut vi")
+                || note.contains("rút") || note.contains("rut")
                 || note.startsWith("sf rut") || note.startsWith("sf_rut")) {
             return true;
         }

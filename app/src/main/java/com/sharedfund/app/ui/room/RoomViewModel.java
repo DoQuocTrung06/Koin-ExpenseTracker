@@ -94,8 +94,10 @@ public class RoomViewModel extends ViewModel {
             for (Transaction tx : all) {
                 if (tx.isPending()) {
                     pending.add(tx);
-                } else if (repository.affectsBalance(tx)) {
-                    confirmedHistory.add(tx);
+                } else {
+                    if (repository.affectsBalance(tx)) {
+                        confirmedHistory.add(tx);
+                    }
                     if (recent.size() < 5) {
                         recent.add(tx);
                     }
@@ -169,7 +171,7 @@ public class RoomViewModel extends ViewModel {
                         m.setRoomId(roomId);
                         m.setUserId("user-member-" + i);
                         m.setFullName(name);
-                        m.setRole(name.contains("Trưởng quỹ") ? "OWNER" : "MEMBER");
+                        m.setRole(name.contains("Chủ quỹ") ? "OWNER" : "MEMBER");
                         m.setTotalContributed(perMember);
                         fallback.add(m);
                     }

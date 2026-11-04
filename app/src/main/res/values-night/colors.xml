@@ -30,4 +30,10 @@
     <color name="icon_frame_tint">#7BA3FF</color>
     <color name="divider_dashed">#3B495D</color>
     <color name="ripple_card">#1F3B82F6</color>
+    <color name="role_owner_text">#FDE047</color>
+    <color name="role_owner_bg">#3D2E0A</color>
+    <color name="role_owner_stroke">#854D0E</color>
+    <color name="role_vice_text">#E2E8F0</color>
+    <color name="role_vice_bg">#1E293B</color>
+    <color name="role_vice_stroke">#334155</color>
 </resources>

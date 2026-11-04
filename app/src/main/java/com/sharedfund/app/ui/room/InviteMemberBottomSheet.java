@@ -18,12 +18,15 @@ import androidx.annotation.Nullable;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.google.android.material.button.MaterialButton;
 import com.google.zxing.BarcodeFormat;
+import com.google.zxing.EncodeHintType;
 import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
 import com.journeyapps.barcodescanner.BarcodeEncoder;
 import com.sharedfund.app.R;
 import com.sharedfund.app.util.CopyToast;
-import android.widget.Toast;
+
+import java.util.EnumMap;
+import java.util.Map;
 
 public class InviteMemberBottomSheet extends BottomSheetDialogFragment {
 
@@ -68,24 +71,32 @@ public class InviteMemberBottomSheet extends BottomSheetDialogFragment {
 
         TextView tvInviteRoomTitle = view.findViewById(R.id.tvInviteRoomTitle);
         TextView tvInviteJoinCode = view.findViewById(R.id.tvInviteJoinCode);
+        View layoutCopyJoinCode = view.findViewById(R.id.layoutCopyJoinCode);
+        ImageView btnCopyInviteIcon = view.findViewById(R.id.btnCopyInviteIcon);
         ImageView ivInviteQrCode = view.findViewById(R.id.ivInviteQrCode);
-        MaterialButton btnCopyInviteCode = view.findViewById(R.id.btnCopyInviteCode);
-        MaterialButton btnShareInvite = view.findViewById(R.id.btnShareInvite);
         MaterialButton btnCloseInvite = view.findViewById(R.id.btnCloseInvite);
+        MaterialButton btnShareInvite = view.findViewById(R.id.btnShareInvite);
 
         tvInviteRoomTitle.setText("Mời tham gia: " + roomName);
         tvInviteJoinCode.setText(joinCode);
 
         generateQrCode(ivInviteQrCode, joinCode);
 
-        btnCopyInviteCode.setOnClickListener(v -> {
+        View.OnClickListener copyListener = v -> {
             ClipboardManager clipboard = (ClipboardManager) requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
             ClipData clip = ClipData.newPlainText("Join Code", joinCode);
             if (clipboard != null) {
                 clipboard.setPrimaryClip(clip);
                 CopyToast.show(requireContext(), requireView());
             }
-        });
+        };
+
+        if (layoutCopyJoinCode != null) {
+            layoutCopyJoinCode.setOnClickListener(copyListener);
+        }
+        if (btnCopyInviteIcon != null) {
+            btnCopyInviteIcon.setOnClickListener(copyListener);
+        }
 
         btnShareInvite.setOnClickListener(v -> {
             Intent shareIntent = new Intent(Intent.ACTION_SEND);
@@ -101,7 +112,10 @@ public class InviteMemberBottomSheet extends BottomSheetDialogFragment {
     private void generateQrCode(ImageView imageView, String content) {
         try {
             QRCodeWriter writer = new QRCodeWriter();
-            BitMatrix bitMatrix = writer.encode(content, BarcodeFormat.QR_CODE, 512, 512);
+            Map<EncodeHintType, Object> hints = new EnumMap<>(EncodeHintType.class);
+            hints.put(EncodeHintType.CHARACTER_SET, "UTF-8");
+            hints.put(EncodeHintType.MARGIN, 1);
+            BitMatrix bitMatrix = writer.encode(content, BarcodeFormat.QR_CODE, 512, 512, hints);
             BarcodeEncoder encoder = new BarcodeEncoder();
             Bitmap bitmap = encoder.createBitmap(bitMatrix);
             imageView.setImageBitmap(bitmap);

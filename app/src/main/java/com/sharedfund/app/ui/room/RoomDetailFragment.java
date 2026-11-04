@@ -1,5 +1,7 @@
 package com.sharedfund.app.ui.room;
 
+import com.sharedfund.app.data.RoomPrivacyManager;
+
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
@@ -69,6 +71,7 @@ import android.widget.Toast;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -155,22 +158,29 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
     private TextView tvMemberManagementHeader;
     private View btnMemberDelegation;
     private View btnMemberJoinRequests;
+    private View dividerMemberDelegation;
     private TextView badgeJoinRequestsCount;
     private boolean isRoomPrivate = true;
     private MaterialCardView cardSettingsMemberActions;
     private View btnSettingsLeaveRoom;
 
     private static class PendingJoinRequest {
+        final String userId;
         final String applicantName;
         final String email;
         final String time;
         final String message;
 
-        PendingJoinRequest(String applicantName, String email, String time, String message) {
+        PendingJoinRequest(String userId, String applicantName, String email, String time, String message) {
+            this.userId = userId;
             this.applicantName = applicantName;
             this.email = email;
             this.time = time;
             this.message = message;
+        }
+
+        PendingJoinRequest(String applicantName, String email, String time, String message) {
+            this("mock-id", applicantName, email, time, message);
         }
     }
     private final List<PendingJoinRequest> pendingJoinRequests = new ArrayList<>();
@@ -362,6 +372,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
         cardMemberManagement = view.findViewById(R.id.cardMemberManagement);
         tvMemberManagementHeader = view.findViewById(R.id.tvMemberManagementHeader);
         btnMemberDelegation = view.findViewById(R.id.btnMemberDelegation);
+        dividerMemberDelegation = view.findViewById(R.id.dividerMemberDelegation);
         btnMemberJoinRequests = view.findViewById(R.id.btnMemberJoinRequests);
         badgeJoinRequestsCount = view.findViewById(R.id.badgeJoinRequestsCount);
         cardSettingsMemberActions = view.findViewById(R.id.cardSettingsMemberActions);
@@ -864,7 +875,16 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
     private boolean isCurrentUserOwner() {
         Room room = viewModel.getRoom().getValue();
-        String currentUserId = UserSessionManager.getInstance(requireContext()).getUserId();
+        String rId = room != null ? room.getId() : this.roomId;
+        if (rId != null && getContext() != null) {
+            String savedOwnerId = requireContext().getSharedPreferences("room_roles_" + rId, Context.MODE_PRIVATE)
+                    .getString("owner_id", null);
+            if (savedOwnerId != null) {
+                String currentUserId = UserSessionManager.getInstance(requireContext()).getUserId();
+                return currentUserId != null && currentUserId.equals(savedOwnerId);
+            }
+        }
+        String currentUserId = getContext() != null ? UserSessionManager.getInstance(requireContext()).getUserId() : null;
         return room != null && ("OWNER".equalsIgnoreCase(room.getCurrentUserRole())
                 || (currentUserId != null && currentUserId.equals(room.getCreatedBy())));
     }
@@ -922,14 +942,32 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
     private void renderMembers(List<RoomMember> members) {
         if (members == null) return;
         Room room = viewModel.getRoom().getValue();
-        String rId = room != null ? room.getId() : null;
-        if (rId != null) {
+        String rId = room != null ? room.getId() : this.roomId;
+        if (rId != null && getContext() != null) {
+            String savedOwnerId = requireContext().getSharedPreferences("room_roles_" + rId, Context.MODE_PRIVATE)
+                    .getString("owner_id", null);
+            String ownerId = savedOwnerId != null ? savedOwnerId : (room != null ? room.getCreatedBy() : null);
             for (RoomMember m : members) {
+                if (ownerId != null) {
+                    if (m.getUserId() != null && m.getUserId().equals(ownerId)) {
+                        m.setRole("OWNER");
+                    } else if ("OWNER".equalsIgnoreCase(m.getRole()) || "ADMIN".equalsIgnoreCase(m.getRole())) {
+                        m.setRole("MEMBER");
+                    }
+                }
                 if (!"OWNER".equalsIgnoreCase(m.getRole()) && isSavedTreasurer(rId, m.getUserId())) {
                     m.setRole("TREASURER");
                 }
             }
         }
+        Collections.sort(members, (m1, m2) -> {
+            int r1 = getRoleRank(m1 != null ? m1.getRole() : null);
+            int r2 = getRoleRank(m2 != null ? m2.getRole() : null);
+            if (r1 != r2) return Integer.compare(r1, r2);
+            String n1 = m1 != null ? m1.getDisplayName() : "";
+            String n2 = m2 != null ? m2.getDisplayName() : "";
+            return n1.compareToIgnoreCase(n2);
+        });
         String currentUserId = UserSessionManager.getInstance(requireContext()).getUserId();
         memberAdapter.setCurrentUserPermissions(currentUserId, isCurrentUserOwner(), isCurrentUserTreasurer());
         memberAdapter.setMembers(members);
@@ -938,6 +976,13 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
         if (viewModel != null) {
             updatePendingApprovalBanner(viewModel.getPendingTransactions().getValue());
         }
+    }
+
+    private static int getRoleRank(String role) {
+        if (role == null) return 2;
+        if ("OWNER".equalsIgnoreCase(role) || "ADMIN".equalsIgnoreCase(role)) return 0;
+        if ("TREASURER".equalsIgnoreCase(role) || "VICE".equalsIgnoreCase(role)) return 1;
+        return 2;
     }
 
     private void setupClickListeners() {
@@ -1121,7 +1166,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
     }
     private void showChangeBackgroundDialog() {
         if (!isCurrentUserOwner() && !isCurrentUserAdmin()) {
-            AppToaster.error(requireActivity(), "Chỉ Trưởng quỹ hoặc Phó quỹ mới có quyền đổi ảnh bìa.");
+            AppToaster.error(requireActivity(), "Chỉ Chủ quỹ hoặc Phó quỹ mới có quyền đổi ảnh bìa.");
             return;
         }
         View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_koin_options, null);
@@ -1417,18 +1462,34 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
     private void applyRoleBasedUi(Room room) {
         boolean isOwner = isCurrentUserOwner();
         boolean isTreasurer = isCurrentUserTreasurer();
-        boolean canManage = isOwner || isTreasurer;
 
         if (cardSettingsPrivacy != null) cardSettingsPrivacy.setVisibility(isOwner ? View.VISIBLE : View.GONE);
         if (cardSettingsRoomInfo != null) cardSettingsRoomInfo.setVisibility(View.VISIBLE);
         if (cardSettingsCloseFund != null) cardSettingsCloseFund.setVisibility(isOwner ? View.VISIBLE : View.GONE);
-        if (cardMemberManagement != null) cardMemberManagement.setVisibility(canManage ? View.VISIBLE : View.GONE);
-        if (tvMemberManagementHeader != null) tvMemberManagementHeader.setVisibility(canManage ? View.VISIBLE : View.GONE);
-        if (btnMemberDelegation != null) btnMemberDelegation.setVisibility(isOwner ? View.VISIBLE : View.GONE);
-        if (btnMemberJoinRequests != null) btnMemberJoinRequests.setVisibility(canManage ? View.VISIBLE : View.GONE);
+
+        if (isOwner) {
+            if (cardMemberManagement != null) cardMemberManagement.setVisibility(View.VISIBLE);
+            if (tvMemberManagementHeader != null) tvMemberManagementHeader.setVisibility(View.VISIBLE);
+            if (btnMemberDelegation != null) btnMemberDelegation.setVisibility(View.VISIBLE);
+            if (dividerMemberDelegation != null) dividerMemberDelegation.setVisibility(View.VISIBLE);
+            if (btnMemberJoinRequests != null) btnMemberJoinRequests.setVisibility(View.VISIBLE);
+        } else if (isTreasurer) {
+            if (cardMemberManagement != null) cardMemberManagement.setVisibility(View.VISIBLE);
+            if (tvMemberManagementHeader != null) tvMemberManagementHeader.setVisibility(View.VISIBLE);
+            if (btnMemberDelegation != null) btnMemberDelegation.setVisibility(View.GONE);
+            if (dividerMemberDelegation != null) dividerMemberDelegation.setVisibility(View.GONE);
+            if (btnMemberJoinRequests != null) btnMemberJoinRequests.setVisibility(View.VISIBLE);
+        } else {
+            if (cardMemberManagement != null) cardMemberManagement.setVisibility(View.GONE);
+            if (tvMemberManagementHeader != null) tvMemberManagementHeader.setVisibility(View.GONE);
+            if (btnMemberDelegation != null) btnMemberDelegation.setVisibility(View.GONE);
+            if (dividerMemberDelegation != null) dividerMemberDelegation.setVisibility(View.GONE);
+            if (btnMemberJoinRequests != null) btnMemberJoinRequests.setVisibility(View.GONE);
+        }
+
         if (cardSettingsMemberActions != null) cardSettingsMemberActions.setVisibility(!isOwner ? View.VISIBLE : View.GONE);
         if (btnHeaderQuickEdit != null) {
-            btnHeaderQuickEdit.setVisibility(canManage ? View.VISIBLE : View.GONE);
+            btnHeaderQuickEdit.setVisibility((isOwner || isTreasurer) ? View.VISIBLE : View.GONE);
         }
         if (btnChangeRoomBackground != null) {
             btnChangeRoomBackground.setVisibility((isOwner || isCurrentUserAdmin()) ? View.VISIBLE : View.GONE);
@@ -1450,7 +1511,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                 );
             }
             TextView tvMsg = dialog.findViewById(R.id.tvBlockedMessage);
-            MaterialButton btnOk = dialog.findViewById(R.id.btnBlockedUnderstood);
+            View btnOk = dialog.findViewById(R.id.btnBlockedUnderstood);
             if (tvMsg != null) {
                 tvMsg.setText("Quỹ hiện vẫn còn số dư (" + room.getFormattedBalance() + "). Vui lòng giải ngân hoặc chi hết số dư trước khi đóng quỹ.");
             }
@@ -1524,8 +1585,25 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
     private void initPendingJoinRequests() {
         pendingJoinRequests.clear();
-        if (isRoomPrivate && !isJoinRequestResolved(getContext(), getEffectiveRoomId(), "user3_test_realtime@sharedfund.com", "Lê Hoàng Nam")) {
-            pendingJoinRequests.add(new PendingJoinRequest("Lê Hoàng Nam", "user3_test_realtime@sharedfund.com", "Vừa xong", "Xin vào quỹ ăn sáng chung nhóm"));
+        isRoomPrivate = RoomPrivacyManager.isRoomPrivate(getEffectiveRoomId());
+        if (tvSettingsPrivacyStatus != null) {
+            tvSettingsPrivacyStatus.setText(isRoomPrivate ? "Riêng tư ▾" : "Công khai ▾");
+        }
+        if (tvSettingsPrivacyDesc != null) {
+            tvSettingsPrivacyDesc.setText(isRoomPrivate 
+                    ? "Thành viên mới cần bạn phê duyệt để tham gia quỹ."
+                    : "Bất kỳ ai có mã tham gia đều có thể vào quỹ ngay lập tức.");
+        }
+        if (isRoomPrivate) {
+            List<RoomPrivacyManager.JoinRequestItem> saved = RoomPrivacyManager.getPendingRequests(getEffectiveRoomId());
+            for (RoomPrivacyManager.JoinRequestItem item : saved) {
+                if (!isJoinRequestResolved(getContext(), getEffectiveRoomId(), item.email, item.applicantName)) {
+                    pendingJoinRequests.add(new PendingJoinRequest(item.userId, item.applicantName, item.email, item.time, item.message));
+                }
+            }
+            if (pendingJoinRequests.isEmpty() && !isJoinRequestResolved(getContext(), getEffectiveRoomId(), "user3_test_realtime@sharedfund.com", "Lê Hoàng Nam")) {
+                pendingJoinRequests.add(new PendingJoinRequest("mock-nam-id", "Lê Hoàng Nam", "user3_test_realtime@sharedfund.com", "Vừa xong", "Xin vào quỹ ăn sáng chung nhóm"));
+            }
         }
         updateJoinRequestsBadge();
     }
@@ -1588,6 +1666,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
         btnConfirm.setOnClickListener(v -> {
             isRoomPrivate = selectedPrivate[0];
+            RoomPrivacyManager.setRoomPrivate(getEffectiveRoomId(), isRoomPrivate);
             if (tvSettingsPrivacyStatus != null) {
                 tvSettingsPrivacyStatus.setText(isRoomPrivate ? "Riêng tư ▾" : "Công khai ▾");
             }
@@ -1596,17 +1675,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                         ? "Thành viên mới cần bạn phê duyệt để tham gia quỹ."
                         : "Bất kỳ ai có mã tham gia đều có thể vào quỹ ngay lập tức.");
             }
-            if (isRoomPrivate) {
-                if (pendingJoinRequests.isEmpty() && !isJoinRequestResolved(getContext(), getEffectiveRoomId(), "user3_test_realtime@sharedfund.com", "Lê Hoàng Nam")) {
-                    pendingJoinRequests.add(new PendingJoinRequest("Lê Hoàng Nam", "user3_test_realtime@sharedfund.com", "Vừa xong", "Xin vào quỹ ăn sáng chung nhóm"));
-                }
-            } else {
-                pendingJoinRequests.clear();
-            }
-            updateJoinRequestsBadge();
-            AppToaster.success(requireActivity(), isRoomPrivate 
-                    ? "Đã đặt trạng thái quỹ: Riêng tư" 
-                    : "Đã đặt trạng thái quỹ: Công khai");
+            initPendingJoinRequests();
             bottomSheetDialog.dismiss();
         });
 
@@ -1708,8 +1777,9 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
         sheet.show();
     }
 
-    private void showMemberActionBottomSheet(RoomMember member, Runnable onUpdated) {
+    private void showMemberActionBottomSheet(RoomMember member, Runnable onUpdated, Runnable onTransferred) {
         if (getContext() == null || member == null) return;
+        if (!isCurrentUserOwner()) return;
         Room currentRoom = viewModel.getRoom().getValue();
         if (currentRoom == null) return;
         String roomId = currentRoom.getId();
@@ -1743,21 +1813,17 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
         if (tvRole != null) {
             if (isTreasurer) {
+                tvRole.setVisibility(View.VISIBLE);
                 tvRole.setText("★ Phó quỹ");
                 tvRole.setBackgroundResource(R.drawable.bg_role_badge_vice);
-                tvRole.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary));
+                tvRole.setTextColor(ContextCompat.getColor(requireContext(), R.color.role_vice_text));
                 tvRole.setTextSize(11.5f);
                 tvRole.setTypeface(null, Typeface.BOLD);
                 int padH = dpToPx(8);
                 int padV = dpToPx(2);
                 tvRole.setPadding(padH, padV, padH, padV);
             } else {
-                tvRole.setText("Thành viên quỹ");
-                tvRole.setBackground(null);
-                tvRole.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary));
-                tvRole.setTextSize(13f);
-                tvRole.setTypeface(null, Typeface.NORMAL);
-                tvRole.setPadding(0, 0, 0, 0);
+                tvRole.setVisibility(View.GONE);
             }
         }
 
@@ -1831,17 +1897,51 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                         R.drawable.ic_crown,
                         Color.parseColor("#B45309"),
                         R.drawable.bg_role_badge_owner,
-                        "Chuyển giao quyền Trưởng quỹ",
-                        "Bạn có chắc chắn muốn chuyển giao toàn quyền Trưởng quỹ cho " + member.getDisplayName() + "? Bạn sẽ trở thành thành viên thường sau thao tác này.",
+                        "Chuyển giao quyền Chủ quỹ",
+                        "Bạn có chắc chắn muốn chuyển giao toàn quyền Chủ quỹ cho " + member.getDisplayName() + "? Bạn sẽ trở thành thành viên thường sau thao tác này.",
                         "Chuyển quyền",
                         ContextCompat.getColor(requireContext(), R.color.primary),
                         () -> {
-                            member.setRole("OWNER");
+                            if (getContext() != null) {
+                                requireContext().getSharedPreferences("room_roles_" + roomId, Context.MODE_PRIVATE)
+                                        .edit()
+                                        .putString("owner_id", member.getUserId())
+                                        .apply();
+                            }
                             removeRoomTreasurer(roomId, member.getUserId());
-                            if (memberAdapter != null) memberAdapter.notifyDataSetChanged();
+                            if (currentRoom != null) {
+                                currentRoom.setCurrentUserRole("MEMBER");
+                                
+                                currentRoom.setCreatedBy(member.getUserId());
+                            }
+                            Room rSync = RoomRepository.getInstance().getRoomSync(roomId);
+                            if (rSync != null) {
+                                rSync.setCurrentUserRole("MEMBER");
+                                
+                                rSync.setCreatedBy(member.getUserId());
+                            }
+                            if (viewModel != null && viewModel.getMembers().getValue() != null) {
+                                for (RoomMember m : viewModel.getMembers().getValue()) {
+                                    if (m.getUserId() != null && m.getUserId().equals(member.getUserId())) {
+                                        m.setRole("OWNER");
+                                    } else if ("OWNER".equalsIgnoreCase(m.getRole())) {
+                                        m.setRole("MEMBER");
+                                    }
+                                }
+                            }
+                            member.setRole("OWNER");
+                            String currentUserId = UserSessionManager.getInstance(requireContext()).getUserId();
+                            if (memberAdapter != null) {
+                                memberAdapter.setCurrentUserPermissions(currentUserId, false, false);
+                                memberAdapter.notifyDataSetChanged();
+                            }
                             applyRoleBasedUi(currentRoom);
-                            AppToaster.success(requireActivity(), "Đã chuyển quyền Trưởng quỹ cho " + member.getDisplayName());
-                            if (onUpdated != null) onUpdated.run();
+                            AppToaster.success(requireActivity(), "Đã chuyển quyền Chủ quỹ cho " + member.getDisplayName());
+                            if (onTransferred != null) {
+                                onTransferred.run();
+                            } else if (onUpdated != null) {
+                                onUpdated.run();
+                            }
                         }
                 );
             });
@@ -1873,6 +1973,10 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
         Runnable renderList = new Runnable() {
             @Override
             public void run() {
+                if (!isCurrentUserOwner()) {
+                    dialog.dismiss();
+                    return;
+                }
                 List<RoomMember> members = viewModel.getMembers().getValue();
                 List<RoomMember> nonOwnerMembers = new ArrayList<>();
                 String currentUserId = UserSessionManager.getInstance(requireContext()).getUserId();
@@ -1958,21 +2062,17 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                     tvRole.setLayoutParams(lpRole);
 
                     if (isTreasurer) {
+                        tvRole.setVisibility(View.VISIBLE);
                         tvRole.setText("★ Phó quỹ");
                         tvRole.setBackgroundResource(R.drawable.bg_role_badge_vice);
-                        tvRole.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary));
+                        tvRole.setTextColor(ContextCompat.getColor(requireContext(), R.color.role_vice_text));
                         tvRole.setTextSize(11.5f);
                         tvRole.setTypeface(null, Typeface.BOLD);
                         int padH = dpToPx(8);
                         int padV = dpToPx(2);
                         tvRole.setPadding(padH, padV, padH, padV);
                     } else {
-                        tvRole.setText("Thành viên quỹ");
-                        tvRole.setBackground(null);
-                        tvRole.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary));
-                        tvRole.setTextSize(12.5f);
-                        tvRole.setTypeface(null, Typeface.NORMAL);
-                        tvRole.setPadding(0, 0, 0, 0);
+                        tvRole.setVisibility(View.GONE);
                     }
 
                     textCol.addView(tvName);
@@ -1990,7 +2090,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                     row.addView(ivChevron);
 
                     row.setOnClickListener(v -> {
-                        showMemberActionBottomSheet(m, this);
+                        showMemberActionBottomSheet(m, this, () -> dialog.dismiss());
                     });
 
                     layoutMembers.addView(row);
@@ -2124,7 +2224,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                         bubble.setLayoutParams(lpBubble);
                         bubble.setOrientation(LinearLayout.VERTICAL);
                         bubble.setPadding(dpToPx(12), dpToPx(8), dpToPx(12), dpToPx(8));
-                        bubble.setBackgroundResource(R.drawable.bg_role_badge_pill);
+                        bubble.setBackgroundResource(R.drawable.bg_edit_text_inline);
 
                         TextView tvMsgLabel = new TextView(requireContext());
                         tvMsgLabel.setText("Lời nhắn:");
@@ -2165,18 +2265,34 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                     btnAccept.setCornerRadius(dpToPx(10));
 
                     btnReject.setOnClickListener(v -> {
+                        RoomPrivacyManager.removePendingRequest(getEffectiveRoomId(), req.userId, req.email);
                         markJoinRequestResolved(dialog.getContext(), getEffectiveRoomId(), req);
                         pendingJoinRequests.remove(req);
                         updateJoinRequestsBadge();
-                        AppToaster.info(requireActivity(), "Đã từ chối yêu cầu tham gia.");
                         run();
                     });
 
                     btnAccept.setOnClickListener(v -> {
+                        RoomPrivacyManager.removePendingRequest(getEffectiveRoomId(), req.userId, req.email);
                         markJoinRequestResolved(dialog.getContext(), getEffectiveRoomId(), req);
                         pendingJoinRequests.remove(req);
                         updateJoinRequestsBadge();
-                        AppToaster.success(requireActivity(), "Đã phê duyệt " + req.applicantName + " vào quỹ!");
+                        Room currentRoom = RoomRepository.getInstance().getRoomSync(getEffectiveRoomId());
+                        if (currentRoom != null && req.userId != null && !req.userId.startsWith("mock-")) {
+                            RoomRepository.getInstance().addMember(currentRoom, req.userId, "MEMBER", new RoomRepository.DataCallback<Room>() {
+                                @Override
+                                public void onSuccess(Room r) {
+                                    if (!isAdded()) return;
+                                    requireActivity().runOnUiThread(() -> {
+                                        viewModel.loadMembers();
+                                    });
+                                }
+
+                                @Override
+                                public void onError(String error) {
+                                }
+                            });
+                        }
                         viewModel.loadMembers();
                         run();
                     });

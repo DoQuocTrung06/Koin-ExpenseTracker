@@ -16,6 +16,7 @@ public class HomeViewModel extends ViewModel {
     private final RoomRepository repository;
     private final MutableLiveData<Boolean> isLoading = new MutableLiveData<>(false);
     private final MutableLiveData<String> actionMessage = new MutableLiveData<>();
+    private final MutableLiveData<String> pendingApprovalRoom = new MutableLiveData<>();
     private final MutableLiveData<String> searchQuery = new MutableLiveData<>("");
     private final MediatorLiveData<List<Room>> filteredRooms = new MediatorLiveData<>();
     private final MutableLiveData<Double> personalWalletBalance = new MutableLiveData<>();
@@ -55,6 +56,10 @@ public class HomeViewModel extends ViewModel {
 
     public LiveData<String> getActionMessage() {
         return actionMessage;
+    }
+
+    public LiveData<String> getPendingApprovalRoom() {
+        return pendingApprovalRoom;
     }
 
     public void configureSupabase(String userId, String userName, String accessToken) {
@@ -165,7 +170,12 @@ public class HomeViewModel extends ViewModel {
                     }
                     @Override public void onError(String message) {
                         isLoading.postValue(false);
-                        actionMessage.postValue("Lỗi tham gia quỹ: " + message);
+                        if (message != null && message.startsWith("PENDING_APPROVAL:")) {
+                            String roomName = message.substring("PENDING_APPROVAL:".length());
+                            pendingApprovalRoom.postValue(roomName);
+                            return;
+                        }
+                        actionMessage.postValue(message);
                     }
                 });
     }

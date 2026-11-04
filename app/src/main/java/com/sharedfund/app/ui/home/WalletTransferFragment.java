@@ -46,6 +46,8 @@ import com.sharedfund.app.util.CopyToast;
 import com.sharedfund.app.util.ErrorMessageHelper;
 
 import java.text.DecimalFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.text.DecimalFormatSymbols;
 import java.time.Instant;
 import java.util.Locale;
@@ -58,6 +60,8 @@ import okhttp3.Response;
 public class WalletTransferFragment extends androidx.fragment.app.Fragment {
 
 
+    private View layoutWalletTransferForm;
+    private TextView tvWalletTransferScreenTitle;
     private View btnTabDeposit;
     private View btnTabWithdraw;
     private ImageView ivTabDeposit;
@@ -82,6 +86,17 @@ public class WalletTransferFragment extends androidx.fragment.app.Fragment {
     private View layoutQrInfoCard;
     private TextView tvQrSuccessAmount;
     private MaterialButton btnQrSuccessDone;
+
+    private View layoutWalletSuccessNotice;
+    private TextView tvWalletSuccessTitle;
+    private TextView tvWalletSuccessAmount;
+    private TextView tvWalletSuccessTxId;
+    private View btnWalletSuccessCopyTxId;
+    private TextView tvWalletSuccessTime;
+    private TextView tvWalletSuccessType;
+    private TextView tvWalletSuccessMethod;
+    private TextView tvWalletSuccessBalance;
+    private MaterialButton btnWalletSuccessDone;
 
     private double pendingDepositAmount = 0.0;
     private String depositQrGeneratedAt;
@@ -142,6 +157,8 @@ public class WalletTransferFragment extends androidx.fragment.app.Fragment {
     private void initViews(View view) {
         ImageButton btnBack = view.findViewById(R.id.btnWalletTransferBack);
         if (btnBack != null) btnBack.setOnClickListener(v -> requireActivity().getSupportFragmentManager().popBackStack());
+        layoutWalletTransferForm = view.findViewById(R.id.layoutWalletTransferForm);
+        tvWalletTransferScreenTitle = view.findViewById(R.id.tvWalletTransferScreenTitle);
         btnTabDeposit = view.findViewById(R.id.btnTabDeposit);
         btnTabWithdraw = view.findViewById(R.id.btnTabWithdraw);
         ivTabDeposit = view.findViewById(R.id.ivTabDeposit);
@@ -178,6 +195,33 @@ public class WalletTransferFragment extends androidx.fragment.app.Fragment {
         tilWithdrawAccountHolder = view.findViewById(R.id.tilWithdrawAccountHolder);
         etWithdrawAccountHolder = view.findViewById(R.id.etWithdrawAccountHolder);
         pbWithdrawLoading = view.findViewById(R.id.pbWithdrawLoading);
+
+        layoutWalletSuccessNotice = view.findViewById(R.id.layoutWalletSuccessNotice);
+        tvWalletSuccessTitle = view.findViewById(R.id.tvWalletSuccessTitle);
+        tvWalletSuccessAmount = view.findViewById(R.id.tvWalletSuccessAmount);
+        tvWalletSuccessTxId = view.findViewById(R.id.tvWalletSuccessTxId);
+        btnWalletSuccessCopyTxId = view.findViewById(R.id.btnWalletSuccessCopyTxId);
+        tvWalletSuccessTime = view.findViewById(R.id.tvWalletSuccessTime);
+        tvWalletSuccessType = view.findViewById(R.id.tvWalletSuccessType);
+        tvWalletSuccessMethod = view.findViewById(R.id.tvWalletSuccessMethod);
+        tvWalletSuccessBalance = view.findViewById(R.id.tvWalletSuccessBalance);
+        btnWalletSuccessDone = view.findViewById(R.id.btnWalletSuccessDone);
+
+        if (btnWalletSuccessDone != null) {
+            btnWalletSuccessDone.setOnClickListener(v -> requireActivity().getSupportFragmentManager().popBackStack());
+        }
+        if (btnWalletSuccessCopyTxId != null) {
+            btnWalletSuccessCopyTxId.setOnClickListener(v -> {
+                if (tvWalletSuccessTxId != null) {
+                    android.content.ClipboardManager clipboard = (android.content.ClipboardManager) requireContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+                    android.content.ClipData clip = android.content.ClipData.newPlainText("TxId", tvWalletSuccessTxId.getText().toString());
+                    if (clipboard != null) {
+                        clipboard.setPrimaryClip(clip);
+                        android.widget.Toast.makeText(requireContext(), "Đã sao chép mã giao dịch", android.widget.Toast.LENGTH_SHORT).show();
+                    }
+                }
+            });
+        }
 
         layoutBottomWalletDock = view.findViewById(R.id.layoutBottomWalletDock);
         layoutQuickAmountBarWallet = view.findViewById(R.id.layoutQuickAmountBarWallet);
@@ -438,28 +482,7 @@ public class WalletTransferFragment extends androidx.fragment.app.Fragment {
 
         sepayPollHandler.postDelayed(() -> {
             if (!isAdded()) return;
-            if (layoutQrProcessingNotice != null) {
-                layoutQrProcessingNotice.setVisibility(View.GONE);
-            }
-
-            DecimalFormatSymbols curSymbols = new DecimalFormatSymbols(Locale.US);
-            curSymbols.setGroupingSeparator('.');
-            DecimalFormat curDf = new DecimalFormat("#,##0", curSymbols);
-
-            if (tvQrSuccessAmount != null) {
-                tvQrSuccessAmount.setText("+" + curDf.format(amount) + " ₫");
-            }
-            if (layoutQrSuccessNotice != null) {
-                layoutQrSuccessNotice.setVisibility(View.VISIBLE);
-            }
-            RoomRepository.getInstance().loadUserProfile();
-
-            if (btnQrSuccessDone != null) {
-                btnQrSuccessDone.setOnClickListener(v -> requireActivity().getSupportFragmentManager().popBackStack());
-            }
-            sepayPollHandler.postDelayed(() -> {
-                if (isAdded()) requireActivity().getSupportFragmentManager().popBackStack();
-            }, 3500);
+            showFullSuccessNotice(true, amount, null);
         }, 1200);
     }
 
@@ -592,30 +615,7 @@ public class WalletTransferFragment extends androidx.fragment.app.Fragment {
                         if (!isAdded()) return;
                         requireActivity().runOnUiThread(() -> {
                             setWithdrawLoading(false);
-                            RoomRepository.getInstance().loadUserProfile();
-                
-                            DecimalFormatSymbols sym = new DecimalFormatSymbols(Locale.US);
-                            sym.setGroupingSeparator('.');
-                            DecimalFormat curDf = new DecimalFormat("#,##0", sym);
-
-                            if (layoutTabWithdraw != null) layoutTabWithdraw.setVisibility(View.GONE);
-                            if (layoutTabDeposit != null) layoutTabDeposit.setVisibility(View.GONE);
-                            if (layoutBottomWalletDock != null) layoutBottomWalletDock.setVisibility(View.GONE);
-                            if (layoutQrSection != null) layoutQrSection.setVisibility(View.VISIBLE);
-                            if (layoutQrInfoCard != null) layoutQrInfoCard.setVisibility(View.GONE);
-                            if (ivQrCode != null) ivQrCode.setVisibility(View.GONE);
-
-                            if (tvQrSuccessAmount != null) {
-                                tvQrSuccessAmount.setText("-" + curDf.format(amount) + " ₫");
-                            }
-                            TextView tvTitle = requireView().findViewById(R.id.tvQrSuccessTitle);
-                            if (tvTitle != null) tvTitle.setText("Rút tiền thành công!");
-                            if (layoutQrSuccessNotice != null) {
-                                layoutQrSuccessNotice.setVisibility(View.VISIBLE);
-                            }
-                            if (btnQrSuccessDone != null) {
-                                btnQrSuccessDone.setOnClickListener(v -> requireActivity().getSupportFragmentManager().popBackStack());
-                            }
+                            showFullSuccessNotice(false, amount, null);
                         });
                     }
 
@@ -668,4 +668,69 @@ public class WalletTransferFragment extends androidx.fragment.app.Fragment {
             layoutQuickAmountBarWallet.setVisibility(isImeOpen && isAmountFocused ? View.VISIBLE : View.GONE);
         }
     }
+    private void showFullSuccessNotice(boolean isDeposit, double amount, String txId) {
+        if (!isAdded()) return;
+        requireActivity().runOnUiThread(() -> {
+            if (!isAdded()) return;
+            if (layoutWalletTransferForm != null) layoutWalletTransferForm.setVisibility(View.GONE);
+            if (layoutBottomWalletDock != null) layoutBottomWalletDock.setVisibility(View.GONE);
+            if (layoutQuickAmountBarWallet != null) layoutQuickAmountBarWallet.setVisibility(View.GONE);
+            if (layoutQrProcessingNotice != null) layoutQrProcessingNotice.setVisibility(View.GONE);
+            if (layoutQrSection != null) layoutQrSection.setVisibility(View.GONE);
+            if (tvWalletTransferScreenTitle != null) {
+                tvWalletTransferScreenTitle.setText("Kết quả giao dịch");
+            }
+            if (layoutWalletSuccessNotice != null) {
+                layoutWalletSuccessNotice.setVisibility(View.VISIBLE);
+            }
+
+            DecimalFormatSymbols curSymbols = new DecimalFormatSymbols(Locale.US);
+            curSymbols.setGroupingSeparator('.');
+            DecimalFormat curDf = new DecimalFormat("#,##0", curSymbols);
+
+            String formattedAmount = (isDeposit ? "+" : "-") + curDf.format(amount) + " ₫";
+            if (tvWalletSuccessAmount != null) {
+                tvWalletSuccessAmount.setText(formattedAmount);
+            }
+            if (tvWalletSuccessTitle != null) {
+                tvWalletSuccessTitle.setText(isDeposit ? "Nạp tiền thành công!" : "Rút tiền thành công!");
+            }
+
+            String finalTxId = (txId != null && !txId.isEmpty()) ? txId : ("#SF-" + String.format(Locale.US, "%08X", (int) (System.currentTimeMillis() & 0xFFFFFFFFL)));
+            if (tvWalletSuccessTxId != null) {
+                tvWalletSuccessTxId.setText(finalTxId);
+            }
+            if (btnWalletSuccessCopyTxId != null) {
+                btnWalletSuccessCopyTxId.setOnClickListener(v -> {
+                    ClipboardManager clipboard = (ClipboardManager) requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
+                    ClipData clip = ClipData.newPlainText("Transaction ID", finalTxId);
+                    if (clipboard != null) {
+                        clipboard.setPrimaryClip(clip);
+                        CopyToast.show(requireContext(), requireView());
+                    }
+                });
+            }
+
+            SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss - dd/MM/yyyy", Locale.getDefault());
+            if (tvWalletSuccessTime != null) {
+                tvWalletSuccessTime.setText(timeFormat.format(new Date()));
+            }
+
+            if (tvWalletSuccessType != null) {
+                tvWalletSuccessType.setText(isDeposit ? "Nạp tiền vào Ví Koin" : "Rút tiền về tài khoản ngân hàng");
+            }
+
+            if (tvWalletSuccessMethod != null) {
+                tvWalletSuccessMethod.setText(isDeposit ? "Chuyển khoản VietQR" : "Tài khoản ngân hàng liên kết");
+            }
+
+            double currentBal = RoomRepository.getInstance().getUserWalletBalance();
+            if (tvWalletSuccessBalance != null) {
+                tvWalletSuccessBalance.setText(curDf.format(currentBal) + " ₫");
+            }
+
+            RoomRepository.getInstance().loadUserProfile();
+        });
+    }
+
 }

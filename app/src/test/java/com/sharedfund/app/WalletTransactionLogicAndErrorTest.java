@@ -177,4 +177,54 @@ public class WalletTransactionLogicAndErrorTest {
         assertEquals(700000.0, txOldest.getBalanceAfter(), 0.001);
         assertEquals(800000.0, running, 0.001);
     }
+
+    @Test
+    public void testRecentActivitiesIncludeRejectedTransactions() {
+        Transaction txSuccess = new Transaction();
+        txSuccess.setId("tx-1");
+        txSuccess.setRoomId("room-1");
+        txSuccess.setStatus(Transaction.STATUS_APPROVED);
+
+        Transaction txRejected = new Transaction();
+        txRejected.setId("tx-2");
+        txRejected.setRoomId("room-1");
+        txRejected.setStatus(Transaction.STATUS_REJECTED);
+
+        Transaction txPending = new Transaction();
+        txPending.setId("tx-3");
+        txPending.setRoomId("room-1");
+        txPending.setStatus(Transaction.STATUS_PENDING);
+
+        List<Transaction> all = new ArrayList<>();
+        all.add(txSuccess);
+        all.add(txRejected);
+        all.add(txPending);
+
+        List<Transaction> confirmedHistory = new ArrayList<>();
+        List<Transaction> recent = new ArrayList<>();
+        List<Transaction> pending = new ArrayList<>();
+
+        for (Transaction tx : all) {
+            if (tx.isPending()) {
+                pending.add(tx);
+            } else {
+                if (!Transaction.STATUS_REJECTED.equalsIgnoreCase(tx.getStatus())) {
+                    confirmedHistory.add(tx);
+                }
+                if (recent.size() < 5) {
+                    recent.add(tx);
+                }
+            }
+        }
+
+        assertEquals(1, confirmedHistory.size());
+        assertEquals("tx-1", confirmedHistory.get(0).getId());
+
+        assertEquals(2, recent.size());
+        assertEquals("tx-1", recent.get(0).getId());
+        assertEquals("tx-2", recent.get(1).getId());
+
+        assertEquals(1, pending.size());
+        assertEquals("tx-3", pending.get(0).getId());
+    }
 }

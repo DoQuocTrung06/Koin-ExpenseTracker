@@ -310,6 +310,21 @@
                     android:textSize="15sp"
                     android:textStyle="bold" />
             </LinearLayout>
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginTop="10dp"
+                        android:layout_marginBottom="10dp"
+                        android:background="@color/border_light" />
+
+                    <TextView
+                        android:id="@+id/tvQrDepositNotice"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:lineSpacingExtra="3dp"
+                        android:text="Lưu ý: Vui lòng giữ nguyên nội dung chuyển tiền để hệ thống tự động cộng tiền vào ví."
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12.5sp" />
         </LinearLayout>
 
         <LinearLayout

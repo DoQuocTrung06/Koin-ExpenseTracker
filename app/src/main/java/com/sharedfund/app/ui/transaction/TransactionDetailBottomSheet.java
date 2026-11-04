@@ -183,7 +183,7 @@ public class TransactionDetailBottomSheet extends BottomSheetDialogFragment {
             tvDetailStatusBadge.setTextColor(ContextCompat.getColor(requireContext(), R.color.accent_expense));
             layoutRejectionReason.setVisibility(View.VISIBLE);
             if (tvRejectionReasonTitle != null) {
-                tvRejectionReasonTitle.setText("Lý do từ chối từ Trưởng quỹ:");
+                tvRejectionReasonTitle.setText("Lý do từ chối từ Chủ quỹ:");
             }
             if (transaction.getRoomId() != null && !transaction.getRoomId().isEmpty()) {
                 RoomRepository.getInstance().loadRoomMembers(transaction.getRoomId(), new RoomRepository.DataCallback<List<RoomMember>>() {
@@ -191,14 +191,14 @@ public class TransactionDetailBottomSheet extends BottomSheetDialogFragment {
                     public void onSuccess(List<RoomMember> members) {
                         if (!isAdded() || members == null) return;
                         String approverId = transaction.getApprovedBy();
-                        String roleName = "Trưởng quỹ";
+                        String roleName = "Chủ quỹ";
                         if (approverId != null && !approverId.isEmpty()) {
                             for (RoomMember m : members) {
                                 if (approverId.equals(m.getUserId())) {
                                     if ("TREASURER".equalsIgnoreCase(m.getRole()) || "VICE".equalsIgnoreCase(m.getRole())) {
                                         roleName = "Phó quỹ";
                                     } else {
-                                        roleName = "Trưởng quỹ";
+                                        roleName = "Chủ quỹ";
                                     }
                                     break;
                                 }

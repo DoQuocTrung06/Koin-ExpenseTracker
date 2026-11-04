@@ -328,27 +328,21 @@ public class AppToaster {
     }
 
     public static void success(Activity activity, String message) {
-        show(activity, ToastType.SUCCESS, null, message);
     }
 
     public static void success(Activity activity, String title, String message) {
-        show(activity, ToastType.SUCCESS, title, message);
     }
 
     public static void success(Fragment fragment, String message) {
-        show(fragment, ToastType.SUCCESS, null, message);
     }
 
     public static void success(Fragment fragment, String title, String message) {
-        show(fragment, ToastType.SUCCESS, title, message);
     }
 
     public static void success(Context context, String message) {
-        show(context, ToastType.SUCCESS, null, message);
     }
 
     public static void success(Context context, String title, String message) {
-        show(context, ToastType.SUCCESS, title, message);
     }
 
     public static void info(Activity activity, String message) {

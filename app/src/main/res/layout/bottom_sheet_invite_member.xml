@@ -36,30 +36,31 @@
         android:textColor="@color/text_secondary"
         android:textSize="14sp" />
 
-    <com.google.android.material.card.MaterialCardView
+    <FrameLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        app:cardBackgroundColor="@color/white"
-        app:cardCornerRadius="16dp"
-        app:cardElevation="3dp"
-        app:strokeColor="@color/border"
-        app:strokeWidth="1dp">
+        android:background="@drawable/bg_qr_frame"
+        android:elevation="1dp">
 
         <ImageView
             android:id="@+id/ivInviteQrCode"
-            android:layout_width="190dp"
-            android:layout_height="190dp"
+            android:layout_width="220dp"
+            android:layout_height="220dp"
             android:layout_gravity="center"
             android:contentDescription="Mã QR tham gia"
-            android:padding="12dp" />
-    </com.google.android.material.card.MaterialCardView>
+            android:padding="8dp" />
+    </FrameLayout>
 
     <LinearLayout
+        android:id="@+id/layoutCopyJoinCode"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
         android:background="@drawable/bg_card"
+        android:clickable="true"
+        android:focusable="true"
+        android:foreground="?attr/selectableItemBackground"
         android:gravity="center"
         android:orientation="vertical"
         android:padding="14dp">
@@ -69,19 +70,35 @@
             android:layout_height="wrap_content"
             android:text="MÃ THAM GIA QUỸ"
             android:textColor="@color/text_secondary"
-            android:textSize="13sp"
+            android:textSize="12sp"
             android:textStyle="bold" />
 
-        <TextView
-            android:id="@+id/tvInviteJoinCode"
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:letterSpacing="0.2"
-            android:text="DALAT6"
-            android:textColor="@color/primary"
-            android:textSize="28sp"
-            android:textStyle="bold" />
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/tvInviteJoinCode"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:letterSpacing="0.2"
+                android:text="022ACA"
+                android:textColor="@color/primary"
+                android:textSize="28sp"
+                android:textStyle="bold" />
+
+            <ImageView
+                android:id="@+id/btnCopyInviteIcon"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:layout_marginStart="10dp"
+                android:contentDescription="Sao chép mã"
+                android:src="@drawable/ic_copy"
+                app:tint="@color/primary" />
+        </LinearLayout>
     </LinearLayout>
 
     <LinearLayout
@@ -91,16 +108,21 @@
         android:orientation="horizontal">
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnCopyInviteCode"
-            style="@style/Widget.Material3.Button.TonalButton"
+            android:id="@+id/btnCloseInvite"
             android:layout_width="0dp"
             android:layout_height="48dp"
             android:layout_marginEnd="6dp"
             android:layout_weight="1"
-            android:text="Sao chép mã"
+            android:backgroundTint="@color/surface_variant"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:text="Đóng"
+            android:textAllCaps="false"
+            android:textColor="@color/text_secondary"
             android:textSize="15sp"
-            app:cornerRadius="10dp"
-            app:icon="@drawable/ic_copy" />
+            android:textStyle="bold"
+            app:cornerRadius="12dp"
+            app:elevation="0dp" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnShareInvite"
@@ -109,23 +131,16 @@
             android:layout_marginStart="6dp"
             android:layout_weight="1"
             android:backgroundTint="@color/primary"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
             android:text="Chia sẻ"
+            android:textAllCaps="false"
             android:textColor="@color/white"
             android:textSize="15sp"
             android:textStyle="bold"
-            app:cornerRadius="10dp"
+            app:cornerRadius="12dp"
             app:icon="@drawable/ic_share"
             app:iconTint="@color/white" />
     </LinearLayout>
-
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnCloseInvite"
-        style="@style/Widget.Material3.Button.TextButton"
-        android:layout_width="wrap_content"
-        android:layout_height="48dp"
-        android:layout_marginTop="8dp"
-        android:text="Đóng"
-        android:textColor="@color/text_secondary"
-        android:textSize="15sp" />
 
 </LinearLayout>

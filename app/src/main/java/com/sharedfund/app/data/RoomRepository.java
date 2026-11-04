@@ -150,11 +150,11 @@ public class RoomRepository {
 
     private void initMockData() {
         Room r1 = new Room("room-1", "Quỹ Du Lịch Đà Lạt 2026", "DALAT6", 0, "Quỹ gom tiền đi du lịch Đà Lạt mùa hoa dã quỳ của nhóm bạn thân.", 5,
-                new ArrayList<>(java.util.Arrays.asList("Bạn (Trưởng quỹ)", "Tuấn Anh", "Bảo Linh", "Minh Quân", "Thu Hương")), "01/10/2026");
+                new ArrayList<>(java.util.Arrays.asList("Bạn (Chủ quỹ)", "Tuấn Anh", "Bảo Linh", "Minh Quân", "Thu Hương")), "01/10/2026");
         Room r2 = new Room("room-2", "Quỹ Tiền Nhà & Sinh Hoạt Trọ", "TRO102", 0, "Quỹ đóng tiền phòng, điện nước và đồ dùng chung phòng 302.", 3,
-                new ArrayList<>(java.util.Arrays.asList("Bạn (Trưởng quỹ)", "Đức Trí", "Hoàng Nam")), "05/10/2026");
+                new ArrayList<>(java.util.Arrays.asList("Bạn (Chủ quỹ)", "Đức Trí", "Hoàng Nam")), "05/10/2026");
         Room r3 = new Room("room-3", "Quỹ Ăn Trưa & Coffee Team Tech", "TECH88", 0, "Chi phí ăn trưa, trà sữa xế chiều cho team công nghệ.", 4,
-                new ArrayList<>(java.util.Arrays.asList("Bạn", "Quốc Huy (Trưởng quỹ)", "Mai Phương", "Tiến Dũng")), "10/10/2026");
+                new ArrayList<>(java.util.Arrays.asList("Bạn", "Quốc Huy (Chủ quỹ)", "Mai Phương", "Tiến Dũng")), "10/10/2026");
 
         roomList.add(r1);
         roomList.add(r2);
@@ -405,8 +405,47 @@ public class RoomRepository {
                 if (!response.isSuccessful()) { callback.onError(error(response, body)); return; }
                 try {
                     JsonArray rows = JsonParser.parseString(body).getAsJsonArray();
-                    if (rows.size() == 0) { callback.onError("Fund room not found with this join code."); return; }
-                    addMember(gson.fromJson(rows.get(0), Room.class), userId, "MEMBER", callback);
+                    if (rows.size() == 0) { callback.onError("Không tìm thấy quỹ với mã tham gia này."); return; }
+                    Room targetRoom = gson.fromJson(rows.get(0), Room.class);
+                    if (userId != null && userId.equalsIgnoreCase(targetRoom.getCreatedBy())) {
+                        callback.onError("Bạn là người tạo quỹ này!");
+                        return;
+                    }
+                    String checkPath = "/room_members?select=id,role&room_id=eq." + targetRoom.getId() + "&user_id=eq." + userId;
+                    client.newCall(request(checkPath).get().build()).enqueue(new okhttp3.Callback() {
+                        @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+                        @Override public void onResponse(Call call, Response response) throws IOException {
+                            String memBody = response.body() != null ? response.body().string() : "";
+                            if (!response.isSuccessful()) { callback.onError(error(response, memBody)); return; }
+                            try {
+                                JsonArray memRows = JsonParser.parseString(memBody).getAsJsonArray();
+                                if (memRows.size() > 0) {
+                                    callback.onError("Bạn đã là thành viên của quỹ này!");
+                                    return;
+                                }
+                                if (RoomPrivacyManager.isRoomPrivate(targetRoom.getId())) {
+                                    UserSessionManager session = UserSessionManager.getInstance(com.sharedfund.app.SharedFundApp.getInstance());
+                                    String applicantName = session != null ? session.getFullName() : "Thành viên mới";
+                                    String applicantEmail = session != null ? session.getEmail() : "";
+                                    if (applicantName == null || applicantName.trim().isEmpty()) {
+                                        applicantName = "Thành viên mới";
+                                    }
+                                    RoomPrivacyManager.addPendingRequest(targetRoom.getId(), new RoomPrivacyManager.JoinRequestItem(
+                                            userId,
+                                            applicantName,
+                                            applicantEmail,
+                                            "Vừa xong",
+                                            "Xin vào quỹ " + targetRoom.getName()
+                                    ));
+                                    callback.onError("PENDING_APPROVAL:" + targetRoom.getName());
+                                    return;
+                                }
+                                addMember(targetRoom, userId, "MEMBER", callback);
+                            } catch (Exception e) {
+                                callback.onError("Lỗi kiểm tra thành viên: " + e.getMessage());
+                            }
+                        }
+                    });
                 } catch (Exception e) { callback.onError("Invalid room response: " + e.getMessage()); }
             }
         });
@@ -425,7 +464,7 @@ public class RoomRepository {
                     m.setRoomId(roomId);
                     m.setUserId("user-mock-" + i);
                     m.setFullName(name);
-                    m.setRole(name.contains("Trưởng quỹ") ? "OWNER" : "MEMBER");
+                    m.setRole(name.contains("Chủ quỹ") ? "OWNER" : "MEMBER");
                     m.setTotalContributed(perMember);
                     mockMembers.add(m);
                 }
@@ -464,7 +503,7 @@ public class RoomRepository {
         });
     }
 
-    private void addMember(Room room, String userId, String role, DataCallback<Room> callback) {
+    public void addMember(Room room, String userId, String role, DataCallback<Room> callback) {
         room.setCurrentUserRole(role);
         JsonObject row = new JsonObject();
         row.addProperty("room_id", room.getId());
@@ -497,8 +536,8 @@ public class RoomRepository {
         String code = makeJoinCode();
         List<String> members = new ArrayList<>();
         String creatorLabel = currentUserName != null && !currentUserName.isEmpty()
-                ? currentUserName + " (Trưởng quỹ)"
-                : "Bạn (Trưởng quỹ)";
+                ? currentUserName + " (Chủ quỹ)"
+                : "Bạn (Chủ quỹ)";
         members.add(creatorLabel);
         Room newRoom = new Room(id, name, code, 0, description, 1, members);
         if (targetAmount > 0) {
@@ -990,7 +1029,7 @@ public class RoomRepository {
     public void leaveRoom(String roomId, String userId, DataCallback<Boolean> callback) {
         Room room = getRoomSync(roomId);
         if (room != null && "OWNER".equalsIgnoreCase(room.getCurrentUserRole())) {
-            callback.onError("Trưởng quỹ không thể rời phòng. Vui lòng chuyển quyền hoặc đóng quỹ.");
+            callback.onError("Chủ quỹ không thể rời phòng. Vui lòng chuyển quyền hoặc đóng quỹ.");
             return;
         }
         if ("user-001".equals(currentUserId) || (roomId != null && roomId.startsWith("room-"))) {

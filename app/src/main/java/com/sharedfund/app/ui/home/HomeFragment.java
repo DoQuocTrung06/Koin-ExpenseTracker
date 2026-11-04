@@ -330,6 +330,15 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
                 }
             }
         });
+
+        viewModel.getPendingApprovalRoom().observe(getViewLifecycleOwner(), new Observer<String>() {
+            @Override
+            public void onChanged(String roomName) {
+                if (roomName != null && !roomName.isEmpty()) {
+                    showPendingApprovalDialog(roomName);
+                }
+            }
+        });
     }
 
     private void setupClickListeners() {
@@ -629,11 +638,12 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
             });
         }
 
-        final MaterialButton btnCancel = dialogView.findViewById(R.id.btnCancelCreateRoom);
-        final MaterialButton btnConfirm = dialogView.findViewById(R.id.btnConfirmCreateRoom);
+        final View btnCancel = dialogView.findViewById(R.id.btnCancelCreateRoom);
+        final View btnConfirm = dialogView.findViewById(R.id.btnConfirmCreateRoom);
 
         final AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
                 .setView(dialogView)
+                .setBackground(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
                 .setCancelable(true)
                 .create();
 
@@ -695,6 +705,7 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
 
         final AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
                 .setView(dialogView)
+                .setBackground(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
                 .setCancelable(true)
                 .create();
 
@@ -718,4 +729,32 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
 
         dialog.show();
     }
+    private void showPendingApprovalDialog(String roomName) {
+        if (getContext() == null) return;
+        Dialog dialog = new Dialog(requireContext());
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dialog.setContentView(R.layout.dialog_koin_notice);
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+            dialog.getWindow().setLayout(
+                    (int) (getResources().getDisplayMetrics().widthPixels * 0.88),
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+        }
+        TextView tvTitle = dialog.findViewById(R.id.tvNoticeDialogTitle);
+        TextView tvMessage = dialog.findViewById(R.id.tvNoticeDialogMessage);
+        View btnClose = dialog.findViewById(R.id.btnNoticeDialogClose);
+
+        if (tvTitle != null) {
+            tvTitle.setText("Đã gửi yêu cầu tham gia");
+        }
+        if (tvMessage != null) {
+            tvMessage.setText("Quỹ \"" + roomName + "\" đang ở chế độ riêng tư. Yêu cầu tham gia của bạn đã được gửi, vui lòng chờ Chủ quỹ hoặc Phó quỹ phê duyệt.");
+        }
+        if (btnClose != null) {
+            btnClose.setOnClickListener(v -> dialog.dismiss());
+        }
+        dialog.show();
+    }
+
 }
