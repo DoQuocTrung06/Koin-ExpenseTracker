@@ -216,20 +216,37 @@ public class ExpenseApprovalFragment extends Fragment {
             dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
         }
 
+        View layoutInputBox = view.findViewById(R.id.layoutRejectInputBox);
+        TextView tvError = view.findViewById(R.id.tvRejectReasonError);
         EditText etReason = view.findViewById(R.id.etRejectReason);
         MaterialButton btnCancel = view.findViewById(R.id.btnCancelReject);
         MaterialButton btnConfirm = view.findViewById(R.id.btnConfirmReject);
 
-        btnCancel.setOnClickListener(v -> dialog.dismiss());
-        btnConfirm.setOnClickListener(v -> {
-            String reason = etReason.getText() != null ? etReason.getText().toString().trim() : "";
-            if (reason.isEmpty()) {
-                Toast.makeText(requireContext(), "Bắt buộc phải nhập lý do từ chối!", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            dialog.dismiss();
-            executeReject(tx, position, reason);
-        });
+        if (etReason != null) {
+            etReason.addTextChangedListener(new android.text.TextWatcher() {
+                @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                    if (tvError != null) tvError.setVisibility(View.GONE);
+                    if (layoutInputBox != null) layoutInputBox.setBackgroundResource(R.drawable.bg_input_box);
+                }
+                @Override public void afterTextChanged(android.text.Editable s) {}
+            });
+        }
+
+        if (btnCancel != null) btnCancel.setOnClickListener(v -> dialog.dismiss());
+        if (btnConfirm != null) {
+            btnConfirm.setOnClickListener(v -> {
+                String reason = etReason != null && etReason.getText() != null ? etReason.getText().toString().trim() : "";
+                if (reason.isEmpty()) {
+                    if (tvError != null) tvError.setVisibility(View.VISIBLE);
+                    if (layoutInputBox != null) layoutInputBox.setBackgroundResource(R.drawable.bg_input_box_error);
+                    if (etReason != null) etReason.requestFocus();
+                    return;
+                }
+                dialog.dismiss();
+                executeReject(tx, position, reason);
+            });
+        }
 
         dialog.show();
     }

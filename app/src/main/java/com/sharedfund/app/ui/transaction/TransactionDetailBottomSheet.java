@@ -255,31 +255,49 @@ public class TransactionDetailBottomSheet extends BottomSheetDialogFragment {
     }
 
     private void showRejectInputDialog() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
-        builder.setTitle("Lý do từ chối yêu cầu chi");
+        if (getContext() == null) return;
+        androidx.appcompat.app.AlertDialog dialog = new androidx.appcompat.app.AlertDialog.Builder(requireContext()).create();
+        View view = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_koin_reject_expense, null);
+        dialog.setView(view);
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        }
 
-        final EditText input = new EditText(requireContext());
-        input.setHint("Nhập lý do cụ thể (bắt buộc)...");
-        input.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary));
-        input.setHintTextColor(ContextCompat.getColor(requireContext(), R.color.text_tertiary));
-        int padH = (int) (16 * getResources().getDisplayMetrics().density);
-        int padV = (int) (12 * getResources().getDisplayMetrics().density);
-        input.setPadding(padH, padV, padH, padV);
-        builder.setView(input);
+        View layoutInputBox = view.findViewById(R.id.layoutRejectInputBox);
+        TextView tvError = view.findViewById(R.id.tvRejectReasonError);
+        EditText etReason = view.findViewById(R.id.etRejectReason);
+        com.google.android.material.button.MaterialButton btnCancel = view.findViewById(R.id.btnCancelReject);
+        com.google.android.material.button.MaterialButton btnConfirm = view.findViewById(R.id.btnConfirmReject);
 
-        builder.setPositiveButton("Xác nhận từ chối", (dialog, which) -> {
-            String reason = input.getText().toString().trim();
-            if (reason.isEmpty()) {
-                Toast.makeText(requireContext(), "Bắt buộc phải nhập lý do từ chối!", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            if (actionListener != null) {
-                actionListener.onReject(transaction, reason);
-            }
-            dismiss();
-        });
+        if (etReason != null) {
+            etReason.addTextChangedListener(new android.text.TextWatcher() {
+                @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                    if (tvError != null) tvError.setVisibility(View.GONE);
+                    if (layoutInputBox != null) layoutInputBox.setBackgroundResource(R.drawable.bg_input_box);
+                }
+                @Override public void afterTextChanged(android.text.Editable s) {}
+            });
+        }
 
-        builder.setNegativeButton("Hủy", (dialog, which) -> dialog.cancel());
-        builder.show();
+        if (btnCancel != null) btnCancel.setOnClickListener(v -> dialog.dismiss());
+        if (btnConfirm != null) {
+            btnConfirm.setOnClickListener(v -> {
+                String reason = etReason != null && etReason.getText() != null ? etReason.getText().toString().trim() : "";
+                if (reason.isEmpty()) {
+                    if (tvError != null) tvError.setVisibility(View.VISIBLE);
+                    if (layoutInputBox != null) layoutInputBox.setBackgroundResource(R.drawable.bg_input_box_error);
+                    if (etReason != null) etReason.requestFocus();
+                    return;
+                }
+                dialog.dismiss();
+                if (actionListener != null) {
+                    actionListener.onReject(transaction, reason);
+                }
+                dismiss();
+            });
+        }
+
+        dialog.show();
     }
 }
