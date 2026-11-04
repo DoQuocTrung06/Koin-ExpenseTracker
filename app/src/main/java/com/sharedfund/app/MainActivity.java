@@ -104,6 +104,10 @@ public class MainActivity extends AppCompatActivity {
         loadFragment(com.sharedfund.app.ui.room.RoomTransferFragment.newInstance(roomId, roomBalance), true);
     }
 
+    public void openExpenseApproval(String roomId) {
+        loadFragment(com.sharedfund.app.ui.room.ExpenseApprovalFragment.newInstance(roomId), true);
+    }
+
     public void openRoomDetail(String roomId) {
         loadFragment(RoomDetailFragment.newInstance(roomId), true);
     }

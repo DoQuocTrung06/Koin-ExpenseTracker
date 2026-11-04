@@ -118,10 +118,12 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
     private MaterialButton btnRoomTransfer;
     private MaterialButton btnUnifiedTransfer;
     private MaterialButton btnRoomUtilities;
-    private TextView tvSeeAllTransactions;
     private LinearLayout layoutEmptyRecentTx;
     private View cardRecentTransactions;
     private RecyclerView rvRecentTransactions;
+    private View layoutPendingApprovalBanner;
+    private TextView tvPendingApprovalCount;
+    private TextView tvPendingApprovalSummary;
 
 
     private TextView tvHistoryTotalIncome;
@@ -198,8 +200,23 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
             roomId = getArguments().getString(ARG_ROOM_ID);
         }
         roomCoverPicker = registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
-            if (uri != null) {
-                saveRoomBackground(uri.toString());
+            if (uri != null && getContext() != null) {
+                String targetName = "koin_cover_room_" + (roomId != null ? roomId : "default") + ".jpg";
+                com.sharedfund.app.util.ImageCropHelper.cropAndSaveCoverAsync(requireContext(), uri, targetName, new com.sharedfund.app.util.ImageCropHelper.OnCropFinishedListener() {
+                    @Override
+                    public void onSuccess(String fileUri, android.graphics.Bitmap bitmap) {
+                        saveRoomBackground(fileUri);
+                        if (ivRoomCover != null) {
+                            ivRoomCover.setImageBitmap(bitmap);
+                            ivRoomCover.setVisibility(View.VISIBLE);
+                        }
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        saveRoomBackground(uri.toString());
+                    }
+                });
             }
         });
     }
@@ -290,10 +307,33 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
         btnRoomTransfer = view.findViewById(R.id.btnRoomTransfer);
         btnUnifiedTransfer = view.findViewById(R.id.btnUnifiedTransfer);
         btnRoomUtilities = view.findViewById(R.id.btnRoomUtilities);
-        tvSeeAllTransactions = view.findViewById(R.id.tvSeeAllTransactions);
         layoutEmptyRecentTx = view.findViewById(R.id.layoutEmptyRecentTx);
         cardRecentTransactions = view.findViewById(R.id.cardRecentTransactions);
         rvRecentTransactions = view.findViewById(R.id.rvRecentTransactions);
+        layoutPendingApprovalBanner = view.findViewById(R.id.layoutPendingApprovalBanner);
+        tvPendingApprovalCount = view.findViewById(R.id.tvPendingApprovalCount);
+        tvPendingApprovalSummary = view.findViewById(R.id.tvPendingApprovalSummary);
+        if (layoutPendingApprovalBanner != null) {
+            layoutPendingApprovalBanner.setOnTouchListener((v, event) -> {
+                switch (event.getAction()) {
+                    case android.view.MotionEvent.ACTION_DOWN:
+                        v.animate().scaleX(0.985f).scaleY(0.985f).alpha(0.92f).setDuration(120).start();
+                        break;
+                    case android.view.MotionEvent.ACTION_UP:
+                        v.animate().scaleX(1.0f).scaleY(1.0f).alpha(1.0f).setDuration(150).withEndAction(() -> {
+                            if (isAdded()) {
+                                openExpenseApprovalScreen();
+                            }
+                        }).start();
+                        v.performClick();
+                        break;
+                    case android.view.MotionEvent.ACTION_CANCEL:
+                        v.animate().scaleX(1.0f).scaleY(1.0f).alpha(1.0f).setDuration(150).start();
+                        break;
+                }
+                return true;
+            });
+        }
 
         donutHistoryChartView = view.findViewById(R.id.donutHistoryChartView);
         tvHistoryTotalIncome = view.findViewById(R.id.tvHistoryTotalIncome);
@@ -547,12 +587,17 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                 if (transactions == null || transactions.isEmpty()) {
                     if (layoutEmptyRecentTx != null) layoutEmptyRecentTx.setVisibility(View.VISIBLE);
                     if (rvRecentTransactions != null) rvRecentTransactions.setVisibility(View.GONE);
-                    if (tvSeeAllTransactions != null) tvSeeAllTransactions.setVisibility(View.GONE);
                 } else {
                     if (layoutEmptyRecentTx != null) layoutEmptyRecentTx.setVisibility(View.GONE);
                     if (rvRecentTransactions != null) rvRecentTransactions.setVisibility(View.VISIBLE);
-                    if (tvSeeAllTransactions != null) tvSeeAllTransactions.setVisibility(View.VISIBLE);
                 }
+            }
+        });
+
+        viewModel.getPendingTransactions().observe(getViewLifecycleOwner(), new Observer<List<Transaction>>() {
+            @Override
+            public void onChanged(List<Transaction> pendingList) {
+                updatePendingApprovalBanner(pendingList);
             }
         });
 
@@ -621,6 +666,9 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
         applyRoleBasedUi(room);
+        if (viewModel != null) {
+            updatePendingApprovalBanner(viewModel.getPendingTransactions().getValue());
+        }
     }
 
     private void updateNetBalance() {
@@ -821,6 +869,34 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                 || (currentUserId != null && currentUserId.equals(room.getCreatedBy())));
     }
 
+    private void updatePendingApprovalBanner(List<Transaction> pendingList) {
+        if (layoutPendingApprovalBanner == null) return;
+        boolean canApprove = isCurrentUserAdmin();
+        if (!canApprove || pendingList == null || pendingList.isEmpty()) {
+            layoutPendingApprovalBanner.setVisibility(View.GONE);
+            return;
+        }
+        layoutPendingApprovalBanner.setVisibility(View.VISIBLE);
+        int count = pendingList.size();
+        double totalAmount = 0.0;
+        for (Transaction tx : pendingList) {
+            totalAmount += Math.abs(tx.getAmount());
+        }
+        if (tvPendingApprovalCount != null) {
+            tvPendingApprovalCount.setText(String.valueOf(count));
+        }
+        if (tvPendingApprovalSummary != null) {
+            String formattedAmount = df.format(totalAmount).replace(',', '.') + " ₫";
+            tvPendingApprovalSummary.setText(String.format(Locale.getDefault(), "Yêu cầu chờ duyệt  •  %s", formattedAmount));
+        }
+    }
+
+    private void openExpenseApprovalScreen() {
+        if (getActivity() instanceof com.sharedfund.app.MainActivity) {
+            ((com.sharedfund.app.MainActivity) getActivity()).openExpenseApproval(roomId);
+        }
+    }
+
     private boolean isCurrentUserTreasurer() {
         Room room = viewModel.getRoom().getValue();
         if (room == null) return false;
@@ -859,6 +935,9 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
         memberAdapter.setMembers(members);
         tvMembersTabCount.setText(members.size() + " thành viên");
         applyRoleBasedUi(room);
+        if (viewModel != null) {
+            updatePendingApprovalBanner(viewModel.getPendingTransactions().getValue());
+        }
     }
 
     private void setupClickListeners() {
@@ -887,9 +966,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
             btnRoomUtilities.setOnClickListener(v -> showRoomUtilitiesSheet());
         }
 
-        if (tvSeeAllTransactions != null) {
-            tvSeeAllTransactions.setOnClickListener(v -> selectNavTab(1, true));
-        }
+
 
         btnInviteMember.setOnClickListener(v -> showInviteMemberSheet());
 
@@ -1047,39 +1124,66 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
             AppToaster.error(requireActivity(), "Chỉ Trưởng quỹ hoặc Phó quỹ mới có quyền đổi ảnh bìa.");
             return;
         }
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Đổi ảnh bìa")
-                .setItems(new String[]{"Chọn ảnh từ thiết bị", "Dán link ảnh"}, (dialog, which) -> {
-                    if (which == 0) {
-                        if (roomCoverPicker != null) {
-                            roomCoverPicker.launch("image/*");
-                        }
-                    } else {
-                        showRoomCoverUrlDialog();
-                    }
-                })
-                .show();
+        View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_koin_options, null);
+        TextView tvTitle = dialogView.findViewById(R.id.tvDialogTitle);
+        TextView tvSubtitle = dialogView.findViewById(R.id.tvDialogSubtitle);
+        View btnPick = dialogView.findViewById(R.id.layoutOptionPick);
+        View btnUrl = dialogView.findViewById(R.id.layoutOptionUrl);
+        View btnClose = dialogView.findViewById(R.id.btnDialogClose);
+
+        tvTitle.setText("Đổi ảnh bìa");
+        tvSubtitle.setText("Chọn phương thức cập nhật ảnh bìa phòng quỹ");
+
+        androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
+                .setView(dialogView)
+                .setBackground(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
+                .create();
+
+        btnPick.setOnClickListener(v -> {
+            dialog.dismiss();
+            if (roomCoverPicker != null) {
+                roomCoverPicker.launch("image/*");
+            }
+        });
+
+        btnUrl.setOnClickListener(v -> {
+            dialog.dismiss();
+            showRoomCoverUrlDialog();
+        });
+
+        btnClose.setOnClickListener(v -> dialog.dismiss());
+
+        dialog.show();
     }
 
     private void showRoomCoverUrlDialog() {
-        android.widget.EditText input = new android.widget.EditText(requireContext());
-        input.setSingleLine(true);
-        input.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI);
-        input.setHint("https://.../cover.jpg");
-        int padding = dpToPx(16);
-        input.setPadding(padding, padding, padding, padding);
+        if (getContext() == null) return;
+        View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_koin_url_input, null);
+        TextView tvTitle = dialogView.findViewById(R.id.tvUrlDialogTitle);
+        TextView tvSubtitle = dialogView.findViewById(R.id.tvUrlDialogSubtitle);
+        EditText etInput = dialogView.findViewById(R.id.etUrlInput);
+        View btnCancel = dialogView.findViewById(R.id.btnUrlCancel);
+        View btnSave = dialogView.findViewById(R.id.btnUrlSave);
 
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Dán link ảnh bìa")
-                .setView(input)
-                .setNegativeButton("Hủy", null)
-                .setPositiveButton("Lưu", (dialog, which) -> {
-                    String url = input.getText() != null ? input.getText().toString().trim() : "";
-                    if (!url.isEmpty()) {
-                        saveRoomBackground(url);
-                    }
-                })
-                .show();
+        tvTitle.setText("Dán link ảnh bìa");
+        tvSubtitle.setText("Nhập đường dẫn hình ảnh trực tuyến");
+        etInput.setHint("https://.../cover.jpg");
+
+        androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
+                .setView(dialogView)
+                .setBackground(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
+                .create();
+
+        btnCancel.setOnClickListener(v -> dialog.dismiss());
+        btnSave.setOnClickListener(v -> {
+            String url = etInput.getText() != null ? etInput.getText().toString().trim() : "";
+            if (!url.isEmpty()) {
+                dialog.dismiss();
+                saveRoomBackground(url);
+            }
+        });
+
+        dialog.show();
     }
 
     private void saveRoomBackground(String url) {
@@ -1089,8 +1193,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                 .putString("bg_" + roomId, url)
                 .apply();
         loadRoomBackground();
-        AppToaster.success(requireActivity(), "Đã cập nhật ảnh bìa quỹ!");
-    }
+            }
 
     private void loadRoomBackground() {
         if (ivRoomCover == null || roomId == null || getContext() == null) return;
@@ -1272,8 +1375,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                         if (!isAdded()) return;
                         requireActivity().runOnUiThread(() -> {
                             if (pbDetailLoading != null) pbDetailLoading.setVisibility(View.GONE);
-                            AppToaster.success(requireActivity(), "Cập nhật thông tin quỹ thành công!");
-                        });
+                                                    });
                     }
 
                     @Override

@@ -21,7 +21,10 @@ import androidx.core.content.ContextCompat;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.google.android.material.button.MaterialButton;
 import com.sharedfund.app.R;
+import com.sharedfund.app.data.RoomRepository;
+import com.sharedfund.app.model.RoomMember;
 import com.sharedfund.app.model.Transaction;
+import java.util.List;
 import com.sharedfund.app.util.CopyToast;
 
 import java.text.DecimalFormat;
@@ -98,6 +101,7 @@ public class TransactionDetailBottomSheet extends BottomSheetDialogFragment {
         TextView tvDetailBalanceAfter = view.findViewById(R.id.tvDetailBalanceAfter);
 
         LinearLayout layoutRejectionReason = view.findViewById(R.id.layoutRejectionReason);
+        TextView tvRejectionReasonTitle = view.findViewById(R.id.tvRejectionReasonTitle);
         TextView tvRejectionReasonContent = view.findViewById(R.id.tvRejectionReasonContent);
         LinearLayout layoutAdminActions = view.findViewById(R.id.layoutAdminActions);
         MaterialButton btnRejectExpense = view.findViewById(R.id.btnRejectExpense);
@@ -178,6 +182,42 @@ public class TransactionDetailBottomSheet extends BottomSheetDialogFragment {
             tvDetailStatusBadge.setBackgroundResource(R.drawable.bg_expense_badge);
             tvDetailStatusBadge.setTextColor(ContextCompat.getColor(requireContext(), R.color.accent_expense));
             layoutRejectionReason.setVisibility(View.VISIBLE);
+            if (tvRejectionReasonTitle != null) {
+                tvRejectionReasonTitle.setText("Lý do từ chối từ Trưởng quỹ:");
+            }
+            if (transaction.getRoomId() != null && !transaction.getRoomId().isEmpty()) {
+                RoomRepository.getInstance().loadRoomMembers(transaction.getRoomId(), new RoomRepository.DataCallback<List<RoomMember>>() {
+                    @Override
+                    public void onSuccess(List<RoomMember> members) {
+                        if (!isAdded() || members == null) return;
+                        String approverId = transaction.getApprovedBy();
+                        String roleName = "Trưởng quỹ";
+                        if (approverId != null && !approverId.isEmpty()) {
+                            for (RoomMember m : members) {
+                                if (approverId.equals(m.getUserId())) {
+                                    if ("TREASURER".equalsIgnoreCase(m.getRole()) || "VICE".equalsIgnoreCase(m.getRole())) {
+                                        roleName = "Phó quỹ";
+                                    } else {
+                                        roleName = "Trưởng quỹ";
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                        final String finalRole = roleName;
+                        if (getActivity() != null) {
+                            getActivity().runOnUiThread(() -> {
+                                if (tvRejectionReasonTitle != null) {
+                                    tvRejectionReasonTitle.setText("Lý do từ chối từ " + finalRole + ":");
+                                }
+                            });
+                        }
+                    }
+
+                    @Override
+                    public void onError(String message) {}
+                });
+            }
             String reason = transaction.getRejectionReason();
             tvRejectionReasonContent.setText(reason != null && !reason.trim().isEmpty() ? reason : "Không có lý do cụ thể");
         } else {

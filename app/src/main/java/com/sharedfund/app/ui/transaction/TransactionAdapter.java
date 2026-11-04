@@ -40,16 +40,6 @@ public class TransactionAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
     public static final int VIEW_TYPE_HEADER = 1;
     public static final int VIEW_TYPE_SOCIAL_CARD = 2;
 
-    private static final int[] AVATAR_COLORS = new int[] {
-        Color.parseColor("#0052CC"),
-        Color.parseColor("#059669"),
-        Color.parseColor("#D97706"),
-        Color.parseColor("#7C3AED"),
-        Color.parseColor("#DC2626"),
-        Color.parseColor("#0891B2"),
-        Color.parseColor("#4F46E5")
-    };
-
     public interface OnTransactionClickListener {
         void onTransactionClick(Transaction transaction);
     }
@@ -251,11 +241,6 @@ public class TransactionAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
         return (parts[0].substring(0, 1) + parts[parts.length - 1].substring(0, 1)).toUpperCase(Locale.ROOT);
     }
 
-    private static int getAvatarColor(String seed) {
-        if (seed == null) return AVATAR_COLORS[0];
-        return AVATAR_COLORS[Math.abs(seed.hashCode()) % AVATAR_COLORS.length];
-    }
-
     public static class HeaderViewHolder extends RecyclerView.ViewHolder {
         private final View viewDateDivider;
         private final TextView tvDateHeader;
@@ -383,11 +368,7 @@ public class TransactionAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
                     tvTxInitials.setVisibility(View.VISIBLE);
                     String initials = getInitials(creator);
                     tvTxInitials.setText(initials);
-                    int avatarColor = getAvatarColor(creator);
-                    GradientDrawable bgDrawable = new GradientDrawable();
-                    bgDrawable.setShape(GradientDrawable.OVAL);
-                    bgDrawable.setColor(avatarColor);
-                    tvTxInitials.setBackground(bgDrawable);
+                    tvTxInitials.setBackgroundResource(R.drawable.bg_avatar_circle);
                 }
 
                 if (ivTxAvatar != null && tvTxInitials != null) {
@@ -523,11 +504,7 @@ public class TransactionAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
                 tvSocialInitials.setVisibility(View.VISIBLE);
                 String initials = getInitials(tx.getCreatedBy());
                 tvSocialInitials.setText(initials);
-                int avatarColor = getAvatarColor(tx.getCreatedBy());
-                GradientDrawable bg = new GradientDrawable();
-                bg.setShape(GradientDrawable.OVAL);
-                bg.setColor(avatarColor);
-                tvSocialInitials.setBackground(bg);
+                tvSocialInitials.setBackgroundResource(R.drawable.bg_avatar_circle);
 
                 if (tx.getUserId() != null && !tx.getUserId().trim().isEmpty()) {
                     RoomRepository.getInstance().loadUserProfile(tx.getUserId(), new RoomRepository.DataCallback<Profile>() {

@@ -86,7 +86,25 @@ public class ProfileFragment extends Fragment {
             if (uri != null) uploadAvatar(uri);
         });
         coverPicker = registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
-            if (uri != null) saveProfileCoverUrl(uri.toString());
+            if (uri != null && getContext() != null) {
+                String userId = UserSessionManager.getInstance(requireContext()).getUserId();
+                String targetName = "koin_cover_profile_" + (userId != null ? userId : "guest") + ".jpg";
+                com.sharedfund.app.util.ImageCropHelper.cropAndSaveCoverAsync(requireContext(), uri, targetName, new com.sharedfund.app.util.ImageCropHelper.OnCropFinishedListener() {
+                    @Override
+                    public void onSuccess(String fileUri, android.graphics.Bitmap bitmap) {
+                        saveProfileCoverUrl(fileUri);
+                        if (ivProfileCover != null) {
+                            ivProfileCover.setImageBitmap(bitmap);
+                            ivProfileCover.setVisibility(View.VISIBLE);
+                        }
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        saveProfileCoverUrl(uri.toString());
+                    }
+                });
+            }
         });
     }
 
@@ -371,8 +389,7 @@ public class ProfileFragment extends Fragment {
 
         hideKeyboard();
         loadProfileData();
-        AppToaster.success(requireActivity(), "Đã lưu thay đổi thông tin cá nhân!");
-    }
+            }
 
     private void cancelInlineProfileEdit() {
         isEditingProfile = false;
@@ -441,36 +458,76 @@ public class ProfileFragment extends Fragment {
     }
 
     private void showCoverOptions() {
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Đổi ảnh bìa")
-                .setItems(new String[]{"Chọn ảnh từ thiết bị", "Dán link ảnh"}, (dialog, which) -> {
-                    if (which == 0) {
-                        coverPicker.launch("image/*");
-                    } else {
-                        showCoverUrlDialog();
-                    }
-                })
-                .show();
+        showKoinOptionsDialog("Đổi ảnh bìa", "Chọn phương thức cập nhật ảnh bìa",
+                () -> coverPicker.launch("image/*"),
+                this::showCoverUrlDialog);
     }
 
     private void showCoverUrlDialog() {
-        final EditText input = new EditText(requireContext());
-        input.setHint("https://.../cover.jpg");
-        input.setSingleLine(true);
-        int pad = Math.round(16 * getResources().getDisplayMetrics().density);
-        input.setPadding(pad, pad, pad, pad);
+        showKoinUrlInputDialog("Dán link ảnh bìa", "Nhập đường dẫn hình ảnh trực tuyến", "https://.../cover.jpg",
+                this::saveProfileCoverUrl);
+    }
 
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Dán link ảnh bìa")
-                .setView(input)
-                .setNegativeButton("Hủy", null)
-                .setPositiveButton("Lưu", (dialog, which) -> {
-                    String url = input.getText().toString().trim();
-                    if (!url.isEmpty()) {
-                        saveProfileCoverUrl(url);
-                    }
-                })
-                .show();
+    private void showKoinOptionsDialog(String title, String subtitle, Runnable onPickFromDevice, Runnable onPasteUrl) {
+        if (getContext() == null) return;
+        View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_koin_options, null);
+        TextView tvTitle = dialogView.findViewById(R.id.tvDialogTitle);
+        TextView tvSubtitle = dialogView.findViewById(R.id.tvDialogSubtitle);
+        View btnPick = dialogView.findViewById(R.id.layoutOptionPick);
+        View btnUrl = dialogView.findViewById(R.id.layoutOptionUrl);
+        View btnClose = dialogView.findViewById(R.id.btnDialogClose);
+
+        tvTitle.setText(title);
+        tvSubtitle.setText(subtitle);
+
+        androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
+                .setView(dialogView)
+                .setBackground(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
+                .create();
+
+        btnPick.setOnClickListener(v -> {
+            dialog.dismiss();
+            if (onPickFromDevice != null) onPickFromDevice.run();
+        });
+
+        btnUrl.setOnClickListener(v -> {
+            dialog.dismiss();
+            if (onPasteUrl != null) onPasteUrl.run();
+        });
+
+        btnClose.setOnClickListener(v -> dialog.dismiss());
+
+        dialog.show();
+    }
+
+    private void showKoinUrlInputDialog(String title, String subtitle, String hint, java.util.function.Consumer<String> onSave) {
+        if (getContext() == null) return;
+        View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_koin_url_input, null);
+        TextView tvTitle = dialogView.findViewById(R.id.tvUrlDialogTitle);
+        TextView tvSubtitle = dialogView.findViewById(R.id.tvUrlDialogSubtitle);
+        EditText etInput = dialogView.findViewById(R.id.etUrlInput);
+        View btnCancel = dialogView.findViewById(R.id.btnUrlCancel);
+        View btnSave = dialogView.findViewById(R.id.btnUrlSave);
+
+        tvTitle.setText(title);
+        tvSubtitle.setText(subtitle);
+        if (hint != null) etInput.setHint(hint);
+
+        androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
+                .setView(dialogView)
+                .setBackground(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
+                .create();
+
+        btnCancel.setOnClickListener(v -> dialog.dismiss());
+        btnSave.setOnClickListener(v -> {
+            String url = etInput.getText() != null ? etInput.getText().toString().trim() : "";
+            if (!url.isEmpty()) {
+                dialog.dismiss();
+                if (onSave != null) onSave.accept(url);
+            }
+        });
+
+        dialog.show();
     }
 
     private void saveProfileCoverUrl(String url) {
@@ -522,36 +579,14 @@ public class ProfileFragment extends Fragment {
     }
 
     private void showAvatarOptions() {
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Đổi ảnh đại diện")
-                .setItems(new String[]{"Chọn ảnh từ thiết bị", "Dán link ảnh"}, (dialog, which) -> {
-                    if (which == 0) {
-                        avatarPicker.launch("image/*");
-                    } else {
-                        showAvatarUrlDialog();
-                    }
-                })
-                .show();
+        showKoinOptionsDialog("Đổi ảnh đại diện", "Chọn phương thức cập nhật ảnh đại diện",
+                () -> avatarPicker.launch("image/*"),
+                this::showAvatarUrlDialog);
     }
 
     private void showAvatarUrlDialog() {
-        final EditText input = new EditText(requireContext());
-        input.setHint("https://.../avatar.jpg");
-        input.setSingleLine(true);
-        int pad = Math.round(16 * getResources().getDisplayMetrics().density);
-        input.setPadding(pad, pad, pad, pad);
-
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Dán link ảnh đại diện")
-                .setView(input)
-                .setNegativeButton("Hủy", null)
-                .setPositiveButton("Lưu", (dialog, which) -> {
-                    String url = input.getText().toString().trim();
-                    if (!url.isEmpty()) {
-                        persistAvatarUrl(url);
-                    }
-                })
-                .show();
+        showKoinUrlInputDialog("Dán link ảnh đại diện", "Nhập đường dẫn hình ảnh trực tuyến", "https://.../avatar.jpg",
+                this::persistAvatarUrl);
     }
 
     private void uploadAvatar(Uri imageUri) {
@@ -577,8 +612,7 @@ public class ProfileFragment extends Fragment {
                     UserSessionManager.getInstance(requireContext()).saveAvatarUrl(avatarUrl);
                     tvAvatarInitials.setVisibility(View.VISIBLE);
                     AvatarImageLoader.load(ivProfileAvatar, tvAvatarInitials, avatarUrl);
-                    AppToaster.success(requireActivity(), "Đã cập nhật ảnh đại diện.");
-                });
+                                    });
             }
 
             @Override public void onError(String message) {

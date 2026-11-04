@@ -28,6 +28,7 @@ public class RoomViewModel extends ViewModel {
 
     private final MutableLiveData<Room> roomLiveData = new MutableLiveData<>();
     private final MutableLiveData<List<Transaction>> recentTransactionsLiveData = new MutableLiveData<>();
+    private final MutableLiveData<List<Transaction>> pendingTransactionsLiveData = new MutableLiveData<>(new ArrayList<>());
     private final MutableLiveData<List<Transaction>> allTransactionsLiveData = new MutableLiveData<>();
     private final MutableLiveData<List<Transaction>> filteredTransactionsLiveData = new MutableLiveData<>();
     private final MutableLiveData<Map<String, Double>> categoryStatsLiveData = new MutableLiveData<>();
@@ -86,15 +87,25 @@ public class RoomViewModel extends ViewModel {
         roomLiveData.setValue(r);
 
         List<Transaction> all = repository.getTransactionsForRoom(roomId);
-        allTransactionsLiveData.setValue(all);
-        applyFilter(currentFilter);
-
+        List<Transaction> confirmedHistory = new ArrayList<>();
         List<Transaction> recent = new ArrayList<>();
-        int count = Math.min(5, all.size());
-        for (int i = 0; i < count; i++) {
-            recent.add(all.get(i));
+        List<Transaction> pending = new ArrayList<>();
+        if (all != null) {
+            for (Transaction tx : all) {
+                if (tx.isPending()) {
+                    pending.add(tx);
+                } else if (repository.affectsBalance(tx)) {
+                    confirmedHistory.add(tx);
+                    if (recent.size() < 5) {
+                        recent.add(tx);
+                    }
+                }
+            }
         }
+        allTransactionsLiveData.setValue(confirmedHistory);
+        applyFilter(currentFilter);
         recentTransactionsLiveData.setValue(recent);
+        pendingTransactionsLiveData.setValue(pending);
 
         totalIncomeLiveData.setValue(repository.getRoomTotalIncome(roomId));
         totalExpenseLiveData.setValue(repository.getRoomTotalExpense(roomId));
@@ -178,6 +189,10 @@ public class RoomViewModel extends ViewModel {
 
     public LiveData<List<Transaction>> getRecentTransactions() {
         return recentTransactionsLiveData;
+    }
+
+    public LiveData<List<Transaction>> getPendingTransactions() {
+        return pendingTransactionsLiveData;
     }
 
     public LiveData<List<Transaction>> getFilteredTransactions() {
