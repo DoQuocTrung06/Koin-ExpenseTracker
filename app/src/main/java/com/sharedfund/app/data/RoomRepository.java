@@ -756,7 +756,7 @@ public class RoomRepository {
         return map;
     }
 
-    private boolean affectsBalance(Transaction transaction) {
+    public boolean affectsBalance(Transaction transaction) {
         if (transaction == null) return false;
         String status = transaction.getStatus();
         return status == null || status.trim().isEmpty()

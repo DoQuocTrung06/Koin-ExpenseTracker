@@ -304,7 +304,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Số dư sau GD"
+                    android:text="Số dư sau giao dịch"
                     android:textColor="@color/text_secondary"
                     android:textSize="13sp" />
 
@@ -326,27 +326,31 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
-        android:background="@drawable/bg_expense_badge"
         android:orientation="vertical"
-        android:padding="12dp"
         android:visibility="gone">
 
         <TextView
+            android:id="@+id/tvRejectionReasonTitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Lý do từ chối từ Trưởng quỹ:"
-            android:textColor="@color/accent_expense"
-            android:textSize="12sp"
+            android:text="Lý do từ chối từ Chủ quỹ:"
+            android:textColor="@color/text_primary"
+            android:textSize="13.5sp"
             android:textStyle="bold" />
 
         <TextView
             android:id="@+id/tvRejectionReasonContent"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="6dp"
+            android:background="@drawable/bg_social_note_bubble"
+            android:paddingStart="12dp"
+            android:paddingTop="10dp"
+            android:paddingEnd="12dp"
+            android:paddingBottom="10dp"
             android:text="Lý do mẫu"
-            android:textColor="@color/accent_expense"
-            android:textSize="13sp" />
+            android:textColor="@color/text_primary"
+            android:textSize="14sp" />
     </LinearLayout>
 
     <LinearLayout
