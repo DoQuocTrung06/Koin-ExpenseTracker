@@ -157,6 +157,12 @@ public class LoginFragment extends Fragment {
 
             tilFullName.setVisibility(View.GONE);
             tilConfirmPassword.setVisibility(View.GONE);
+
+            String lastEmail = UserSessionManager.getInstance(requireContext()).getCurrentUserEmail();
+            if (lastEmail != null && !lastEmail.trim().isEmpty() && etEmail != null) {
+                etEmail.setText(lastEmail.trim());
+                etEmail.setSelection(lastEmail.trim().length());
+            }
         } else {
             tvAuthTitle.setText("Tạo tài khoản mới");
             tvAuthSubtitle.setText("Tham gia cùng bạn bè để quản lý quỹ chung");

@@ -1171,6 +1171,50 @@ public class RoomRepository {
     }
 
 
+    public void updateMemberRole(String roomId, String targetUserId, String newRole, DataCallback<Boolean> callback) {
+        String path = "/room_members?room_id=eq." + roomId + "&user_id=eq." + targetUserId;
+        JsonObject body = new JsonObject();
+        body.addProperty("role", newRole);
+        client.newCall(request(path).patch(RequestBody.create(gson.toJson(body), JSON)).build()).enqueue(new okhttp3.Callback() {
+            @Override public void onFailure(Call call, IOException e) {
+                if (callback != null) callback.onError(e.getMessage());
+            }
+            @Override public void onResponse(Call call, Response response) {
+                if (!response.isSuccessful()) {
+                    if (callback != null) callback.onError("HTTP " + response.code());
+                    return;
+                }
+                refreshRoomMembers(roomId);
+                if (callback != null) callback.onSuccess(true);
+            }
+        });
+    }
+
+    public void transferRoomOwnership(String roomId, String oldOwnerUserId, String newOwnerUserId, DataCallback<Boolean> callback) {
+        String roomPath = "/rooms?id=eq." + roomId;
+        JsonObject roomBody = new JsonObject();
+        roomBody.addProperty("created_by", newOwnerUserId);
+        client.newCall(request(roomPath).patch(RequestBody.create(gson.toJson(roomBody), JSON)).build()).enqueue(new okhttp3.Callback() {
+            @Override public void onFailure(Call call, IOException e) {
+                if (callback != null) callback.onError(e.getMessage());
+            }
+            @Override public void onResponse(Call call, Response response) {
+                updateMemberRole(roomId, newOwnerUserId, "OWNER", new DataCallback<Boolean>() {
+                    @Override public void onSuccess(Boolean v1) {
+                        if (oldOwnerUserId != null && !oldOwnerUserId.isEmpty()) {
+                            updateMemberRole(roomId, oldOwnerUserId, "MEMBER", callback);
+                        } else if (callback != null) {
+                            callback.onSuccess(true);
+                        }
+                    }
+                    @Override public void onError(String m1) {
+                        if (callback != null) callback.onError(m1);
+                    }
+                });
+            }
+        });
+    }
+
     public void removeMember(String roomId, String targetUserId, DataCallback<Boolean> callback) {
         String path = "/room_members?room_id=eq." + roomId + "&user_id=eq." + targetUserId;
         client.newCall(request(path).delete().build()).enqueue(new okhttp3.Callback() {

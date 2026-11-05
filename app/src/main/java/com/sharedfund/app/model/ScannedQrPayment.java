@@ -29,7 +29,22 @@ public class ScannedQrPayment {
             return urlResult;
         }
 
-        return parseEmvco(raw);
+        ScannedQrPayment fallback = parseEmvco(raw);
+        if (fallback != null && fallback.accountNumber != null) {
+            return fallback;
+        }
+
+        Pattern genericPattern = Pattern.compile("(?:^|[^0-9])(9704\\d{2})[^0-9]+([0-9]{6,24})(?:[^0-9]|$)");
+        Matcher mg = genericPattern.matcher(raw);
+        if (mg.find()) {
+            ScannedQrPayment res = new ScannedQrPayment();
+            res.rawPayload = raw;
+            res.bankBin = mg.group(1);
+            res.accountNumber = mg.group(2);
+            return res;
+        }
+
+        return fallback;
     }
 
     private static ScannedQrPayment parseEmvco(String raw) {
@@ -48,10 +63,43 @@ public class ScannedQrPayment {
             if (!entry.getKey().matches("\\d{2}") || !entry.getValue().startsWith("00")) continue;
             Map<String, String> merchant = parseTlv(entry.getValue());
             if (!"A000000727".equalsIgnoreCase(merchant.get("00"))) continue;
-            result.bankBin = merchant.get("01");
-            result.accountNumber = merchant.get("02");
+
+            String sub01 = merchant.get("01");
+            if (sub01 != null) {
+                Map<String, String> subMerchant = parseTlv(sub01);
+                if (!subMerchant.isEmpty()) {
+                    result.bankBin = subMerchant.get("00");
+                    result.accountNumber = subMerchant.get("01");
+                    if (result.accountNumber == null) {
+                        result.accountNumber = subMerchant.get("02");
+                    }
+                }
+            }
+            if (result.bankBin == null) {
+                result.bankBin = merchant.get("01");
+            }
+            if (result.accountNumber == null) {
+                result.accountNumber = merchant.get("02");
+            }
             break;
         }
+
+        if (result.accountNumber == null && root.containsKey("38")) {
+            String val38 = root.get("38");
+            if (val38 != null) {
+                Pattern binPat = Pattern.compile("(9704\\d{2})");
+                Matcher mBin = binPat.matcher(val38);
+                if (mBin.find()) {
+                    result.bankBin = mBin.group(1);
+                }
+                Pattern accPat = Pattern.compile("01(\\d{2})(\\d{6,24})");
+                Matcher mAcc = accPat.matcher(val38);
+                if (mAcc.find()) {
+                    result.accountNumber = mAcc.group(2);
+                }
+            }
+        }
+
         return result;
     }
 

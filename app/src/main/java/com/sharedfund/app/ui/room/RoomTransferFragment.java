@@ -490,7 +490,7 @@ public class RoomTransferFragment extends Fragment {
             ScanOptions options = new ScanOptions();
             options.setDesiredBarcodeFormats(ScanOptions.QR_CODE);
             options.setPrompt("Hướng camera về mã QR để thanh toán");
-            options.setCameraId(0);
+            
             options.setBeepEnabled(true);
             options.setBarcodeImageEnabled(false);
             options.setOrientationLocked(false);
@@ -563,6 +563,12 @@ public class RoomTransferFragment extends Fragment {
             TabLayout.Tab qrTab = tabLayoutRoomTransfer.getTabAt(2);
             if (qrTab != null) qrTab.select();
         }
+        if (layoutQrEmptyPrompt != null) {
+            layoutQrEmptyPrompt.setVisibility(View.GONE);
+        }
+        if (layoutQrPaymentForm != null) {
+            layoutQrPaymentForm.setVisibility(View.VISIBLE);
+        }
         if (cardQrResult != null && parsed != null) {
             cardQrResult.setVisibility(View.VISIBLE);
             StringBuilder sb = new StringBuilder();
@@ -590,7 +596,33 @@ public class RoomTransferFragment extends Fragment {
             case "970407": return "Techcombank (970407)";
             case "970432": return "VPBank (970432)";
             case "970423": return "TPBank (970423)";
-            default: return "BIN " + bankBin.trim();
+            case "970416": return "ACB (970416)";
+            case "970405": return "Agribank (970405)";
+            case "970403": return "Sacombank (970403)";
+            case "970448": return "OCB (970448)";
+            case "970441": return "VIB (970441)";
+            case "970443": return "SHB (970443)";
+            case "970426": return "MSB (970426)";
+            case "970440": return "SeABank (970440)";
+            case "970437": return "HDBank (970437)";
+            case "970428": return "Nam A Bank (970428)";
+            case "970449": return "LPBank (970449)";
+            case "970431": return "Eximbank (970431)";
+            case "970454": return "BVBank (970454)";
+            case "970433": return "VietBank (970433)";
+            case "970419": return "NCB (970419)";
+            case "970429": return "SCB (970429)";
+            case "970438": return "BaoViet Bank (970438)";
+            case "970425": return "ABBank (970425)";
+            case "970452": return "Kienlongbank (970452)";
+            case "970427": return "VietABank (970427)";
+            case "970424": return "Shinhan Bank (970424)";
+            case "970400": return "Saigonbank (970400)";
+            case "970446": return "COOPBANK (970446)";
+            case "970414": return "OceanBank (970414)";
+            case "970408": return "GPBank (970408)";
+            case "970430": return "PG Bank (970430)";
+            default: return "Ngân hàng (BIN " + bankBin.trim() + ")";
         }
     }
 
@@ -662,9 +694,14 @@ public class RoomTransferFragment extends Fragment {
         }
 
         tvSuccessTitle.setText(title);
-        tvSuccessAmount.setText(amountFormatted);
         if (tvSuccessAmount != null) {
-            tvSuccessAmount.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary));
+            if (title != null && title.contains("yêu cầu")) {
+                tvSuccessAmount.setVisibility(View.GONE);
+            } else {
+                tvSuccessAmount.setVisibility(View.VISIBLE);
+                tvSuccessAmount.setText(amountFormatted);
+                tvSuccessAmount.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary));
+            }
         }
         tvSuccessSource.setText(source);
         tvSuccessDest.setText(dest);
