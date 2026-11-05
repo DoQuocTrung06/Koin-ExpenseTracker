@@ -45,17 +45,15 @@ If Gradle Sync shows a Java error:
 
 ---
 
-## 3. Test Accounts (Pre-configured Data)
+## 3. Pre-configured Test Accounts
 
-Use the following active accounts to test different roles and data:
+You can sign in immediately using any of the following pre-created accounts:
 
-| Role | Email | Password | Permissions |
-| :--- | :--- | :--- | :--- |
-| Fund Owner | `viet@gmail.com` | `123456` | Full administrative control: approve/reject expenses, transfer room ownership, change room background, assign treasurer. |
-| Treasurer | `cuong@gmail.com` | `123456` | Review and approve expense withdrawal requests. |
-| Fund Member | `trung@gmail.com` | `123456` | Request fund withdrawals, transfer via VietQR, contribute to room funds. |
-
-*You can also click "Register for free" on the Login screen to create a new account.*
+| Account | Email | Password |
+| :--- | :--- | :--- |
+| Account 1 | `doquoctrung2k@gmail.com` | `123456` |
+| Account 2 | `doquocviet2k@gmail.com` | `V@123456` |
+| Account 3 | `phamquoccuong@gmail.com` | `C@123456` |
 
 ---
 
@@ -63,26 +61,25 @@ Use the following active accounts to test different roles and data:
 
 ### Scenario 1: Login & Fund Overview
 1. Sign in using any test account above.
-2. On the Home screen, tap room "an tet" to view current balance, member list, and transaction history.
+2. On the Home screen, tap on any group fund to view current balance, member list, and transaction history.
 
 ### Scenario 2: VietQR Banking & Image Picker
-1. In room "an tet", tap "Chuyển tiền" (Transfer).
+1. In any fund room, tap "Chuyển tiền" (Transfer).
 2. Select the "Quét QR" tab.
 3. Choose either:
    - "QUÉT CAMERA": Point the camera at any Vietnamese banking VietQR code.
    - "CHỌN ẢNH QR": Select a QR code image from the device gallery. A sample image (`sample_vietqr.png`) is provided in the project root directory; simply drag-and-drop it into the Android Emulator.
 4. The system automatically decodes Bank BIN, Account Number, and Recipient Name.
-5. Enter a test amount (e.g., 1,000 đ – 5,000 đ) and note > Tap "Tiếp tục" > Review the confirmation card > Confirm to see the result card with transaction ID `#SF-...`.
+5. Enter amount and note > Tap "Tiếp tục" > Review confirmation card > Confirm to see the result card with transaction ID `#SF-...`.
 
 ### Scenario 3: Expense Approval & Rejection Workflow
-1. Sign in as Owner (`viet@gmail.com`) > Open room "an tet".
-2. An amber approval banner is already present for a pending 5,000 đ request.
+1. A member submits a fund withdrawal request.
+2. The fund manager sees an amber banner for pending approval requests.
 3. Tap the item to "Approve" (deducts room balance) or "Reject" (enter reason to cancel request).
-4. Alternatively, sign in as Member (`trung@gmail.com`) to submit a new withdrawal request first.
 
 ### Scenario 4: Room Background & Role Delegation
-1. In room "an tet", tap the cover image icon to select a new room background image.
-2. Go to the "Thành viên" (Members) tab to promote members to Treasurer or transfer Ownership.
+1. In any fund room, tap the cover image icon to select a new room background image.
+2. Go to the "Thành viên" (Members) tab to promote members to Treasurer or transfer Room Ownership.
 
 ---
 
