@@ -125,8 +125,16 @@ public class WalletTransactionLogicAndErrorTest {
         Transaction withdrawFundToWallet = new Transaction();
         withdrawFundToWallet.setRoomId("room-1");
         withdrawFundToWallet.setType(Transaction.TYPE_EXPENSE);
+        withdrawFundToWallet.setStatus(Transaction.STATUS_APPROVED);
         withdrawFundToWallet.setNote("Rút quỹ về Ví Koin");
         assertTrue(WalletTransactionsFragment.isRetainedWalletTransaction(withdrawFundToWallet));
+
+        Transaction withdrawFundPending = new Transaction();
+        withdrawFundPending.setRoomId("room-1");
+        withdrawFundPending.setType(Transaction.TYPE_EXPENSE);
+        withdrawFundPending.setStatus(Transaction.STATUS_PENDING);
+        withdrawFundPending.setNote("Rút quỹ về Ví Koin");
+        assertFalse(WalletTransactionsFragment.isRetainedWalletTransaction(withdrawFundPending));
         assertTrue(WalletTransactionsFragment.isWalletIncome(withdrawFundToWallet));
 
         Transaction internalFundExpense = new Transaction();

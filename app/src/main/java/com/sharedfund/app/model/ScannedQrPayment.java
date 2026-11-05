@@ -2,6 +2,8 @@ package com.sharedfund.app.model;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class ScannedQrPayment {
     public String bankBin;
@@ -13,16 +15,34 @@ public class ScannedQrPayment {
 
     public static ScannedQrPayment parse(String payload) {
         if (payload == null || payload.trim().isEmpty()) return null;
-        Map<String, String> root = parseTlv(payload.trim());
+        String raw = payload.trim();
+
+        if (raw.startsWith("000201")) {
+            ScannedQrPayment emvco = parseEmvco(raw);
+            if (emvco != null && emvco.accountNumber != null) {
+                return emvco;
+            }
+        }
+
+        ScannedQrPayment urlResult = parseUrlOrText(raw);
+        if (urlResult != null) {
+            return urlResult;
+        }
+
+        return parseEmvco(raw);
+    }
+
+    private static ScannedQrPayment parseEmvco(String raw) {
+        Map<String, String> root = parseTlv(raw);
         if (root.isEmpty()) return null;
         ScannedQrPayment result = new ScannedQrPayment();
-        result.rawPayload = payload.trim();
+        result.rawPayload = raw;
         result.recipientName = root.get("59");
         result.transferContent = findTransferContent(root.get("62"));
-        String amount = root.get("54");
-        if (amount != null) {
-            try { result.amount = (long) Double.parseDouble(amount); }
-            catch (NumberFormatException ignored) { }
+        String amountStr = root.get("54");
+        if (amountStr != null) {
+            try { result.amount = (long) Double.parseDouble(amountStr); }
+            catch (NumberFormatException ignored) {}
         }
         for (Map.Entry<String, String> entry : root.entrySet()) {
             if (!entry.getKey().matches("\\d{2}") || !entry.getValue().startsWith("00")) continue;
@@ -33,6 +53,45 @@ public class ScannedQrPayment {
             break;
         }
         return result;
+    }
+
+    private static ScannedQrPayment parseUrlOrText(String raw) {
+        Pattern vietQrImgPattern = Pattern.compile("(?:vietqr\\.io|api\\.vietqr\\.io)/image/([0-9A-Za-z]+)-([0-9A-Za-z]+)", Pattern.CASE_INSENSITIVE);
+        Matcher m = vietQrImgPattern.matcher(raw);
+        if (m.find()) {
+            ScannedQrPayment res = new ScannedQrPayment();
+            res.rawPayload = raw;
+            res.bankBin = m.group(1);
+            res.accountNumber = m.group(2);
+            Pattern amtPattern = Pattern.compile("[?&]amount=([0-9]+)", Pattern.CASE_INSENSITIVE);
+            Matcher mAmt = amtPattern.matcher(raw);
+            if (mAmt.find()) {
+                try { res.amount = Long.parseLong(mAmt.group(1)); }
+                catch (NumberFormatException ignored) {}
+            }
+            Pattern notePattern = Pattern.compile("[?&](?:addInfo|memo|note)=([^&]+)", Pattern.CASE_INSENSITIVE);
+            Matcher mNote = notePattern.matcher(raw);
+            if (mNote.find()) {
+                try { res.transferContent = java.net.URLDecoder.decode(mNote.group(1), "UTF-8"); }
+                catch (Exception e) { res.transferContent = mNote.group(1); }
+            }
+            return res;
+        }
+
+        Pattern bankPipePattern = Pattern.compile("^([0-9]{4,8})[|\\-/:]([0-9]{6,24})(?:[|\\-/:](.*))?$");
+        Matcher mPipe = bankPipePattern.matcher(raw);
+        if (mPipe.find()) {
+            ScannedQrPayment res = new ScannedQrPayment();
+            res.rawPayload = raw;
+            res.bankBin = mPipe.group(1);
+            res.accountNumber = mPipe.group(2);
+            if (mPipe.group(3) != null) {
+                res.recipientName = mPipe.group(3).trim();
+            }
+            return res;
+        }
+
+        return null;
     }
 
     private static String findTransferContent(String additionalData) {

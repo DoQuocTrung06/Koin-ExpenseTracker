@@ -35,6 +35,9 @@ import com.google.zxing.MultiFormatReader;
 import com.google.zxing.RGBLuminanceSource;
 import com.google.zxing.Result;
 import com.google.zxing.common.HybridBinarizer;
+import com.google.zxing.common.GlobalHistogramBinarizer;
+import com.journeyapps.barcodescanner.ScanContract;
+import com.journeyapps.barcodescanner.ScanOptions;
 import com.sharedfund.app.R;
 import com.sharedfund.app.data.RoomRepository;
 import com.sharedfund.app.data.TransactionRepository;
@@ -144,6 +147,9 @@ public class RoomTransferFragment extends Fragment {
     private DecimalFormat df;
 
     private ActivityResultLauncher<String> pickImageLauncher;
+    private ActivityResultLauncher<ScanOptions> cameraScanLauncher;
+    private View layoutQrEmptyPrompt;
+    private View layoutQrPaymentForm;
 
     public static RoomTransferFragment newInstance(String roomId, double roomBalance) {
         RoomTransferFragment sheet = new RoomTransferFragment();
@@ -172,6 +178,17 @@ public class RoomTransferFragment extends Fragment {
         pickImageLauncher = registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
             if (uri != null) {
                 parseQrFromUri(uri);
+            }
+        });
+
+        cameraScanLauncher = registerForActivityResult(new ScanContract(), result -> {
+            if (result != null && result.getContents() != null) {
+                ScannedQrPayment parsed = ScannedQrPayment.parse(result.getContents());
+                if (parsed != null && parsed.accountNumber != null) {
+                    setScannedQrData(parsed);
+                } else {
+                    Toast.makeText(requireContext(), "Không tìm thấy thông tin chuyển khoản VietQR trong mã vừa quét", Toast.LENGTH_LONG).show();
+                }
             }
         });
     }
@@ -271,6 +288,8 @@ public class RoomTransferFragment extends Fragment {
 
         btnScanQrTransfer = view.findViewById(R.id.btnScanQrTransfer);
         btnPickQrImageTransfer = view.findViewById(R.id.btnPickQrImageTransfer);
+        layoutQrEmptyPrompt = view.findViewById(R.id.layoutQrEmptyPrompt);
+        layoutQrPaymentForm = view.findViewById(R.id.layoutQrPaymentForm);
         cardQrResult = view.findViewById(R.id.cardQrResult);
         tvQrResultDetails = view.findViewById(R.id.tvQrResultDetails);
         tilQrAmount = view.findViewById(R.id.tilQrAmount);
@@ -365,10 +384,13 @@ public class RoomTransferFragment extends Fragment {
                 layoutTransferQr.setVisibility(pos == 2 ? View.VISIBLE : View.GONE);
                 if (btnTransferSubmitUnified != null) {
                     if (pos == 0) {
+                        btnTransferSubmitUnified.setVisibility(View.VISIBLE);
                         btnTransferSubmitUnified.setText("Tiếp tục chuyển về Ví Koin");
                     } else if (pos == 1) {
+                        btnTransferSubmitUnified.setVisibility(View.VISIBLE);
                         btnTransferSubmitUnified.setText("Tiếp tục chuyển đến Ngân hàng");
                     } else {
+                        btnTransferSubmitUnified.setVisibility(pendingQr != null ? View.VISIBLE : View.GONE);
                         btnTransferSubmitUnified.setText("Tiếp tục thanh toán từ quỹ");
                     }
                 }
@@ -465,7 +487,16 @@ public class RoomTransferFragment extends Fragment {
 
     private void setupQrTransferSection() {
         btnScanQrTransfer.setOnClickListener(v -> {
-            if (listener != null) listener.onRequestQrScan();
+            ScanOptions options = new ScanOptions();
+            options.setDesiredBarcodeFormats(ScanOptions.QR_CODE);
+            options.setPrompt("Hướng camera về mã QR để thanh toán");
+            options.setCameraId(0);
+            options.setBeepEnabled(true);
+            options.setBarcodeImageEnabled(false);
+            options.setOrientationLocked(false);
+            if (cameraScanLauncher != null) {
+                cameraScanLauncher.launch(options);
+            }
         });
 
         btnPickQrImageTransfer.setOnClickListener(v -> {
@@ -473,21 +504,44 @@ public class RoomTransferFragment extends Fragment {
                 pickImageLauncher.launch("image/*");
             }
         });
-
     }
 
     private void parseQrFromUri(Uri imageUri) {
         try (InputStream inputStream = requireContext().getContentResolver().openInputStream(imageUri)) {
-            Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
+            BitmapFactory.Options opts = new BitmapFactory.Options();
+            opts.inJustDecodeBounds = true;
+            BitmapFactory.decodeStream(inputStream, null, opts);
+            int maxDim = Math.max(opts.outWidth, opts.outHeight);
+            int inSampleSize = 1;
+            while (maxDim / inSampleSize > 1200) {
+                inSampleSize *= 2;
+            }
+            opts.inSampleSize = inSampleSize;
+            opts.inJustDecodeBounds = false;
+
+            Bitmap bitmap;
+            try (InputStream stream2 = requireContext().getContentResolver().openInputStream(imageUri)) {
+                bitmap = BitmapFactory.decodeStream(stream2, null, opts);
+            }
             if (bitmap == null) {
                 Toast.makeText(requireContext(), "Không thể mở ảnh mã QR", Toast.LENGTH_SHORT).show();
                 return;
             }
-            int[] intArray = new int[bitmap.getWidth() * bitmap.getHeight()];
-            bitmap.getPixels(intArray, 0, bitmap.getWidth(), 0, 0, bitmap.getWidth(), bitmap.getHeight());
-            RGBLuminanceSource source = new RGBLuminanceSource(bitmap.getWidth(), bitmap.getHeight(), intArray);
-            BinaryBitmap binaryBitmap = new BinaryBitmap(new HybridBinarizer(source));
-            Result result = new MultiFormatReader().decode(binaryBitmap);
+
+            int w = bitmap.getWidth();
+            int h = bitmap.getHeight();
+            int[] pixels = new int[w * h];
+            bitmap.getPixels(pixels, 0, w, 0, 0, w, h);
+            RGBLuminanceSource source = new RGBLuminanceSource(w, h, pixels);
+            Result result = null;
+            try {
+                result = new MultiFormatReader().decode(new BinaryBitmap(new HybridBinarizer(source)));
+            } catch (Exception ignored) {
+                try {
+                    result = new MultiFormatReader().decode(new BinaryBitmap(new GlobalHistogramBinarizer(source)));
+                } catch (Exception ignored2) {}
+            }
+
             if (result != null && result.getText() != null) {
                 ScannedQrPayment parsed = ScannedQrPayment.parse(result.getText());
                 if (parsed != null && parsed.accountNumber != null) {
@@ -495,6 +549,8 @@ public class RoomTransferFragment extends Fragment {
                 } else {
                     Toast.makeText(requireContext(), "Không tìm thấy thông tin chuyển khoản VietQR trong ảnh", Toast.LENGTH_LONG).show();
                 }
+            } else {
+                Toast.makeText(requireContext(), "Không quét được mã QR từ ảnh này", Toast.LENGTH_SHORT).show();
             }
         } catch (Exception e) {
             Toast.makeText(requireContext(), "Không quét được mã QR từ ảnh này", Toast.LENGTH_SHORT).show();

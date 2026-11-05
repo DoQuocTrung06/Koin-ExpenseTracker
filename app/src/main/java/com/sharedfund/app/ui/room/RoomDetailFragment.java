@@ -2434,14 +2434,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
     }
 
     private boolean isCurrentUserAdmin() {
-        if (isCurrentUserTreasurer()) return true;
-        Room room = viewModel != null ? viewModel.getRoom().getValue() : null;
-        if (room == null) return false;
-        String role = room.getCurrentUserRole();
-        if (role != null) return "ADMIN".equalsIgnoreCase(role) || "OWNER".equalsIgnoreCase(role) || "TREASURER".equalsIgnoreCase(role);
-        String currentUserId = UserSessionManager.getInstance(requireContext()).getUserId();
-        if (currentUserId != null && currentUserId.equals(room.getCreatedBy())) return true;
-        return RoomRepository.getInstance().isCurrentUserAdmin(roomId);
+        return isCurrentUserOwner() || isCurrentUserTreasurer();
     }
 
     private void copyJoinCode() {
