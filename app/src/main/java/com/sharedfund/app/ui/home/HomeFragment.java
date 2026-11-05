@@ -418,7 +418,7 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
         });
         if (switchDrawerTheme != null) {
             switchDrawerTheme.setOnCheckedChangeListener((btn, isChecked) -> {
-                if (getActivity() instanceof MainActivity) {
+                if (btn.isPressed() && getActivity() instanceof MainActivity) {
                     ((MainActivity) getActivity()).setDarkTheme(isChecked);
                 }
             });

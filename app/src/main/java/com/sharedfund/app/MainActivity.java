@@ -14,7 +14,10 @@ import com.sharedfund.app.data.UserSessionManager;
 import com.sharedfund.app.ui.home.HomeFragment;
 import com.sharedfund.app.ui.login.LoginFragment;
 import com.sharedfund.app.ui.profile.ProfileFragment;
+import com.sharedfund.app.ui.room.ExpenseApprovalFragment;
+import com.sharedfund.app.ui.room.FundActionFragment;
 import com.sharedfund.app.ui.room.RoomDetailFragment;
+import com.sharedfund.app.ui.room.RoomTransferFragment;
 import com.sharedfund.app.ui.widget.AppToaster;
 
 public class MainActivity extends AppCompatActivity {
@@ -32,19 +35,7 @@ public class MainActivity extends AppCompatActivity {
         RoomRepository.getInstance().startRealtime();
 
         if (savedInstanceState == null) {
-            UserSessionManager session = UserSessionManager.getInstance(this);
-            if (session.isLoggedIn() && session.getUserId() != null && !session.getUserId().trim().isEmpty()) {
-                if (session.isTokenExpired() && (session.getRefreshToken() == null || session.getRefreshToken().trim().isEmpty())) {
-                    session.clearSession();
-                    loadFragment(new LoginFragment(), false);
-                } else {
-                    RoomRepository.getInstance().setCurrentUser(session.getUserId(), session.getFullName());
-                    RoomRepository.getInstance().configureAccessToken(session.getAccessToken());
-                    loadFragment(new HomeFragment(), false);
-                }
-            } else {
-                loadFragment(new LoginFragment(), false);
-            }
+            loadFragment(new LoginFragment(), false);
         }
     }
 
@@ -97,15 +88,15 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void openFundAction(String roomId, double roomBalance) {
-        loadFragment(com.sharedfund.app.ui.room.FundActionFragment.newInstance(roomId, roomBalance), true);
+        loadFragment(FundActionFragment.newInstance(roomId, roomBalance), true);
     }
 
     public void openRoomTransfer(String roomId, double roomBalance) {
-        loadFragment(com.sharedfund.app.ui.room.RoomTransferFragment.newInstance(roomId, roomBalance), true);
+        loadFragment(RoomTransferFragment.newInstance(roomId, roomBalance), true);
     }
 
     public void openExpenseApproval(String roomId) {
-        loadFragment(com.sharedfund.app.ui.room.ExpenseApprovalFragment.newInstance(roomId), true);
+        loadFragment(ExpenseApprovalFragment.newInstance(roomId), true);
     }
 
     public void openRoomDetail(String roomId) {

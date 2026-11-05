@@ -308,6 +308,9 @@ public class WalletTransactionsFragment extends Fragment {
             if (tx.isIncome()) {
                 return true;
             }
+            if (!tx.isApproved()) {
+                return false;
+            }
             return tx.isExpense() && isWithdrawToWallet(tx);
         }
     }

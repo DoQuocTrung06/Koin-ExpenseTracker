@@ -1165,10 +1165,6 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
         dialog.show();
     }
     private void showChangeBackgroundDialog() {
-        if (!isCurrentUserOwner() && !isCurrentUserAdmin()) {
-            AppToaster.error(requireActivity(), "Chỉ Chủ quỹ hoặc Phó quỹ mới có quyền đổi ảnh bìa.");
-            return;
-        }
         View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_koin_options, null);
         TextView tvTitle = dialogView.findViewById(R.id.tvDialogTitle);
         TextView tvSubtitle = dialogView.findViewById(R.id.tvDialogSubtitle);
@@ -1492,7 +1488,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
             btnHeaderQuickEdit.setVisibility((isOwner || isTreasurer) ? View.VISIBLE : View.GONE);
         }
         if (btnChangeRoomBackground != null) {
-            btnChangeRoomBackground.setVisibility((isOwner || isCurrentUserAdmin()) ? View.VISIBLE : View.GONE);
+            btnChangeRoomBackground.setVisibility(View.VISIBLE);
         }
     }
 
@@ -1857,6 +1853,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                             ContextCompat.getColor(requireContext(), R.color.primary),
                             () -> {
                                 removeRoomTreasurer(roomId, member.getUserId());
+                                RoomRepository.getInstance().updateMemberRole(roomId, member.getUserId(), "MEMBER", null);
                                 member.setRole("MEMBER");
                                 if (memberAdapter != null) memberAdapter.notifyDataSetChanged();
                                 applyRoleBasedUi(currentRoom);
@@ -1879,6 +1876,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                             ContextCompat.getColor(requireContext(), R.color.primary),
                             () -> {
                                 addRoomTreasurer(roomId, member.getUserId());
+                                RoomRepository.getInstance().updateMemberRole(roomId, member.getUserId(), "TREASURER", null);
                                 member.setRole("TREASURER");
                                 if (memberAdapter != null) memberAdapter.notifyDataSetChanged();
                                 applyRoleBasedUi(currentRoom);
@@ -1902,6 +1900,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                         "Chuyển quyền",
                         ContextCompat.getColor(requireContext(), R.color.primary),
                         () -> {
+                            String myCurrentId = UserSessionManager.getInstance(requireContext()).getUserId();
                             if (getContext() != null) {
                                 requireContext().getSharedPreferences("room_roles_" + roomId, Context.MODE_PRIVATE)
                                         .edit()
@@ -1909,15 +1908,14 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                                         .apply();
                             }
                             removeRoomTreasurer(roomId, member.getUserId());
+                            RoomRepository.getInstance().transferRoomOwnership(roomId, myCurrentId, member.getUserId(), null);
                             if (currentRoom != null) {
                                 currentRoom.setCurrentUserRole("MEMBER");
-                                
                                 currentRoom.setCreatedBy(member.getUserId());
                             }
                             Room rSync = RoomRepository.getInstance().getRoomSync(roomId);
                             if (rSync != null) {
                                 rSync.setCurrentUserRole("MEMBER");
-                                
                                 rSync.setCreatedBy(member.getUserId());
                             }
                             if (viewModel != null && viewModel.getMembers().getValue() != null) {
@@ -1930,9 +1928,8 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                                 }
                             }
                             member.setRole("OWNER");
-                            String currentUserId = UserSessionManager.getInstance(requireContext()).getUserId();
                             if (memberAdapter != null) {
-                                memberAdapter.setCurrentUserPermissions(currentUserId, false, false);
+                                memberAdapter.setCurrentUserPermissions(myCurrentId, false, false);
                                 memberAdapter.notifyDataSetChanged();
                             }
                             applyRoleBasedUi(currentRoom);
@@ -2434,14 +2431,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
     }
 
     private boolean isCurrentUserAdmin() {
-        if (isCurrentUserTreasurer()) return true;
-        Room room = viewModel != null ? viewModel.getRoom().getValue() : null;
-        if (room == null) return false;
-        String role = room.getCurrentUserRole();
-        if (role != null) return "ADMIN".equalsIgnoreCase(role) || "OWNER".equalsIgnoreCase(role) || "TREASURER".equalsIgnoreCase(role);
-        String currentUserId = UserSessionManager.getInstance(requireContext()).getUserId();
-        if (currentUserId != null && currentUserId.equals(room.getCreatedBy())) return true;
-        return RoomRepository.getInstance().isCurrentUserAdmin(roomId);
+        return isCurrentUserOwner() || isCurrentUserTreasurer();
     }
 
     private void copyJoinCode() {
