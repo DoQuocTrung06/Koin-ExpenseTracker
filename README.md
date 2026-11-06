@@ -51,7 +51,7 @@ You can sign in immediately using any of the following pre-created accounts:
 
 | Account | Email | Password |
 | :--- | :--- | :--- |
-| Account 1 | `doquoctrung2k@gmail.com` | `123456` |
+| Account 1 | doquoctrung2k@gmail.com | T@123456789a |
 | Account 2 | `doquocviet2k@gmail.com` | `V@123456` |
 | Account 3 | `phamquoccuong@gmail.com` | `C@123456` |
 
