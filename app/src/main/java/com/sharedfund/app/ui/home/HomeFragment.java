@@ -119,6 +119,13 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
             @Override public void handleOnBackPressed() { hideAccountDrawer(); }
         };
         requireActivity().getOnBackPressedDispatcher().addCallback(getViewLifecycleOwner(), drawerBackCallback);
+        if (getActivity() instanceof MainActivity) {
+            MainActivity mainActivity = (MainActivity) getActivity();
+            if (mainActivity.shouldReopenDrawer()) {
+                mainActivity.clearReopenDrawer();
+                view.post(this::showAccountDrawerInstant);
+            }
+        }
     }
 
     @Override
@@ -418,8 +425,12 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
         });
         if (switchDrawerTheme != null) {
             switchDrawerTheme.setOnCheckedChangeListener((btn, isChecked) -> {
-                if (btn.isPressed() && getActivity() instanceof MainActivity) {
-                    ((MainActivity) getActivity()).setDarkTheme(isChecked);
+                if (getActivity() instanceof MainActivity && isChecked != ((MainActivity) getActivity()).isDarkTheme()) {
+                    btn.postDelayed(() -> {
+                        if (getActivity() instanceof MainActivity) {
+                            ((MainActivity) getActivity()).setDarkTheme(isChecked);
+                        }
+                    }, 220);
                 }
             });
         }
@@ -486,6 +497,23 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
     private void viewClick(int id, DrawerAction action) {
         View item = requireView().findViewById(id);
         if (item != null) item.setOnClickListener(action::run);
+    }
+
+    private void showAccountDrawerInstant() {
+        if (accountDrawer == null || accountDrawerScrim == null) return;
+        com.sharedfund.app.data.UserSessionManager session =
+                com.sharedfund.app.data.UserSessionManager.getInstance(requireContext());
+        tvDrawerUserName.setText(session.getCurrentUserName());
+        tvDrawerUserEmail.setText(session.getCurrentUserEmail());
+        if (getActivity() instanceof MainActivity) {
+            if (switchDrawerTheme != null) switchDrawerTheme.setChecked(((MainActivity) getActivity()).isDarkTheme());
+        }
+        accountDrawerScrim.setVisibility(View.VISIBLE);
+        accountDrawerScrim.setAlpha(1f);
+        accountDrawer.setVisibility(View.VISIBLE);
+        accountDrawer.setAlpha(1f);
+        accountDrawer.setTranslationX(0f);
+        if (drawerBackCallback != null) drawerBackCallback.setEnabled(true);
     }
 
     private void showAccountDrawer() {

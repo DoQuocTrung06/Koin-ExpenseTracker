@@ -23,6 +23,17 @@ import com.sharedfund.app.ui.widget.AppToaster;
 public class MainActivity extends AppCompatActivity {
     private static final String SETTINGS_PREFS = "koin_ui_settings";
     private static final String KEY_DARK_THEME = "dark_theme";
+    private static final String KEY_REOPEN_DRAWER = "reopen_drawer";
+
+    public boolean shouldReopenDrawer() {
+        return getSharedPreferences(SETTINGS_PREFS, MODE_PRIVATE).getBoolean(KEY_REOPEN_DRAWER, false);
+    }
+
+    public void clearReopenDrawer() {
+        getSharedPreferences(SETTINGS_PREFS, MODE_PRIVATE).edit()
+                .remove(KEY_REOPEN_DRAWER)
+                .apply();
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -46,6 +57,7 @@ public class MainActivity extends AppCompatActivity {
     public void setDarkTheme(boolean darkTheme) {
         getSharedPreferences(SETTINGS_PREFS, MODE_PRIVATE).edit()
                 .putBoolean(KEY_DARK_THEME, darkTheme)
+                .putBoolean(KEY_REOPEN_DRAWER, true)
                 .apply();
         AppCompatDelegate.setDefaultNightMode(darkTheme
                 ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO);

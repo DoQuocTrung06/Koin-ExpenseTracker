@@ -279,7 +279,8 @@ public class ProfileFragment extends Fragment {
                         || (currentUserId != null && currentUserId.equals(room.getCreatedBy()));
                 boolean isTreasurer = "TREASURER".equalsIgnoreCase(room.getCurrentUserRole())
                         || (currentUserId != null && requireContext().getSharedPreferences("room_roles_" + room.getId(), Context.MODE_PRIVATE)
-                                .getBoolean("treasurer_" + currentUserId, false));
+                                .getBoolean("treasurer_" + currentUserId, false))
+                        || (currentUserId != null && room.getTreasurerIds().contains(currentUserId));
                 if (isOwner || isTreasurer) {
                     adminCount++;
                 }
@@ -389,6 +390,29 @@ public class ProfileFragment extends Fragment {
 
         hideKeyboard();
         loadProfileData();
+
+        new ProfileRepository().updateProfileDetails(
+                session.getUserId(), session.getAccessToken(),
+                nickname, occupation, education, bio,
+                new ProfileRepository.Callback() {
+                    @Override
+                    public void onSuccess(String result) {
+                        if (!isAdded()) return;
+                        requireActivity().runOnUiThread(() -> {
+                            AppToaster.success(requireActivity(), "Đã đồng bộ hồ sơ lên hệ thống realtime");
+                            RoomRepository.getInstance().loadUserProfile();
+                        });
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        if (!isAdded()) return;
+                        requireActivity().runOnUiThread(() -> {
+                            AppToaster.error(requireActivity(), "Đã lưu máy, lỗi đồng bộ máy chủ: " + ErrorMessageHelper.getFriendlyMessage(message));
+                        });
+                    }
+                }
+        );
             }
 
     private void cancelInlineProfileEdit() {

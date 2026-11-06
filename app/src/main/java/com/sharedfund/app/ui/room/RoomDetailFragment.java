@@ -678,6 +678,10 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
         applyRoleBasedUi(room);
         if (viewModel != null) {
+            initPendingJoinRequests();
+            if (viewModel.getMembers().getValue() != null) {
+                renderMembers(viewModel.getMembers().getValue());
+            }
             updatePendingApprovalBanner(viewModel.getPendingTransactions().getValue());
         }
     }
@@ -838,7 +842,22 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
     }
 
     private Set<String> getRoomTreasurerIds(String roomId) {
-        if (getContext() == null || roomId == null) return new HashSet<>();
+        if (roomId == null) return new HashSet<>();
+        Room r = RoomRepository.getInstance().getRoomSync(roomId);
+        if (r == null && viewModel != null) {
+            r = viewModel.getRoom().getValue();
+        }
+        if (r != null && r.hasServerTreasurers()) {
+            Set<String> serverSet = r.getTreasurerIds();
+            if (getContext() != null) {
+                requireContext().getSharedPreferences("room_roles_" + roomId, Context.MODE_PRIVATE)
+                        .edit()
+                        .putStringSet("treasurer_ids", new HashSet<>(serverSet))
+                        .apply();
+            }
+            return new HashSet<>(serverSet);
+        }
+        if (getContext() == null) return new HashSet<>();
         Set<String> set = requireContext().getSharedPreferences("room_roles_" + roomId, Context.MODE_PRIVATE)
                 .getStringSet("treasurer_ids", new HashSet<>());
         return new HashSet<>(set);
@@ -853,6 +872,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                 .putStringSet("treasurer_ids", set)
                 .putBoolean("treasurer_" + userId, true)
                 .apply();
+        RoomRepository.getInstance().syncRoomTreasurers(roomId, set);
     }
 
     private void removeRoomTreasurer(String roomId, String userId) {
@@ -864,10 +884,19 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                 .putStringSet("treasurer_ids", set)
                 .remove("treasurer_" + userId)
                 .apply();
+        RoomRepository.getInstance().syncRoomTreasurers(roomId, set);
     }
 
     private boolean isSavedTreasurer(String roomId, String userId) {
-        if (getContext() == null || roomId == null || userId == null) return false;
+        if (roomId == null || userId == null) return false;
+        Room r = RoomRepository.getInstance().getRoomSync(roomId);
+        if (r == null && viewModel != null) {
+            r = viewModel.getRoom().getValue();
+        }
+        if (r != null && r.hasServerTreasurers()) {
+            return r.getTreasurerIds().contains(userId);
+        }
+        if (getContext() == null) return false;
         return getRoomTreasurerIds(roomId).contains(userId)
                 || requireContext().getSharedPreferences("room_roles_" + roomId, Context.MODE_PRIVATE)
                 .getBoolean("treasurer_" + userId, false);
@@ -946,17 +975,15 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
         if (rId != null && getContext() != null) {
             String savedOwnerId = requireContext().getSharedPreferences("room_roles_" + rId, Context.MODE_PRIVATE)
                     .getString("owner_id", null);
-            String ownerId = savedOwnerId != null ? savedOwnerId : (room != null ? room.getCreatedBy() : null);
+            String ownerId = (room != null && room.getCreatedBy() != null && !room.getCreatedBy().isEmpty())
+                    ? room.getCreatedBy() : savedOwnerId;
             for (RoomMember m : members) {
-                if (ownerId != null) {
-                    if (m.getUserId() != null && m.getUserId().equals(ownerId)) {
-                        m.setRole("OWNER");
-                    } else if ("OWNER".equalsIgnoreCase(m.getRole()) || "ADMIN".equalsIgnoreCase(m.getRole())) {
-                        m.setRole("MEMBER");
-                    }
-                }
-                if (!"OWNER".equalsIgnoreCase(m.getRole()) && isSavedTreasurer(rId, m.getUserId())) {
+                if (ownerId != null && m.getUserId() != null && m.getUserId().equals(ownerId)) {
+                    m.setRole("OWNER");
+                } else if (isSavedTreasurer(rId, m.getUserId())) {
                     m.setRole("TREASURER");
+                } else {
+                    m.setRole("MEMBER");
                 }
             }
         }
@@ -1552,56 +1579,44 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
         return "";
     }
 
-    private Set<String> getResolvedJoinRequests(Context context, String targetRoomId) {
-        if (context == null) return new HashSet<>();
-        String effectiveId = (targetRoomId != null && !targetRoomId.isEmpty()) ? targetRoomId : getEffectiveRoomId();
-        Set<String> set = context.getSharedPreferences("shared_fund_join_requests", Context.MODE_PRIVATE)
-                .getStringSet("resolved_" + effectiveId, new HashSet<>());
-        return new HashSet<>(set);
-    }
-
-    private void markJoinRequestResolved(Context context, String targetRoomId, PendingJoinRequest request) {
-        if (context == null || request == null) return;
-        String effectiveId = (targetRoomId != null && !targetRoomId.isEmpty()) ? targetRoomId : getEffectiveRoomId();
-        Set<String> set = getResolvedJoinRequests(context, effectiveId);
-        if (request.email != null) set.add(request.email);
-        if (request.applicantName != null) set.add(request.applicantName);
-        context.getSharedPreferences("shared_fund_join_requests", Context.MODE_PRIVATE)
-                .edit()
-                .putStringSet("resolved_" + effectiveId, set)
-                .apply();
-    }
-
-    private boolean isJoinRequestResolved(Context context, String targetRoomId, String email, String applicantName) {
-        if (context == null) return false;
-        String effectiveId = (targetRoomId != null && !targetRoomId.isEmpty()) ? targetRoomId : getEffectiveRoomId();
-        Set<String> set = getResolvedJoinRequests(context, effectiveId);
-        return (email != null && set.contains(email)) || (applicantName != null && set.contains(applicantName));
-    }
+    private Runnable activeJoinRequestsDialogRender;
 
     private void initPendingJoinRequests() {
         pendingJoinRequests.clear();
-        isRoomPrivate = RoomPrivacyManager.isRoomPrivate(getEffectiveRoomId());
+        Room r = RoomRepository.getInstance().getRoomSync(getEffectiveRoomId());
+        if (r == null && viewModel != null) r = viewModel.getRoom().getValue();
+        isRoomPrivate = (r != null && r.isPrivateRoom()) || RoomPrivacyManager.isRoomPrivate(getEffectiveRoomId());
         if (tvSettingsPrivacyStatus != null) {
             tvSettingsPrivacyStatus.setText(isRoomPrivate ? "Riêng tư ▾" : "Công khai ▾");
         }
         if (tvSettingsPrivacyDesc != null) {
-            tvSettingsPrivacyDesc.setText(isRoomPrivate 
+            tvSettingsPrivacyDesc.setText(isRoomPrivate
                     ? "Thành viên mới cần bạn phê duyệt để tham gia quỹ."
                     : "Bất kỳ ai có mã tham gia đều có thể vào quỹ ngay lập tức.");
         }
-        if (isRoomPrivate) {
-            List<RoomPrivacyManager.JoinRequestItem> saved = RoomPrivacyManager.getPendingRequests(getEffectiveRoomId());
-            for (RoomPrivacyManager.JoinRequestItem item : saved) {
-                if (!isJoinRequestResolved(getContext(), getEffectiveRoomId(), item.email, item.applicantName)) {
-                    pendingJoinRequests.add(new PendingJoinRequest(item.userId, item.applicantName, item.email, item.time, item.message));
+        if (r != null) {
+            List<Room.JoinRequestMeta> cloudReqs = r.getPendingJoinRequests();
+            for (Room.JoinRequestMeta item : cloudReqs) {
+                pendingJoinRequests.add(new PendingJoinRequest(item.userId, item.applicantName, item.email, item.time, item.message));
+            }
+        }
+        List<RoomPrivacyManager.JoinRequestItem> localSaved = RoomPrivacyManager.getPendingRequests(getEffectiveRoomId());
+        for (RoomPrivacyManager.JoinRequestItem item : localSaved) {
+            boolean exists = false;
+            for (PendingJoinRequest p : pendingJoinRequests) {
+                if ((item.userId != null && item.userId.equals(p.userId)) || (item.email != null && item.email.equalsIgnoreCase(p.email))) {
+                    exists = true;
+                    break;
                 }
             }
-            if (pendingJoinRequests.isEmpty() && !isJoinRequestResolved(getContext(), getEffectiveRoomId(), "user3_test_realtime@sharedfund.com", "Lê Hoàng Nam")) {
-                pendingJoinRequests.add(new PendingJoinRequest("mock-nam-id", "Lê Hoàng Nam", "user3_test_realtime@sharedfund.com", "Vừa xong", "Xin vào quỹ ăn sáng chung nhóm"));
+            if (!exists) {
+                pendingJoinRequests.add(new PendingJoinRequest(item.userId, item.applicantName, item.email, item.time, item.message));
             }
         }
         updateJoinRequestsBadge();
+        if (activeJoinRequestsDialogRender != null) {
+            activeJoinRequestsDialogRender.run();
+        }
     }
 
     private void updateJoinRequestsBadge() {
@@ -1663,6 +1678,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
         btnConfirm.setOnClickListener(v -> {
             isRoomPrivate = selectedPrivate[0];
             RoomPrivacyManager.setRoomPrivate(getEffectiveRoomId(), isRoomPrivate);
+            RoomRepository.getInstance().setRoomPrivacy(getEffectiveRoomId(), isRoomPrivate);
             if (tvSettingsPrivacyStatus != null) {
                 tvSettingsPrivacyStatus.setText(isRoomPrivate ? "Riêng tư ▾" : "Công khai ▾");
             }
@@ -1853,9 +1869,12 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                             ContextCompat.getColor(requireContext(), R.color.primary),
                             () -> {
                                 removeRoomTreasurer(roomId, member.getUserId());
-                                RoomRepository.getInstance().updateMemberRole(roomId, member.getUserId(), "MEMBER", null);
                                 member.setRole("MEMBER");
-                                if (memberAdapter != null) memberAdapter.notifyDataSetChanged();
+                                if (viewModel != null && viewModel.getMembers().getValue() != null) {
+                                    renderMembers(viewModel.getMembers().getValue());
+                                } else if (memberAdapter != null) {
+                                    memberAdapter.notifyDataSetChanged();
+                                }
                                 applyRoleBasedUi(currentRoom);
                                 AppToaster.success(requireActivity(), "Đã chuyển " + member.getDisplayName() + " về vai trò Thành viên thường.");
                                 if (onUpdated != null) onUpdated.run();
@@ -1876,9 +1895,12 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                             ContextCompat.getColor(requireContext(), R.color.primary),
                             () -> {
                                 addRoomTreasurer(roomId, member.getUserId());
-                                RoomRepository.getInstance().updateMemberRole(roomId, member.getUserId(), "TREASURER", null);
                                 member.setRole("TREASURER");
-                                if (memberAdapter != null) memberAdapter.notifyDataSetChanged();
+                                if (viewModel != null && viewModel.getMembers().getValue() != null) {
+                                    renderMembers(viewModel.getMembers().getValue());
+                                } else if (memberAdapter != null) {
+                                    memberAdapter.notifyDataSetChanged();
+                                }
                                 applyRoleBasedUi(currentRoom);
                                 AppToaster.success(requireActivity(), "Đã bổ nhiệm " + member.getDisplayName() + " làm Phó quỹ thành công!");
                                 if (onUpdated != null) onUpdated.run();
@@ -1928,7 +1950,9 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                                 }
                             }
                             member.setRole("OWNER");
-                            if (memberAdapter != null) {
+                            if (viewModel != null && viewModel.getMembers().getValue() != null) {
+                                renderMembers(viewModel.getMembers().getValue());
+                            } else if (memberAdapter != null) {
                                 memberAdapter.setCurrentUserPermissions(myCurrentId, false, false);
                                 memberAdapter.notifyDataSetChanged();
                             }
@@ -2110,6 +2134,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
     private void showJoinRequestsDialog() {
         if (getContext() == null) return;
+        initPendingJoinRequests();
         Dialog dialog = new Dialog(requireContext(), R.style.Theme_SharedFund);
         dialog.setContentView(R.layout.dialog_fullscreen_join_requests);
         if (dialog.getWindow() != null) {
@@ -2178,7 +2203,16 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                     tvInitials.setTextSize(15f);
                     tvInitials.setTypeface(null, Typeface.BOLD);
                     tvInitials.setBackgroundResource(R.drawable.bg_avatar_circle);
-                    tvInitials.setText("LN");
+                    String applicantInitials = "U";
+                    if (req.applicantName != null && !req.applicantName.trim().isEmpty()) {
+                        String[] parts = req.applicantName.trim().split("\\s+");
+                        if (parts.length >= 2) {
+                            applicantInitials = ("" + parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+                        } else if (parts[0].length() > 0) {
+                            applicantInitials = parts[0].substring(0, Math.min(2, parts[0].length())).toUpperCase();
+                        }
+                    }
+                    tvInitials.setText(applicantInitials);
 
                     avatarFrame.addView(ivAv);
                     avatarFrame.addView(tvInitials);
@@ -2262,36 +2296,90 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                     btnAccept.setCornerRadius(dpToPx(10));
 
                     btnReject.setOnClickListener(v -> {
-                        RoomPrivacyManager.removePendingRequest(getEffectiveRoomId(), req.userId, req.email);
-                        markJoinRequestResolved(dialog.getContext(), getEffectiveRoomId(), req);
-                        pendingJoinRequests.remove(req);
-                        updateJoinRequestsBadge();
-                        run();
+                        if (getContext() == null) return;
+                        Dialog confirmDialog = new Dialog(requireContext());
+                        confirmDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+                        confirmDialog.setContentView(R.layout.dialog_koin_action_confirm);
+                        if (confirmDialog.getWindow() != null) {
+                            confirmDialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+                            confirmDialog.getWindow().setLayout(
+                                    (int) (getResources().getDisplayMetrics().widthPixels * 0.88),
+                                    ViewGroup.LayoutParams.WRAP_CONTENT
+                            );
+                        }
+                        TextView tvTitle = confirmDialog.findViewById(R.id.tvConfirmDialogTitle);
+                        TextView tvMsg = confirmDialog.findViewById(R.id.tvConfirmDialogMessage);
+                        MaterialButton btnCancel = confirmDialog.findViewById(R.id.btnConfirmCancel);
+                        MaterialButton btnAction = confirmDialog.findViewById(R.id.btnConfirmAction);
+                        if (tvTitle != null) tvTitle.setText("Từ chối yêu cầu tham gia?");
+                        if (tvMsg != null) {
+                            String displayName = req.applicantName != null && !req.applicantName.isEmpty() ? req.applicantName : "thành viên này";
+                            tvMsg.setText("Bạn có chắc chắn muốn từ chối yêu cầu tham gia quỹ của " + displayName + " không? Người này sẽ không thể tham gia quỹ.");
+                        }
+                        if (btnAction != null) {
+                            btnAction.setText("Từ chối");
+                            btnAction.setTextColor(Color.WHITE);
+                            btnAction.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.accent_expense)));
+                            btnAction.setOnClickListener(actView -> {
+                                confirmDialog.dismiss();
+                                btnReject.setEnabled(false);
+                                btnAccept.setEnabled(false);
+                                float targetX = card.getWidth() > 0 ? (float) -card.getWidth() * 1.2f : -1000f;
+                                card.animate()
+                                        .translationX(targetX)
+                                        .alpha(0f)
+                                        .setDuration(280)
+                                        .setInterpolator(new androidx.interpolator.view.animation.FastOutSlowInInterpolator())
+                                        .withEndAction(() -> {
+                                            RoomPrivacyManager.removePendingRequest(getEffectiveRoomId(), req.userId, req.email);
+                                            RoomRepository.getInstance().removeJoinRequest(getEffectiveRoomId(), req.userId, req.email);
+                                            pendingJoinRequests.remove(req);
+                                            updateJoinRequestsBadge();
+                                            run();
+                                        })
+                                        .start();
+                            });
+                        }
+                        if (btnCancel != null) {
+                            btnCancel.setOnClickListener(cView -> confirmDialog.dismiss());
+                        }
+                        confirmDialog.show();
                     });
 
                     btnAccept.setOnClickListener(v -> {
-                        RoomPrivacyManager.removePendingRequest(getEffectiveRoomId(), req.userId, req.email);
-                        markJoinRequestResolved(dialog.getContext(), getEffectiveRoomId(), req);
-                        pendingJoinRequests.remove(req);
-                        updateJoinRequestsBadge();
-                        Room currentRoom = RoomRepository.getInstance().getRoomSync(getEffectiveRoomId());
-                        if (currentRoom != null && req.userId != null && !req.userId.startsWith("mock-")) {
-                            RoomRepository.getInstance().addMember(currentRoom, req.userId, "MEMBER", new RoomRepository.DataCallback<Room>() {
-                                @Override
-                                public void onSuccess(Room r) {
-                                    if (!isAdded()) return;
-                                    requireActivity().runOnUiThread(() -> {
-                                        viewModel.loadMembers();
-                                    });
-                                }
+                        btnReject.setEnabled(false);
+                        btnAccept.setEnabled(false);
+                        float targetX = card.getWidth() > 0 ? (float) card.getWidth() * 1.2f : 1000f;
+                        card.animate()
+                                .translationX(targetX)
+                                .alpha(0f)
+                                .setDuration(280)
+                                .setInterpolator(new androidx.interpolator.view.animation.FastOutSlowInInterpolator())
+                                .withEndAction(() -> {
+                                    RoomPrivacyManager.removePendingRequest(getEffectiveRoomId(), req.userId, req.email);
+                                    RoomRepository.getInstance().removeJoinRequest(getEffectiveRoomId(), req.userId, req.email);
+                                    pendingJoinRequests.remove(req);
+                                    updateJoinRequestsBadge();
+                                    Room currentRoom = RoomRepository.getInstance().getRoomSync(getEffectiveRoomId());
+                                    if (currentRoom != null && req.userId != null && !req.userId.startsWith("mock-")) {
+                                        RoomRepository.getInstance().addMember(currentRoom, req.userId, "MEMBER", new RoomRepository.DataCallback<Room>() {
+                                            @Override
+                                            public void onSuccess(Room r) {
+                                                if (!isAdded()) return;
+                                                requireActivity().runOnUiThread(() -> {
+                                                    viewModel.loadMembers();
+                                                });
+                                            }
 
-                                @Override
-                                public void onError(String error) {
-                                }
-                            });
-                        }
-                        viewModel.loadMembers();
-                        run();
+                                            @Override
+                                            public void onError(String error) {
+                                            }
+                                        });
+                                    }
+                                    viewModel.loadMembers();
+                                    run();
+                                })
+                                .start();
                     });
 
                     btnRow.addView(btnReject);
@@ -2304,6 +2392,8 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
             }
         };
 
+        activeJoinRequestsDialogRender = renderList;
+        dialog.setOnDismissListener(d -> activeJoinRequestsDialogRender = null);
         renderList.run();
         dialog.show();
     }

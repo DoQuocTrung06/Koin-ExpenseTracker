@@ -119,11 +119,27 @@ public class RoomRepository {
                 public void onRoomMemberChanged(String roomId, String eventType, String userId) {
                     onRemoteMemberChanged(roomId, eventType, userId);
                 }
+
+                @Override
+                public void onProfileUpdated(String userId, com.google.gson.JsonObject profileRecord) {
+                    onRemoteProfileUpdated(userId, profileRecord);
+                }
             });
             realtimeClient.connect();
         } else {
             realtimeClient.connect();
         }
+    }
+
+    public void onRemoteProfileUpdated(String userId, com.google.gson.JsonObject record) {
+        if (userId == null || record == null) return;
+        if (record.has("avatar_url") && !record.get("avatar_url").isJsonNull()) {
+            cacheUserAvatar(userId, record.get("avatar_url").getAsString());
+        }
+        if (currentUserId != null && currentUserId.equals(userId)) {
+            loadUserProfile();
+        }
+        notifyDataChanged();
     }
 
     public synchronized void setCurrentUser(String userId, String userName) {
@@ -423,21 +439,23 @@ public class RoomRepository {
                                     callback.onError("Bạn đã là thành viên của quỹ này!");
                                     return;
                                 }
-                                if (RoomPrivacyManager.isRoomPrivate(targetRoom.getId())) {
+                                if (targetRoom.isPrivateRoom() || RoomPrivacyManager.isRoomPrivate(targetRoom.getId())) {
                                     UserSessionManager session = UserSessionManager.getInstance(com.sharedfund.app.SharedFundApp.getInstance());
                                     String applicantName = session != null ? session.getFullName() : "Thành viên mới";
                                     String applicantEmail = session != null ? session.getEmail() : "";
                                     if (applicantName == null || applicantName.trim().isEmpty()) {
                                         applicantName = "Thành viên mới";
                                     }
-                                    RoomPrivacyManager.addPendingRequest(targetRoom.getId(), new RoomPrivacyManager.JoinRequestItem(
+                                    Room.JoinRequestMeta meta = new Room.JoinRequestMeta(
                                             userId,
                                             applicantName,
                                             applicantEmail,
                                             "Vừa xong",
                                             "Xin vào quỹ " + targetRoom.getName()
-                                    ));
-                                    callback.onError("PENDING_APPROVAL:" + targetRoom.getName());
+                                    );
+                                    addJoinRequest(targetRoom.getId(), meta, () -> {
+                                        callback.onError("PENDING_APPROVAL:" + targetRoom.getName());
+                                    });
                                     return;
                                 }
                                 addMember(targetRoom, userId, "MEMBER", callback);
@@ -495,8 +513,22 @@ public class RoomRepository {
                                 cacheUserAvatar(member.getUserId(), avUrl);
                             }
                         }
+                        Room rSync = getRoomSync(roomId);
+                        if (rSync != null) {
+                            if (rSync.getCreatedBy() != null && rSync.getCreatedBy().equals(member.getUserId())) {
+                                member.setRole("OWNER");
+                            } else if (rSync.getTreasurerIds().contains(member.getUserId())) {
+                                member.setRole("TREASURER");
+                            }
+                        }
                         result.add(member);
                     }
+                    java.util.Collections.sort(result, (m1, m2) -> {
+                        int rank1 = "OWNER".equalsIgnoreCase(m1.getRole()) ? 0 : ("TREASURER".equalsIgnoreCase(m1.getRole()) ? 1 : 2);
+                        int rank2 = "OWNER".equalsIgnoreCase(m2.getRole()) ? 0 : ("TREASURER".equalsIgnoreCase(m2.getRole()) ? 1 : 2);
+                        if (rank1 != rank2) return Integer.compare(rank1, rank2);
+                        return m1.getDisplayName().compareToIgnoreCase(m2.getDisplayName());
+                    });
                     callback.onSuccess(result);
                 } catch (Exception e) { callback.onError("Invalid members response: " + e.getMessage()); }
             }
@@ -848,7 +880,10 @@ public class RoomRepository {
             if (roomList.get(i).getId() != null && roomList.get(i).getId().equals(room.getId())) {
                 Room existing = roomList.get(i);
                 existing.setName(room.getName());
-                existing.setDescription(room.getDescription());
+                existing.setDescription(room.getRawDescription());
+                if (room.getCreatedBy() != null && !room.getCreatedBy().isEmpty()) {
+                    existing.setCreatedBy(room.getCreatedBy());
+                }
                 existing.setTargetAmount(room.getTargetAmount());
                 existing.setArchived(room.isArchived());
                 if (room.getBalance() != 0 || existing.getBalance() == 0) {
@@ -1061,9 +1096,12 @@ public class RoomRepository {
 
     public void updateRoom(String roomId, String name, String description, double targetAmount, DataCallback<Room> callback) {
         Room room = getRoomSync(roomId);
+        final String fullDescription = (room != null)
+                ? Room.buildFullDescription(description, room.getTreasurerIds(), room.isPrivateRoom(), room.getPendingJoinRequests())
+                : description;
         if (room != null) {
             room.setName(name);
-            room.setDescription(description);
+            room.setDescription(fullDescription);
             if (targetAmount >= 0) {
                 room.setTargetAmount(targetAmount);
             }
@@ -1100,7 +1138,7 @@ public class RoomRepository {
                         Room updated = gson.fromJson(rows.get(0), Room.class);
                         if (room != null) {
                             room.setName(updated.getName());
-                            room.setDescription(updated.getDescription());
+                            room.setDescription(updated.getRawDescription());
                             room.setTargetAmount(updated.getTargetAmount());
                         }
                         notifyDataChanged();
@@ -1170,6 +1208,97 @@ public class RoomRepository {
         });
     }
 
+
+    public void syncRoomTreasurers(String roomId, java.util.Set<String> treasurerIds) {
+        if (roomId == null) return;
+        Room room = getRoomSync(roomId);
+        String cleanDesc = room != null ? room.getDescription() : "";
+        boolean isPriv = room != null && room.isPrivateRoom();
+        java.util.List<Room.JoinRequestMeta> reqs = room != null ? room.getPendingJoinRequests() : null;
+        String fullDesc = Room.buildFullDescription(cleanDesc, treasurerIds, isPriv, reqs);
+        pushRoomDescription(roomId, fullDesc, true);
+    }
+
+    public void setRoomPrivacy(String roomId, boolean isPrivate) {
+        if (roomId == null) return;
+        Room room = getRoomSync(roomId);
+        String cleanDesc = room != null ? room.getDescription() : "";
+        java.util.Set<String> treas = room != null ? room.getTreasurerIds() : null;
+        java.util.List<Room.JoinRequestMeta> reqs = room != null ? room.getPendingJoinRequests() : null;
+        String fullDesc = Room.buildFullDescription(cleanDesc, treas, isPrivate, reqs);
+        pushRoomDescription(roomId, fullDesc, false);
+    }
+
+    public void addJoinRequest(String roomId, Room.JoinRequestMeta newReq, Runnable onDone) {
+        if (roomId == null || newReq == null) return;
+        String path = "/rooms?id=eq." + roomId + "&select=*";
+        client.newCall(request(path).get().build()).enqueue(new okhttp3.Callback() {
+            @Override public void onFailure(Call call, IOException e) { if (onDone != null) onDone.run(); }
+            @Override public void onResponse(Call call, Response response) throws IOException {
+                String body = response.body() != null ? response.body().string() : "";
+                try {
+                    JsonArray arr = JsonParser.parseString(body).getAsJsonArray();
+                    if (arr.size() > 0) {
+                        Room latest = gson.fromJson(arr.get(0), Room.class);
+                        java.util.List<Room.JoinRequestMeta> currentList = latest.getPendingJoinRequests();
+                        boolean exists = false;
+                        for (Room.JoinRequestMeta ex : currentList) {
+                            if ((newReq.userId != null && newReq.userId.equals(ex.userId))
+                                    || (newReq.email != null && newReq.email.equalsIgnoreCase(ex.email))) {
+                                exists = true;
+                                break;
+                            }
+                        }
+                        if (!exists) {
+                            currentList.add(0, newReq);
+                            String fullDesc = Room.buildFullDescription(latest.getDescription(), latest.getTreasurerIds(), latest.isPrivateRoom(), currentList);
+                            pushRoomDescription(roomId, fullDesc, false);
+                        }
+                    }
+                } catch (Exception ignored) {}
+                if (onDone != null) onDone.run();
+            }
+        });
+    }
+
+    public void removeJoinRequest(String roomId, String userId, String email) {
+        if (roomId == null) return;
+        Room room = getRoomSync(roomId);
+        if (room == null) return;
+        java.util.List<Room.JoinRequestMeta> list = new java.util.ArrayList<>(room.getPendingJoinRequests());
+        boolean removed = false;
+        for (int i = 0; i < list.size(); i++) {
+            Room.JoinRequestMeta it = list.get(i);
+            if ((userId != null && userId.equals(it.userId)) || (email != null && email.equalsIgnoreCase(it.email))) {
+                list.remove(i);
+                removed = true;
+                break;
+            }
+        }
+        if (removed) {
+            String fullDesc = Room.buildFullDescription(room.getDescription(), room.getTreasurerIds(), room.isPrivateRoom(), list);
+            pushRoomDescription(roomId, fullDesc, false);
+        }
+    }
+
+    private void pushRoomDescription(String roomId, String fullDesc, boolean refreshMembers) {
+        Room room = getRoomSync(roomId);
+        if (room != null) {
+            room.setDescription(fullDesc);
+            notifyDataChanged();
+        }
+        String path = "/rooms?id=eq." + roomId;
+        JsonObject body = new JsonObject();
+        body.addProperty("description", fullDesc);
+        client.newCall(request(path).patch(RequestBody.create(gson.toJson(body), JSON)).build()).enqueue(new okhttp3.Callback() {
+            @Override public void onFailure(Call call, IOException e) {}
+            @Override public void onResponse(Call call, Response response) {
+                if (response.isSuccessful()) {
+                    if (refreshMembers) refreshRoomMembers(roomId);
+                }
+            }
+        });
+    }
 
     public void updateMemberRole(String roomId, String targetUserId, String newRole, DataCallback<Boolean> callback) {
         String path = "/room_members?room_id=eq." + roomId + "&user_id=eq." + targetUserId;

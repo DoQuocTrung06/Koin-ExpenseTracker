@@ -632,10 +632,22 @@ public class RoomTransferFragment extends Fragment {
             myId = UserSessionManager.getInstance(requireContext()).getUserId();
         }
         Room room = RoomRepository.getInstance().getRoomSync(roomId);
-        if (room != null && room.getCreatedBy() != null) {
-            return room.getCreatedBy().equalsIgnoreCase(myId);
+        if (room != null) {
+            if ("OWNER".equalsIgnoreCase(room.getCurrentUserRole())) return true;
+            if (room.getCreatedBy() != null && room.getCreatedBy().equalsIgnoreCase(myId)) {
+                return true;
+            }
         }
         return false;
+    }
+
+    private boolean isCurrentUserTreasurer() {
+        String myId = RoomRepository.getInstance().getCurrentUserId();
+        if (myId == null || myId.isEmpty()) {
+            myId = UserSessionManager.getInstance(requireContext()).getUserId();
+        }
+        Room room = RoomRepository.getInstance().getRoomSync(roomId);
+        return room != null && myId != null && room.getTreasurerIds().contains(myId);
     }
 
     private void showVerificationDialog(String type, double amount, String source, String destName, String destAccount, String destBank, String note, Runnable onConfirm) {

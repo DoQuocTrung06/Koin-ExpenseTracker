@@ -70,6 +70,37 @@ public class ProfileRepository {
         });
     }
 
+    public void updateProfileDetails(String userId, String accessToken, String nickname, String occupation, String education, String bio, Callback callback) {
+        io.execute(() -> {
+            try {
+                if (userId == null || userId.trim().isEmpty()) throw new IOException("Tài khoản không hợp lệ.");
+                JsonObject payload = new JsonObject();
+                if (nickname != null) payload.addProperty("nickname", nickname);
+                if (occupation != null) payload.addProperty("occupation", occupation);
+                if (education != null) payload.addProperty("education", education);
+                if (bio != null) payload.addProperty("bio", bio);
+
+                Request update = new Request.Builder()
+                        .url(SupabaseConfig.REST_URL + "/profiles?id=eq." + userId)
+                        .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
+                        .addHeader("Authorization", "Bearer " + (accessToken != null && !accessToken.isEmpty() ? accessToken : SupabaseConfig.SUPABASE_ANON_KEY))
+                        .addHeader("Content-Type", "application/json")
+                        .addHeader("Prefer", "return=representation")
+                        .patch(RequestBody.create(payload.toString(), JSON))
+                        .build();
+                try (Response response = client.newCall(update).execute()) {
+                    String body = response.body() != null ? response.body().string() : "";
+                    if (!response.isSuccessful()) {
+                        throw new IOException("Không thể cập nhật hồ sơ (HTTP " + response.code() + "): " + body);
+                    }
+                }
+                if (callback != null) callback.onSuccess(nickname);
+            } catch (Exception e) {
+                if (callback != null) callback.onError(e.getMessage() != null ? e.getMessage() : "Lỗi lưu hồ sơ.");
+            }
+        });
+    }
+
     public void saveAvatarUrl(String userId, String accessToken, String avatarUrl, Callback callback) {
         io.execute(() -> {
             try {

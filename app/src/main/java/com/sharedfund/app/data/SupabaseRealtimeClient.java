@@ -25,6 +25,7 @@ public class SupabaseRealtimeClient {
         default void onRoomUpdated(Room room) {}
         default void onRoomDeleted(String roomId) {}
         default void onRoomMemberChanged(String roomId, String eventType, String userId) {}
+        default void onProfileUpdated(String userId, JsonObject profileRecord) {}
     }
 
     private static volatile SupabaseRealtimeClient instance;
@@ -153,6 +154,12 @@ public class SupabaseRealtimeClient {
         membersChange.addProperty("schema", "public");
         membersChange.addProperty("table", "room_members");
         pgChanges.add(membersChange);
+
+        JsonObject profilesChange = new JsonObject();
+        profilesChange.addProperty("event", "*");
+        profilesChange.addProperty("schema", "public");
+        profilesChange.addProperty("table", "profiles");
+        pgChanges.add(profilesChange);
 
         config.add("postgres_changes", pgChanges);
         payload.add("config", config);
@@ -350,10 +357,30 @@ public class SupabaseRealtimeClient {
                             }
                         }
                         notifyRoomMemberChanged(roomId, type, userId);
+                    } else if ("profiles".equalsIgnoreCase(table)) {
+                        String profileId = null;
+                        if (record != null && record.has("id") && !record.get("id").isJsonNull()) {
+                            profileId = record.get("id").getAsString();
+                        } else if (oldRecord != null && oldRecord.has("id") && !oldRecord.get("id").isJsonNull()) {
+                            profileId = oldRecord.get("id").getAsString();
+                        }
+                        if (profileId != null && record != null) {
+                            notifyProfileUpdated(profileId, record);
+                        }
                     }
                 }
             }
         } catch (Exception ignored) {
+        }
+    }
+
+    private void notifyProfileUpdated(String userId, JsonObject record) {
+        if (listener != null) {
+            if (mainHandler != null) {
+                mainHandler.post(() -> listener.onProfileUpdated(userId, record));
+            } else {
+                listener.onProfileUpdated(userId, record);
+            }
         }
     }
 

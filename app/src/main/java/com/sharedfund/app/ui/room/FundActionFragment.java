@@ -430,6 +430,10 @@ public class FundActionFragment extends Fragment {
             myId = RoomRepository.getInstance().getCurrentUserId();
         }
         if (myId == null) return false;
+        Room room = RoomRepository.getInstance().getRoomSync(roomId);
+        if (room != null && room.getTreasurerIds().contains(myId)) {
+            return true;
+        }
         java.util.Set<String> set = requireContext().getSharedPreferences("room_roles_" + roomId, android.content.Context.MODE_PRIVATE)
                 .getStringSet("treasurer_ids", java.util.Collections.emptySet());
         return set.contains(myId) || requireContext().getSharedPreferences("room_roles_" + roomId, android.content.Context.MODE_PRIVATE)
@@ -442,18 +446,18 @@ public class FundActionFragment extends Fragment {
         if (myId == null || myId.isEmpty()) {
             myId = RoomRepository.getInstance().getCurrentUserId();
         }
+        Room room = RoomRepository.getInstance().getRoomSync(roomId);
+        if (room != null) {
+            if ("OWNER".equalsIgnoreCase(room.getCurrentUserRole())) return true;
+            if (room.getCreatedBy() != null && myId != null && room.getCreatedBy().equalsIgnoreCase(myId)) {
+                return true;
+            }
+        }
         if (roomId != null) {
             String savedOwnerId = requireContext().getSharedPreferences("room_roles_" + roomId, android.content.Context.MODE_PRIVATE)
                     .getString("owner_id", null);
             if (savedOwnerId != null) {
                 return myId != null && myId.equals(savedOwnerId);
-            }
-        }
-        Room room = RoomRepository.getInstance().getRoomSync(roomId);
-        if (room != null) {
-            if ("OWNER".equalsIgnoreCase(room.getCurrentUserRole())) return true;
-            if (room.getCreatedBy() != null && myId != null) {
-                return room.getCreatedBy().equalsIgnoreCase(myId);
             }
         }
         return false;
