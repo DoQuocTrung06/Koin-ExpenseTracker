@@ -7,6 +7,10 @@ import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
 import com.sharedfund.app.SharedFundApp;
 import com.sharedfund.app.model.Transaction;
+import com.sharedfund.app.model.ExpenseCategory;
+import com.sharedfund.app.model.RecurringRule;
+import java.util.UUID;
+
 
 import java.io.IOException;
 import java.lang.reflect.Type;
@@ -166,6 +170,11 @@ public class TransactionRepository {
 
     public void submitWithdrawal(String userId, String userName, String roomId, double amount, String category, String note,
                                  boolean approveImmediately, DataCallback<Transaction> callback) {
+        submitWithdrawal(userId, userName, roomId, amount, category, note, null, approveImmediately, callback);
+    }
+
+    public void submitWithdrawal(String userId, String userName, String roomId, double amount, String category, String note,
+                                 String billImageUrl, boolean approveImmediately, DataCallback<Transaction> callback) {
         Transaction request = new Transaction();
         request.setRoomId(roomId);
         request.setUserId(userId);
@@ -174,6 +183,7 @@ public class TransactionRepository {
         request.setAmount(amount);
         request.setCategory(category);
         request.setNote(note);
+        request.setBillImageUrl(billImageUrl);
         request.setStatus("PENDING");
         request.setTransactionDate(java.time.LocalDate.now().toString());
         createTransaction(request, new DataCallback<Transaction>() {
@@ -452,4 +462,171 @@ public class TransactionRepository {
                 || "confirmed".equalsIgnoreCase(status)
                 || "paid".equalsIgnoreCase(status));
     }
+
+    public void getExpenseCategories(DataCallback<List<ExpenseCategory>> callback) {
+        String url = SupabaseConfig.REST_URL + "/expense_categories?select=*&order=id.asc";
+        Request request = new Request.Builder()
+                .url(url)
+                .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
+                .addHeader("Authorization", "Bearer " + getEffectiveToken())
+                .get()
+                .build();
+        client.newCall(request).enqueue(new Callback() {
+            @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+            @Override public void onResponse(Call call, Response response) throws IOException {
+                String json = response.body() != null ? response.body().string() : "";
+                if (!response.isSuccessful()) {
+                    callback.onError("HTTP " + response.code() + ": " + json);
+                    return;
+                }
+                Type listType = new TypeToken<List<ExpenseCategory>>() {}.getType();
+                List<ExpenseCategory> list = gson.fromJson(json, listType);
+                callback.onSuccess(list);
+            }
+        });
+    }
+
+    public void uploadReceiptImage(byte[] imageBytes, String mimeType, DataCallback<String> callback) {
+        if (imageBytes == null || imageBytes.length == 0) {
+            callback.onError("Dữ liệu ảnh trống");
+            return;
+        }
+        String ext = "jpg";
+        if ("image/png".equalsIgnoreCase(mimeType)) ext = "png";
+        else if ("image/webp".equalsIgnoreCase(mimeType)) ext = "webp";
+        String fileName = "receipt_" + System.currentTimeMillis() + "_" + UUID.randomUUID().toString().substring(0, 8) + "." + ext;
+        String uploadUrl = SupabaseConfig.SUPABASE_URL + "/storage/v1/object/receipts/" + fileName;
+        String publicUrl = SupabaseConfig.SUPABASE_URL + "/storage/v1/object/public/receipts/" + fileName;
+
+        RequestBody body = RequestBody.create(imageBytes, MediaType.get(mimeType != null ? mimeType : "image/jpeg"));
+        Request request = new Request.Builder()
+                .url(uploadUrl)
+                .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
+                .addHeader("Authorization", "Bearer " + getEffectiveToken())
+                .post(body)
+                .build();
+
+        client.newCall(request).enqueue(new Callback() {
+            @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+            @Override public void onResponse(Call call, Response response) throws IOException {
+                String responseBody = response.body() != null ? response.body().string() : "";
+                if (!response.isSuccessful()) {
+                    callback.onError("HTTP " + response.code() + ": " + responseBody);
+                    return;
+                }
+                callback.onSuccess(publicUrl);
+            }
+        });
+    }
+
+    public void getRecurringRules(String userId, String roomId, DataCallback<List<RecurringRule>> callback) {
+        StringBuilder urlBuilder = new StringBuilder(SupabaseConfig.REST_URL + "/recurring_rules?");
+        if (roomId != null && !roomId.trim().isEmpty()) {
+            urlBuilder.append("room_id=eq.").append(roomId);
+        } else if (userId != null && !userId.trim().isEmpty()) {
+            urlBuilder.append("user_id=eq.").append(userId).append("&scope=eq.PERSONAL");
+        } else {
+            urlBuilder.append("select=*");
+        }
+        urlBuilder.append("&select=*&order=created_at.desc");
+
+        Request request = new Request.Builder()
+                .url(urlBuilder.toString())
+                .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
+                .addHeader("Authorization", "Bearer " + getEffectiveToken())
+                .get()
+                .build();
+
+        client.newCall(request).enqueue(new Callback() {
+            @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+            @Override public void onResponse(Call call, Response response) throws IOException {
+                String json = response.body() != null ? response.body().string() : "";
+                if (!response.isSuccessful()) {
+                    callback.onError("HTTP " + response.code() + ": " + json);
+                    return;
+                }
+                Type listType = new TypeToken<List<RecurringRule>>() {}.getType();
+                List<RecurringRule> list = gson.fromJson(json, listType);
+                callback.onSuccess(list);
+            }
+        });
+    }
+
+    public void createRecurringRule(RecurringRule rule, DataCallback<RecurringRule> callback) {
+        String url = SupabaseConfig.REST_URL + "/recurring_rules";
+        String jsonBody = gson.toJson(rule);
+        RequestBody body = RequestBody.create(jsonBody, JSON);
+        Request request = new Request.Builder()
+                .url(url)
+                .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
+                .addHeader("Authorization", "Bearer " + getEffectiveToken())
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Prefer", "return=representation")
+                .post(body)
+                .build();
+
+        client.newCall(request).enqueue(new Callback() {
+            @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+            @Override public void onResponse(Call call, Response response) throws IOException {
+                String json = response.body() != null ? response.body().string() : "";
+                if (!response.isSuccessful()) {
+                    callback.onError("HTTP " + response.code() + ": " + json);
+                    return;
+                }
+                Type listType = new TypeToken<List<RecurringRule>>() {}.getType();
+                List<RecurringRule> createdList = gson.fromJson(json, listType);
+                if (createdList != null && !createdList.isEmpty()) callback.onSuccess(createdList.get(0));
+                else callback.onError("Supabase returned empty recurring rule.");
+            }
+        });
+    }
+
+    public void toggleRecurringRule(String ruleId, boolean isActive, DataCallback<Boolean> callback) {
+        String url = SupabaseConfig.REST_URL + "/recurring_rules?id=eq." + ruleId;
+        JsonObject patch = new JsonObject();
+        patch.addProperty("is_active", isActive);
+        RequestBody body = RequestBody.create(patch.toString(), JSON);
+        Request request = new Request.Builder()
+                .url(url)
+                .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
+                .addHeader("Authorization", "Bearer " + getEffectiveToken())
+                .addHeader("Content-Type", "application/json")
+                .patch(body)
+                .build();
+
+        client.newCall(request).enqueue(new Callback() {
+            @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+            @Override public void onResponse(Call call, Response response) throws IOException {
+                if (!response.isSuccessful()) {
+                    String json = response.body() != null ? response.body().string() : "";
+                    callback.onError("HTTP " + response.code() + ": " + json);
+                    return;
+                }
+                callback.onSuccess(isActive);
+            }
+        });
+    }
+
+    public void deleteRecurringRule(String ruleId, DataCallback<Boolean> callback) {
+        String url = SupabaseConfig.REST_URL + "/recurring_rules?id=eq." + ruleId;
+        Request request = new Request.Builder()
+                .url(url)
+                .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
+                .addHeader("Authorization", "Bearer " + getEffectiveToken())
+                .delete()
+                .build();
+
+        client.newCall(request).enqueue(new Callback() {
+            @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+            @Override public void onResponse(Call call, Response response) throws IOException {
+                if (!response.isSuccessful()) {
+                    String json = response.body() != null ? response.body().string() : "";
+                    callback.onError("HTTP " + response.code() + ": " + json);
+                    return;
+                }
+                callback.onSuccess(true);
+            }
+        });
+    }
+
 }

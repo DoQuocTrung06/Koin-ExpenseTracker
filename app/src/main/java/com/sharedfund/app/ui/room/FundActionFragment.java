@@ -29,6 +29,15 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 import com.google.gson.JsonObject;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.net.Uri;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import com.google.android.material.card.MaterialCardView;
+import com.google.android.material.imageview.ShapeableImageView;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import com.sharedfund.app.R;
 import com.sharedfund.app.data.RoomRepository;
 import com.sharedfund.app.data.TransactionRepository;
@@ -88,6 +97,17 @@ public class FundActionFragment extends Fragment {
     private LinearLayout layoutCategoryChipsWithdraw;
     private String selectedWithdrawCategory = null;
 
+    private Uri selectedReceiptUri;
+    private MaterialCardView cardWithdrawReceiptPicker;
+    private View layoutReceiptEmptyState;
+    private View layoutReceiptSelectedState;
+    private ShapeableImageView ivReceiptThumbnail;
+    private ImageButton btnRemoveReceipt;
+    private ActivityResultLauncher<String> receiptPickerLauncher;
+    private View dividerConfirmReceipt;
+    private View layoutConfirmReceiptRow;
+    private TextView tvConfirmReceiptState;
+
     private LinearLayout layoutBottomActionDock;
     private LinearLayout layoutQuickAmountBar;
     private MaterialButton btnQuick50k;
@@ -142,6 +162,14 @@ public class FundActionFragment extends Fragment {
             roomId = getArguments().getString(ARG_ROOM_ID, "");
             roomBalance = getArguments().getDouble(ARG_ROOM_BALANCE, 0.0);
         }
+        receiptPickerLauncher = registerForActivityResult(
+                new ActivityResultContracts.GetContent(),
+                uri -> {
+                    if (uri != null) {
+                        onReceiptImageSelected(uri);
+                    }
+                }
+        );
     }
 
     @Nullable
@@ -236,6 +264,26 @@ public class FundActionFragment extends Fragment {
         });
 
         layoutBottomActionDock = view.findViewById(R.id.layoutBottomActionDock);
+        cardWithdrawReceiptPicker = view.findViewById(R.id.cardWithdrawReceiptPicker);
+        layoutReceiptEmptyState = view.findViewById(R.id.layoutReceiptEmptyState);
+        layoutReceiptSelectedState = view.findViewById(R.id.layoutReceiptSelectedState);
+        ivReceiptThumbnail = view.findViewById(R.id.ivReceiptThumbnail);
+        btnRemoveReceipt = view.findViewById(R.id.btnRemoveReceipt);
+        dividerConfirmReceipt = view.findViewById(R.id.dividerConfirmReceipt);
+        layoutConfirmReceiptRow = view.findViewById(R.id.layoutConfirmReceiptRow);
+        tvConfirmReceiptState = view.findViewById(R.id.tvConfirmReceiptState);
+
+        if (cardWithdrawReceiptPicker != null) {
+            cardWithdrawReceiptPicker.setOnClickListener(v -> {
+                if (receiptPickerLauncher != null) {
+                    receiptPickerLauncher.launch("image/*");
+                }
+            });
+        }
+        if (btnRemoveReceipt != null) {
+            btnRemoveReceipt.setOnClickListener(v -> clearReceiptImage());
+        }
+
         layoutQuickAmountBar = view.findViewById(R.id.layoutQuickAmountBar);
         btnQuick50k = view.findViewById(R.id.btnQuick50k);
         btnQuick100k = view.findViewById(R.id.btnQuick100k);
@@ -555,6 +603,10 @@ public class FundActionFragment extends Fragment {
         tvConfirmStepDest.setText(isContribute ? roomName : "Ví cá nhân Koin");
         tvConfirmStepNote.setText(note);
 
+        boolean hasReceipt = !isContribute && selectedReceiptUri != null;
+        if (dividerConfirmReceipt != null) dividerConfirmReceipt.setVisibility(hasReceipt ? View.VISIBLE : View.GONE);
+        if (layoutConfirmReceiptRow != null) layoutConfirmReceiptRow.setVisibility(hasReceipt ? View.VISIBLE : View.GONE);
+
         btnConfirmStepExecute.setOnClickListener(v -> {
             layoutConfirmStep.setVisibility(View.GONE);
             if (isContribute) {
@@ -616,18 +668,87 @@ public class FundActionFragment extends Fragment {
         });
     }
 
+    private void onReceiptImageSelected(Uri uri) {
+        selectedReceiptUri = uri;
+        if (layoutReceiptEmptyState != null) layoutReceiptEmptyState.setVisibility(View.GONE);
+        if (layoutReceiptSelectedState != null) layoutReceiptSelectedState.setVisibility(View.VISIBLE);
+        if (ivReceiptThumbnail != null) {
+            ivReceiptThumbnail.setImageURI(uri);
+        }
+    }
+
+    private void clearReceiptImage() {
+        selectedReceiptUri = null;
+        if (layoutReceiptEmptyState != null) layoutReceiptEmptyState.setVisibility(View.VISIBLE);
+        if (layoutReceiptSelectedState != null) layoutReceiptSelectedState.setVisibility(View.GONE);
+        if (ivReceiptThumbnail != null) {
+            ivReceiptThumbnail.setImageDrawable(null);
+        }
+    }
+
+    private byte[] getCompressedReceiptBytes(Uri uri) {
+        if (getContext() == null || uri == null) return null;
+        try (InputStream is = requireContext().getContentResolver().openInputStream(uri)) {
+            Bitmap bmp = BitmapFactory.decodeStream(is);
+            if (bmp == null) return null;
+            int maxDim = 1280;
+            int w = bmp.getWidth();
+            int h = bmp.getHeight();
+            if (w > maxDim || h > maxDim) {
+                float ratio = Math.min((float) maxDim / w, (float) maxDim / h);
+                int newW = Math.round(w * ratio);
+                int newH = Math.round(h * ratio);
+                Bitmap scaled = Bitmap.createScaledBitmap(bmp, newW, newH, true);
+                if (scaled != bmp) bmp.recycle();
+                bmp = scaled;
+            }
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            bmp.compress(Bitmap.CompressFormat.JPEG, 80, baos);
+            bmp.recycle();
+            return baos.toByteArray();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     private void executeWithdraw(double amount, String note) {
         layoutProcessingNotice.setVisibility(View.VISIBLE);
 
-        boolean isOwner = isCurrentUserOwner();
+        final boolean isOwner = isCurrentUserOwner();
         UserSessionManager session = UserSessionManager.getInstance(requireContext());
-        String userId = session.getUserId();
-        String userName = session.getCurrentUserName();
-        if (userId == null || userId.isEmpty()) userId = RoomRepository.getInstance().getCurrentUserId();
+        String rawUserId = session.getUserId();
+        final String finalUserId = (rawUserId != null && !rawUserId.isEmpty())
+                ? rawUserId
+                : RoomRepository.getInstance().getCurrentUserId();
+        final String finalUserName = session.getCurrentUserName();
 
-        TransactionRepository remote = new TransactionRepository();
+        final TransactionRepository remote = new TransactionRepository();
         remote.setAccessToken(session.getAccessToken());
-        remote.submitWithdrawal(userId, userName != null ? userName : "Member", roomId, amount, selectedWithdrawCategory, note, isOwner,
+
+        if (selectedReceiptUri != null) {
+            byte[] imageBytes = getCompressedReceiptBytes(selectedReceiptUri);
+            if (imageBytes != null && imageBytes.length > 0) {
+                remote.uploadReceiptImage(imageBytes, "image/jpeg", new TransactionRepository.DataCallback<String>() {
+                    @Override
+                    public void onSuccess(String publicUrl) {
+                        proceedWithdrawTransaction(remote, finalUserId, finalUserName, amount, note, publicUrl, isOwner);
+                    }
+
+                    @Override
+                    public void onError(String error) {
+                        proceedWithdrawTransaction(remote, finalUserId, finalUserName, amount, note, null, isOwner);
+                    }
+                });
+                return;
+            }
+        }
+
+        proceedWithdrawTransaction(remote, finalUserId, finalUserName, amount, note, null, isOwner);
+    }
+
+    private void proceedWithdrawTransaction(TransactionRepository remote, String userId, String userName,
+                                            double amount, String note, String billImageUrl, boolean isOwner) {
+        remote.submitWithdrawal(userId, userName != null ? userName : "Member", roomId, amount, selectedWithdrawCategory, note, billImageUrl, isOwner,
                 new TransactionRepository.DataCallback<Transaction>() {
                     @Override
                     public void onSuccess(Transaction created) {

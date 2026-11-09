@@ -10,6 +10,8 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.ImageView;
+
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -107,6 +109,9 @@ public class TransactionDetailBottomSheet extends BottomSheetDialogFragment {
         MaterialButton btnRejectExpense = view.findViewById(R.id.btnRejectExpense);
         MaterialButton btnApproveExpense = view.findViewById(R.id.btnApproveExpense);
         MaterialButton btnCloseDetail = view.findViewById(R.id.btnCloseDetail);
+        View cardDetailBillReceipt = view.findViewById(R.id.cardDetailBillReceipt);
+        View cardDetailBillClickable = view.findViewById(R.id.cardDetailBillClickable);
+        ImageView ivDetailBillImage = view.findViewById(R.id.ivDetailBillImage);
 
         final String code = formatTxCode(transaction.getId());
         tvDetailTxCode.setText(code);
@@ -152,6 +157,17 @@ public class TransactionDetailBottomSheet extends BottomSheetDialogFragment {
         tvDetailCategory.setText(transaction.getCategory() != null ? transaction.getCategory() : "Khác");
         tvDetailNote.setText(transaction.getNote() != null && !transaction.getNote().trim().isEmpty() ? transaction.getNote() : "Không có ghi chú");
         tvDetailDate.setText(TransactionAdapter.formatDateTime(transaction.getCreatedAt()));
+
+        String billUrl = transaction.getBillImageUrl();
+        if (billUrl != null && !billUrl.trim().isEmpty() && cardDetailBillReceipt != null && ivDetailBillImage != null) {
+            cardDetailBillReceipt.setVisibility(View.VISIBLE);
+            com.sharedfund.app.ui.profile.AvatarImageLoader.load(ivDetailBillImage, null, billUrl);
+            if (cardDetailBillClickable != null) {
+                cardDetailBillClickable.setOnClickListener(v -> showReceiptImageDialog(billUrl));
+            }
+        } else if (cardDetailBillReceipt != null) {
+            cardDetailBillReceipt.setVisibility(View.GONE);
+        }
 
         if (transaction.getBalanceAfter() > 0) {
             dividerBalanceAfter.setVisibility(View.VISIBLE);
@@ -243,6 +259,21 @@ public class TransactionDetailBottomSheet extends BottomSheetDialogFragment {
         }
 
         btnCloseDetail.setOnClickListener(v -> dismiss());
+    }
+
+    private void showReceiptImageDialog(String imageUrl) {
+        if (!isAdded() || getContext() == null || imageUrl == null) return;
+        android.app.Dialog dialog = new android.app.Dialog(requireContext(), android.R.style.Theme_Black_NoTitleBar_Fullscreen);
+        dialog.setContentView(R.layout.dialog_full_receipt_viewer);
+        ImageView ivFull = dialog.findViewById(R.id.ivFullReceiptImage);
+        View btnClose = dialog.findViewById(R.id.btnFullReceiptClose);
+        if (ivFull != null) {
+            com.sharedfund.app.ui.profile.AvatarImageLoader.load(ivFull, null, imageUrl);
+        }
+        if (btnClose != null) {
+            btnClose.setOnClickListener(v -> dialog.dismiss());
+        }
+        dialog.show();
     }
 
     private String formatTxCode(String id) {

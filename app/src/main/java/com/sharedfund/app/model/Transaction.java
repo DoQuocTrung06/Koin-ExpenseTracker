@@ -41,6 +41,12 @@ public class Transaction implements Serializable {
     private String approvedBy;
     @SerializedName("approved_at")
     private String approvedAt;
+    @SerializedName("is_recurring")
+    private boolean isRecurring;
+    @SerializedName("recurring_rule_id")
+    private String recurringRuleId;
+    @SerializedName("category_id")
+    private String categoryId;
 
     public Transaction() {
     }
@@ -132,6 +138,12 @@ public class Transaction implements Serializable {
     public void setApprovedBy(String approvedBy) { this.approvedBy = approvedBy; }
     public String getApprovedAt() { return approvedAt; }
     public void setApprovedAt(String approvedAt) { this.approvedAt = approvedAt; }
+    public boolean isRecurring() { return isRecurring; }
+    public void setRecurring(boolean recurring) { isRecurring = recurring; }
+    public String getRecurringRuleId() { return recurringRuleId; }
+    public void setRecurringRuleId(String recurringRuleId) { this.recurringRuleId = recurringRuleId; }
+    public String getCategoryId() { return categoryId; }
+    public void setCategoryId(String categoryId) { this.categoryId = categoryId; }
 
     public String getCreatedAt() {
         return createdAt;

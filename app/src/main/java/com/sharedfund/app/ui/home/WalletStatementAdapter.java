@@ -68,7 +68,17 @@ public class WalletStatementAdapter extends RecyclerView.Adapter<WalletStatement
         }
     }
 
+    private final List<Transaction> rawTransactions = new ArrayList<>();
+
+    public List<Transaction> getTransactions() {
+        return new ArrayList<>(rawTransactions);
+    }
+
     public void setTransactions(List<Transaction> transactions) {
+        rawTransactions.clear();
+        if (transactions != null) {
+            rawTransactions.addAll(transactions);
+        }
         dateGroups.clear();
         if (transactions == null || transactions.isEmpty()) {
             notifyDataSetChanged();

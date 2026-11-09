@@ -84,6 +84,7 @@ public class PendingApprovalAdapter extends RecyclerView.Adapter<PendingApproval
         private final TextView tvPendingAmount;
         private final TextView tvPendingAction;
         private final TextView tvPendingNote;
+        private final View layoutPendingReceiptBadge;
         private final MaterialButton btnRejectExpense;
         private final MaterialButton btnApproveExpense;
 
@@ -97,6 +98,7 @@ public class PendingApprovalAdapter extends RecyclerView.Adapter<PendingApproval
             tvPendingAmount = itemView.findViewById(R.id.tvPendingAmount);
             tvPendingAction = itemView.findViewById(R.id.tvPendingAction);
             tvPendingNote = itemView.findViewById(R.id.tvPendingNote);
+            layoutPendingReceiptBadge = itemView.findViewById(R.id.layoutPendingReceiptBadge);
             btnRejectExpense = itemView.findViewById(R.id.btnRejectExpense);
             btnApproveExpense = itemView.findViewById(R.id.btnApproveExpense);
         }
@@ -159,6 +161,14 @@ public class PendingApprovalAdapter extends RecyclerView.Adapter<PendingApproval
                 tvPendingNote.setVisibility(View.GONE);
             }
 
+            final String billUrl = tx.getBillImageUrl();
+            if (billUrl != null && !billUrl.trim().isEmpty() && layoutPendingReceiptBadge != null) {
+                layoutPendingReceiptBadge.setVisibility(View.VISIBLE);
+                layoutPendingReceiptBadge.setOnClickListener(v -> showReceiptImageDialog(v.getContext(), billUrl));
+            } else if (layoutPendingReceiptBadge != null) {
+                layoutPendingReceiptBadge.setVisibility(View.GONE);
+            }
+
             tvPendingInitials.setVisibility(View.VISIBLE);
             tvPendingInitials.setText(getInitials(creator));
             tvPendingInitials.setBackgroundResource(R.drawable.bg_avatar_circle);
@@ -206,6 +216,19 @@ public class PendingApprovalAdapter extends RecyclerView.Adapter<PendingApproval
                     listener.onReject(tx, getBindingAdapterPosition());
                 }
             });
+        }
+
+        private void showReceiptImageDialog(android.content.Context context, String imageUrl) {
+            if (context == null || imageUrl == null) return;
+            android.app.Dialog dialog = new android.app.Dialog(context, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
+            dialog.setContentView(R.layout.dialog_full_receipt_viewer);
+            ImageView ivFull = dialog.findViewById(R.id.ivFullReceiptImage);
+            View btnClose = dialog.findViewById(R.id.btnFullReceiptClose);
+            if (btnClose != null) btnClose.setOnClickListener(v -> dialog.dismiss());
+            if (ivFull != null) {
+                AvatarImageLoader.load(ivFull, null, imageUrl);
+            }
+            dialog.show();
         }
 
         private String getInitials(String name) {

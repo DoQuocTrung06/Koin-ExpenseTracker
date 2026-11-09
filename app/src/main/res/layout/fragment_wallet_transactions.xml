@@ -1,240 +1,899 @@
 <?xml version="1.0" encoding="utf-8"?>
+
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+
     xmlns:app="http://schemas.android.com/apk/res-auto"
+
     android:layout_width="match_parent"
+
     android:layout_height="match_parent"
+
     android:background="@color/background"
+
     android:fitsSystemWindows="true"
+
     android:orientation="vertical">
 
+
+
     <LinearLayout
+
         android:layout_width="match_parent"
+
         android:layout_height="56dp"
+
         android:background="@color/surface"
+
         android:elevation="1dp"
+
         android:gravity="center_vertical"
+
         android:orientation="horizontal"
+
         android:paddingStart="12dp"
+
         android:paddingEnd="16dp">
 
+
+
         <ImageButton
+
             android:id="@+id/btnWalletBack"
+
             android:layout_width="40dp"
+
             android:layout_height="40dp"
+
             android:background="?attr/selectableItemBackgroundBorderless"
+
             android:contentDescription="Quay lại"
+
             android:padding="8dp"
+
             android:src="@drawable/ic_arrow_back"
+
             app:tint="@color/text_primary" />
 
+
+
         <TextView
+
             android:id="@+id/tvWalletScreenTitle"
+
             android:layout_width="0dp"
+
             android:layout_height="wrap_content"
+
             android:layout_marginStart="8dp"
+
             android:layout_weight="1"
+
             android:text="Biến động số dư"
+
             android:textColor="@color/text_primary"
+
             android:textSize="18sp"
+
             android:textStyle="bold" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnWalletExport"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:paddingStart="10dp"
+            android:paddingEnd="12dp"
+            android:text="Xuất sao kê"
+            android:textColor="@color/primary"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            app:backgroundTint="@color/surface_variant"
+            app:cornerRadius="18dp"
+            app:icon="@drawable/ic_share"
+            app:iconPadding="4dp"
+            app:iconSize="14dp"
+            app:iconTint="@color/primary" />
+
     </LinearLayout>
+
+
 
     <com.google.android.material.card.MaterialCardView
+
         android:layout_width="match_parent"
+
         android:layout_height="wrap_content"
+
         android:layout_marginStart="16dp"
+
         android:layout_marginTop="16dp"
+
         android:layout_marginEnd="16dp"
+
         app:cardBackgroundColor="@color/primary"
+
         app:cardCornerRadius="16dp"
+
         app:cardElevation="2dp">
 
+
+
         <LinearLayout
+
             android:layout_width="match_parent"
+
             android:layout_height="wrap_content"
+
             android:orientation="vertical"
+
             android:padding="20dp">
 
+
+
             <TextView
+
                 android:id="@+id/tvWalletAccountName"
+
                 android:layout_width="wrap_content"
+
                 android:layout_height="wrap_content"
+
                 android:text="DO QUOC TRUNG"
+
                 android:textColor="@color/white"
+
                 android:textSize="18sp"
+
                 android:textStyle="bold" />
 
+
+
             <LinearLayout
+
                 android:layout_width="wrap_content"
+
                 android:layout_height="wrap_content"
+
                 android:layout_marginTop="10dp"
+
                 android:gravity="center_vertical"
+
                 android:orientation="horizontal">
 
+
+
                 <TextView
+
                     android:layout_width="wrap_content"
+
                     android:layout_height="wrap_content"
+
                     android:text="Số tài khoản"
+
                     android:textColor="#E0E7FF"
+
                     android:textSize="13sp" />
 
+
+
                 <LinearLayout
+
                     android:id="@+id/layoutWalletCopyStk"
+
                     android:layout_width="wrap_content"
+
                     android:layout_height="28dp"
+
                     android:layout_marginStart="10dp"
+
                     android:background="@drawable/bg_id_badge"
+
                     android:clickable="true"
+
                     android:focusable="true"
+
                     android:gravity="center_vertical"
+
                     android:paddingStart="10dp"
+
                     android:paddingEnd="10dp">
 
+
+
                     <TextView
+
                         android:id="@+id/tvWalletAccountNumber"
+
                         android:layout_width="wrap_content"
+
                         android:layout_height="wrap_content"
+
                         android:text="1047061615"
+
                         android:textColor="@color/white"
+
                         android:textSize="13sp"
+
                         android:textStyle="bold" />
 
+
+
                     <ImageView
+
                         android:layout_width="14dp"
+
                         android:layout_height="14dp"
+
                         android:layout_marginStart="6dp"
+
                         android:contentDescription="Sao chép"
+
                         android:src="@drawable/ic_copy"
+
                         app:tint="@color/white" />
+
                 </LinearLayout>
+
             </LinearLayout>
+
+
 
             <LinearLayout
+
                 android:layout_width="wrap_content"
+
                 android:layout_height="wrap_content"
+
                 android:layout_marginTop="12dp"
+
                 android:gravity="center_vertical"
+
                 android:orientation="horizontal">
 
+
+
                 <TextView
+
                     android:layout_width="wrap_content"
+
                     android:layout_height="wrap_content"
+
                     android:text="Số dư"
+
                     android:textColor="#E0E7FF"
+
                     android:textSize="14sp" />
 
+
+
                 <TextView
+
                     android:id="@+id/tvWalletCurrentBalance"
+
                     android:layout_width="wrap_content"
+
                     android:layout_height="wrap_content"
+
                     android:layout_marginStart="12dp"
+
                     android:text="0 ₫"
+
                     android:textColor="@color/white"
+
                     android:textSize="24sp"
+
                     android:textStyle="bold" />
+
             </LinearLayout>
 
+
+
         </LinearLayout>
+
     </com.google.android.material.card.MaterialCardView>
 
-    <LinearLayout
+
+
+    <com.google.android.material.card.MaterialCardView
+
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+
+        android:layout_height="44dp"
+
         android:layout_marginStart="16dp"
-        android:layout_marginTop="16dp"
+
+        android:layout_marginTop="12dp"
+
         android:layout_marginEnd="16dp"
-        android:orientation="horizontal">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnWalletFilterAll"
-            style="@style/Widget.Material3.Button.TonalButton"
-            android:layout_width="0dp"
-            android:layout_height="38dp"
-            android:layout_marginEnd="6dp"
-            android:layout_weight="1"
-            android:insetTop="0dp"
-            android:insetBottom="0dp"
-            android:text="Tất cả"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            app:cornerRadius="10dp" />
+        app:cardBackgroundColor="@color/surface"
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnWalletFilterIncome"
-            style="@style/Widget.Material3.Button.TonalButton"
-            android:layout_width="0dp"
-            android:layout_height="38dp"
-            android:layout_marginStart="3dp"
-            android:layout_marginEnd="3dp"
-            android:layout_weight="1"
-            android:insetTop="0dp"
-            android:insetBottom="0dp"
-            android:text="Tiền vào (+)"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            app:cornerRadius="10dp" />
+        app:cardCornerRadius="12dp"
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnWalletFilterExpense"
-            style="@style/Widget.Material3.Button.TonalButton"
-            android:layout_width="0dp"
-            android:layout_height="38dp"
-            android:layout_marginStart="6dp"
-            android:layout_weight="1"
-            android:insetTop="0dp"
-            android:insetBottom="0dp"
-            android:text="Tiền ra (-)"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            app:cornerRadius="10dp" />
-    </LinearLayout>
+        app:cardElevation="0dp"
 
-    <FrameLayout
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_marginTop="8dp"
-        android:layout_weight="1">
+        app:strokeColor="@color/border"
 
-        <ProgressBar
-            android:id="@+id/pbWalletLoading"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:visibility="gone" />
+        app:strokeWidth="1dp">
 
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/rvWalletTransactions"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:clipToPadding="false"
-            android:paddingStart="0dp"
-            android:paddingTop="8dp"
-            android:paddingEnd="0dp"
-            android:paddingBottom="24dp" />
+
 
         <LinearLayout
-            android:id="@+id/layoutEmptyWallet"
+
             android:layout_width="match_parent"
+
             android:layout_height="match_parent"
-            android:gravity="center"
-            android:orientation="vertical"
-            android:padding="32dp"
-            android:visibility="gone">
+
+            android:gravity="center_vertical"
+
+            android:orientation="horizontal"
+
+            android:paddingStart="12dp"
+
+            android:paddingEnd="12dp">
+
+
 
             <ImageView
-                android:layout_width="64dp"
-                android:layout_height="64dp"
-                android:contentDescription="Empty"
-                android:src="@drawable/ic_receipt"
+
+                android:layout_width="18dp"
+
+                android:layout_height="18dp"
+
+                android:contentDescription="Tìm kiếm"
+
+                android:src="@drawable/ic_search"
+
                 app:tint="@color/text_tertiary" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="Chưa có biến động số dư nào"
-                android:textColor="@color/text_secondary"
-                android:textSize="14sp" />
+
+
+            <EditText
+
+                android:id="@+id/etWalletSearch"
+
+                android:layout_width="0dp"
+
+                android:layout_height="match_parent"
+
+                android:layout_marginStart="10dp"
+
+                android:layout_marginEnd="6dp"
+
+                android:layout_weight="1"
+
+                android:background="@null"
+
+                android:hint="Tìm kiếm chi tiêu, ghi chú..."
+
+                android:imeOptions="actionSearch"
+
+                android:inputType="text"
+
+                android:maxLines="1"
+
+                android:singleLine="true"
+
+                android:textColor="@color/text_primary"
+
+                android:textColorHint="@color/text_tertiary"
+
+                android:textSize="13.5sp" />
+
+
+
+            <ImageButton
+
+                android:id="@+id/btnClearWalletSearch"
+
+                android:layout_width="26dp"
+
+                android:layout_height="26dp"
+
+                android:background="?attr/selectableItemBackgroundBorderless"
+
+                android:contentDescription="Xóa"
+
+                android:padding="5dp"
+
+                android:src="@drawable/ic_close"
+
+                android:visibility="gone"
+
+                app:tint="@color/text_tertiary" />
+
         </LinearLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
+
+
+    <com.google.android.material.card.MaterialCardView
+
+        android:id="@+id/cardWalletTimeSegment"
+
+        android:layout_width="match_parent"
+
+        android:layout_height="44dp"
+
+        android:layout_marginStart="16dp"
+
+        android:layout_marginTop="10dp"
+
+        android:layout_marginEnd="16dp"
+
+        app:cardBackgroundColor="@color/segment_track"
+
+        app:cardCornerRadius="11dp"
+
+        app:cardElevation="0dp"
+
+        app:strokeColor="@color/segment_track_border"
+
+        app:strokeWidth="1dp">
+
+
+
+        <LinearLayout
+
+            android:layout_width="match_parent"
+
+            android:layout_height="match_parent"
+
+            android:orientation="horizontal"
+
+            android:padding="3dp">
+
+
+
+            <com.google.android.material.button.MaterialButton
+
+                android:id="@+id/btnTimeAll"
+
+                style="@style/Widget.Material3.Button.TonalButton"
+
+                android:layout_width="0dp"
+
+                android:layout_height="match_parent"
+
+                android:layout_weight="0.9"
+
+                android:insetTop="0dp"
+
+                android:insetBottom="0dp"
+
+                android:minWidth="0dp"
+
+                android:padding="0dp"
+
+                android:text="Toàn bộ"
+
+                android:textSize="12sp"
+
+                android:textStyle="bold"
+
+                app:cornerRadius="9dp" />
+
+
+
+            <com.google.android.material.button.MaterialButton
+
+                android:id="@+id/btnTimeThisWeek"
+
+                style="@style/Widget.Material3.Button.TonalButton"
+
+                android:layout_width="0dp"
+
+                android:layout_height="match_parent"
+
+                android:layout_marginStart="2dp"
+
+                android:layout_weight="0.95"
+
+                android:insetTop="0dp"
+
+                android:insetBottom="0dp"
+
+                android:minWidth="0dp"
+
+                android:padding="0dp"
+
+                android:text="Tuần này"
+
+                android:textSize="12sp"
+
+                android:textStyle="bold"
+
+                app:cornerRadius="9dp" />
+
+
+
+            <com.google.android.material.button.MaterialButton
+
+                android:id="@+id/btnTimeThisMonth"
+
+                style="@style/Widget.Material3.Button.TonalButton"
+
+                android:layout_width="0dp"
+
+                android:layout_height="match_parent"
+
+                android:layout_marginStart="2dp"
+
+                android:layout_weight="1.0"
+
+                android:insetTop="0dp"
+
+                android:insetBottom="0dp"
+
+                android:minWidth="0dp"
+
+                android:padding="0dp"
+
+                android:text="Tháng này"
+
+                android:textSize="12sp"
+
+                android:textStyle="bold"
+
+                app:cornerRadius="9dp" />
+
+
+
+            <com.google.android.material.button.MaterialButton
+
+                android:id="@+id/btnTimeCustom"
+
+                style="@style/Widget.Material3.Button.TonalButton"
+
+                android:layout_width="0dp"
+
+                android:layout_height="match_parent"
+
+                android:layout_marginStart="2dp"
+
+                android:layout_weight="1.15"
+
+                android:insetTop="0dp"
+
+                android:insetBottom="0dp"
+
+                android:minWidth="0dp"
+
+                android:padding="0dp"
+
+                android:text="Tùy chọn"
+
+                android:textSize="12sp"
+
+                android:textStyle="bold"
+
+                app:icon="@drawable/ic_calendar"
+                app:iconGravity="textStart"
+                app:iconPadding="3dp"
+                app:iconSize="12dp"
+                app:iconTint="@color/text_primary"
+                app:cornerRadius="9dp" />
+
+        </LinearLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
+
+
+    <com.google.android.material.card.MaterialCardView
+
+        android:id="@+id/cardWalletCustomRangeBadge"
+
+        android:layout_width="match_parent"
+
+        android:layout_height="wrap_content"
+
+        android:layout_marginStart="16dp"
+
+        android:layout_marginTop="8dp"
+
+        android:layout_marginEnd="16dp"
+
+        android:visibility="gone"
+
+        app:cardBackgroundColor="@color/accent_blue_light"
+
+        app:cardCornerRadius="10dp"
+
+        app:cardElevation="0dp"
+
+        app:strokeColor="@color/primary"
+
+        app:strokeWidth="1dp">
+
+
+
+        <LinearLayout
+
+            android:layout_width="match_parent"
+
+            android:layout_height="32dp"
+
+            android:gravity="center_vertical"
+
+            android:orientation="horizontal"
+
+            android:paddingStart="10dp"
+
+            android:paddingEnd="8dp">
+
+
+
+            <ImageView
+
+                android:layout_width="14dp"
+
+                android:layout_height="14dp"
+
+                android:src="@drawable/ic_calendar"
+
+                app:tint="@color/primary" />
+
+
+
+            <TextView
+
+                android:id="@+id/tvWalletCustomRange"
+
+                android:layout_width="0dp"
+
+                android:layout_height="wrap_content"
+
+                android:layout_marginStart="6dp"
+
+                android:layout_weight="1"
+
+                android:text="01/10/2026 - 31/10/2026"
+
+                android:textColor="@color/primary"
+
+                android:textSize="11.5sp"
+
+                android:textStyle="bold" />
+
+
+
+            <ImageButton
+
+                android:id="@+id/btnClearWalletCustomRange"
+
+                android:layout_width="24dp"
+
+                android:layout_height="24dp"
+
+                android:background="?attr/selectableItemBackgroundBorderless"
+
+                android:padding="4dp"
+
+                android:src="@drawable/ic_close"
+
+                app:tint="@color/primary" />
+
+        </LinearLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
+
+
+    <LinearLayout
+
+        android:layout_width="match_parent"
+
+        android:layout_height="wrap_content"
+
+        android:layout_marginStart="16dp"
+
+        android:layout_marginTop="8dp"
+
+        android:layout_marginEnd="16dp"
+
+        android:orientation="horizontal">
+
+
+
+        <com.google.android.material.button.MaterialButton
+
+            android:id="@+id/btnWalletFilterAll"
+
+            style="@style/Widget.Material3.Button.TonalButton"
+
+            android:layout_width="0dp"
+
+            android:layout_height="36dp"
+
+            android:layout_marginEnd="3dp"
+
+            android:layout_weight="1"
+
+            android:insetTop="0dp"
+
+            android:insetBottom="0dp"
+
+            android:minWidth="0dp"
+
+            android:padding="0dp"
+
+            android:text="Tất cả"
+
+            android:textSize="12sp"
+
+            android:textStyle="bold"
+
+            app:cornerRadius="10dp" />
+
+
+
+        <com.google.android.material.button.MaterialButton
+
+            android:id="@+id/btnWalletFilterIncome"
+
+            style="@style/Widget.Material3.Button.TonalButton"
+
+            android:layout_width="0dp"
+
+            android:layout_height="36dp"
+
+            android:layout_marginStart="3dp"
+
+            android:layout_marginEnd="3dp"
+
+            android:layout_weight="1"
+
+            android:insetTop="0dp"
+
+            android:insetBottom="0dp"
+
+            android:minWidth="0dp"
+
+            android:padding="0dp"
+
+            android:text="Tiền vào (+)"
+
+            android:textSize="12sp"
+
+            android:textStyle="bold"
+
+            app:cornerRadius="10dp" />
+
+
+
+        <com.google.android.material.button.MaterialButton
+
+            android:id="@+id/btnWalletFilterExpense"
+
+            style="@style/Widget.Material3.Button.TonalButton"
+
+            android:layout_width="0dp"
+
+            android:layout_height="36dp"
+
+            android:layout_marginStart="3dp"
+
+            android:layout_weight="1"
+
+            android:insetTop="0dp"
+
+            android:insetBottom="0dp"
+
+            android:minWidth="0dp"
+
+            android:padding="0dp"
+
+            android:text="Tiền ra (-)"
+
+            android:textSize="12sp"
+
+            android:textStyle="bold"
+
+            app:cornerRadius="10dp" />
+
+    </LinearLayout>
+
+
+
+    <FrameLayout
+
+        android:layout_width="match_parent"
+
+        android:layout_height="0dp"
+
+        android:layout_marginTop="8dp"
+
+        android:layout_weight="1">
+
+
+
+        <ProgressBar
+
+            android:id="@+id/pbWalletLoading"
+
+            android:layout_width="wrap_content"
+
+            android:layout_height="wrap_content"
+
+            android:layout_gravity="center"
+
+            android:visibility="gone" />
+
+
+
+        <androidx.recyclerview.widget.RecyclerView
+
+            android:id="@+id/rvWalletTransactions"
+
+            android:layout_width="match_parent"
+
+            android:layout_height="match_parent"
+
+            android:clipToPadding="false"
+
+            android:paddingStart="0dp"
+
+            android:paddingTop="8dp"
+
+            android:paddingEnd="0dp"
+
+            android:paddingBottom="24dp" />
+
+
+
+        <LinearLayout
+
+            android:id="@+id/layoutEmptyWallet"
+
+            android:layout_width="match_parent"
+
+            android:layout_height="match_parent"
+
+            android:gravity="center"
+
+            android:orientation="vertical"
+
+            android:padding="32dp"
+
+            android:visibility="gone">
+
+
+
+            <ImageView
+
+                android:layout_width="64dp"
+
+                android:layout_height="64dp"
+
+                android:contentDescription="Empty"
+
+                android:src="@drawable/ic_receipt"
+
+                app:tint="@color/text_tertiary" />
+
+
+
+            <TextView
+
+                android:layout_width="wrap_content"
+
+                android:layout_height="wrap_content"
+
+                android:layout_marginTop="12dp"
+
+                android:text="Chưa có biến động số dư nào"
+
+                android:textColor="@color/text_secondary"
+
+                android:textSize="14sp" />
+
+        </LinearLayout>
+
     </FrameLayout>
+
 </LinearLayout>
+

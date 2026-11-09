@@ -36,4 +36,10 @@
     <color name="role_vice_text">#334155</color>
     <color name="role_vice_bg">#F1F5F9</color>
     <color name="role_vice_stroke">#CBD5E1</color>
+    <color name="glass_segment_start">#FFFFFF</color>
+    <color name="glass_segment_center">#FFFFFF</color>
+    <color name="glass_segment_end">#F4F8FD</color>
+    <color name="glass_segment_stroke">#E2E8F0</color>
+    <color name="segment_track">#E2E8F0</color>
+    <color name="segment_track_border">#CBD5E1</color>
 </resources>

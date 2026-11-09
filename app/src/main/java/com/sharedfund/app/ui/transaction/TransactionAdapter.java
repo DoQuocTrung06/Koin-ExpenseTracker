@@ -270,6 +270,8 @@ public class TransactionAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
         private final TextView tvTxAmount;
         private final TextView tvTxCategory;
         private final TextView tvTxStatus;
+        private final ImageView ivTxReceiptBadge;
+        private final ImageView ivTxRecurringBadge;
 
         public TransactionViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -281,6 +283,8 @@ public class TransactionAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
             tvTxAmount = itemView.findViewById(R.id.tvTxAmount);
             tvTxCategory = itemView.findViewById(R.id.tvTxCategory);
             tvTxStatus = itemView.findViewById(R.id.tvTxStatus);
+            ivTxReceiptBadge = itemView.findViewById(R.id.ivTxReceiptBadge);
+            ivTxRecurringBadge = itemView.findViewById(R.id.ivTxRecurringBadge);
         }
 
         public void bind(final Transaction tx, final OnTransactionClickListener listener, int mode) {
@@ -411,6 +415,14 @@ public class TransactionAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
 
             if (tvTxCategory != null) {
                 tvTxCategory.setVisibility(View.GONE);
+            }
+
+            if (ivTxReceiptBadge != null) {
+                boolean hasReceipt = tx.getBillImageUrl() != null && !tx.getBillImageUrl().trim().isEmpty();
+                ivTxReceiptBadge.setVisibility(hasReceipt ? View.VISIBLE : View.GONE);
+            }
+            if (ivTxRecurringBadge != null) {
+                ivTxRecurringBadge.setVisibility(tx.isRecurring() ? View.VISIBLE : View.GONE);
             }
 
             if (tvTxStatus != null) {

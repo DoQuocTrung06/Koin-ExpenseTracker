@@ -52,16 +52,42 @@
         android:layout_weight="1"
         android:orientation="vertical">
 
-        <TextView
-            android:id="@+id/tvTxNote"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:text="Transaction Note"
-            android:textColor="@color/text_primary"
-            android:textSize="14.5sp"
-            android:textStyle="bold" />
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/tvTxNote"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="Transaction Note"
+                android:textColor="@color/text_primary"
+                android:textSize="14.5sp"
+                android:textStyle="bold" />
+
+            <ImageView
+                android:id="@+id/ivTxReceiptBadge"
+                android:layout_width="15dp"
+                android:layout_height="15dp"
+                android:layout_marginStart="4dp"
+                android:src="@drawable/ic_receipt"
+                android:visibility="gone"
+                app:tint="@color/text_secondary" />
+
+            <ImageView
+                android:id="@+id/ivTxRecurringBadge"
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:layout_marginStart="4dp"
+                android:src="@drawable/ic_clock"
+                android:visibility="gone"
+                app:tint="@color/primary" />
+        </LinearLayout>
 
         <TextView
             android:id="@+id/tvTxTime"

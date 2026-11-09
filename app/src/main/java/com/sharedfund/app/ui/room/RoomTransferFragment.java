@@ -38,6 +38,9 @@ import com.google.zxing.common.HybridBinarizer;
 import com.google.zxing.common.GlobalHistogramBinarizer;
 import com.journeyapps.barcodescanner.ScanContract;
 import com.journeyapps.barcodescanner.ScanOptions;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import com.google.android.material.imageview.ShapeableImageView;
 import com.sharedfund.app.R;
 import com.sharedfund.app.data.RoomRepository;
 import com.sharedfund.app.data.TransactionRepository;
@@ -146,6 +149,27 @@ public class RoomTransferFragment extends Fragment {
     private final DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.US);
     private DecimalFormat df;
 
+    private Uri selectedBankReceiptUri;
+    private Uri selectedQrReceiptUri;
+    private MaterialCardView cardBankReceiptPicker;
+    private View layoutBankReceiptEmptyState;
+    private View layoutBankReceiptSelectedState;
+    private ShapeableImageView ivBankReceiptThumbnail;
+    private ImageButton btnRemoveBankReceipt;
+
+    private MaterialCardView cardQrReceiptPicker;
+    private View layoutQrReceiptEmptyState;
+    private View layoutQrReceiptSelectedState;
+    private ShapeableImageView ivQrReceiptThumbnail;
+    private ImageButton btnRemoveQrReceipt;
+
+    private ActivityResultLauncher<String> pickBankReceiptLauncher;
+    private ActivityResultLauncher<String> pickQrReceiptLauncher;
+
+    private View dividerConfirmTransferReceipt;
+    private View layoutConfirmTransferReceiptRow;
+    private TextView tvConfirmTransferReceiptState;
+
     private ActivityResultLauncher<String> pickImageLauncher;
     private ActivityResultLauncher<ScanOptions> cameraScanLauncher;
     private View layoutQrEmptyPrompt;
@@ -178,6 +202,24 @@ public class RoomTransferFragment extends Fragment {
         pickImageLauncher = registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
             if (uri != null) {
                 parseQrFromUri(uri);
+            }
+        });
+
+        pickBankReceiptLauncher = registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
+            if (uri != null) {
+                selectedBankReceiptUri = uri;
+                if (layoutBankReceiptEmptyState != null) layoutBankReceiptEmptyState.setVisibility(View.GONE);
+                if (layoutBankReceiptSelectedState != null) layoutBankReceiptSelectedState.setVisibility(View.VISIBLE);
+                if (ivBankReceiptThumbnail != null) ivBankReceiptThumbnail.setImageURI(uri);
+            }
+        });
+
+        pickQrReceiptLauncher = registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
+            if (uri != null) {
+                selectedQrReceiptUri = uri;
+                if (layoutQrReceiptEmptyState != null) layoutQrReceiptEmptyState.setVisibility(View.GONE);
+                if (layoutQrReceiptSelectedState != null) layoutQrReceiptSelectedState.setVisibility(View.VISIBLE);
+                if (ivQrReceiptThumbnail != null) ivQrReceiptThumbnail.setImageURI(uri);
             }
         });
 
@@ -328,6 +370,50 @@ public class RoomTransferFragment extends Fragment {
             btnConfirmStepBackForm.setOnClickListener(v -> handleBackNavigation());
         }
         btnConfirmStepExecute = view.findViewById(R.id.btnConfirmStepExecute);
+
+        cardBankReceiptPicker = view.findViewById(R.id.cardBankReceiptPicker);
+        layoutBankReceiptEmptyState = view.findViewById(R.id.layoutBankReceiptEmptyState);
+        layoutBankReceiptSelectedState = view.findViewById(R.id.layoutBankReceiptSelectedState);
+        ivBankReceiptThumbnail = view.findViewById(R.id.ivBankReceiptThumbnail);
+        btnRemoveBankReceipt = view.findViewById(R.id.btnRemoveBankReceipt);
+
+        if (cardBankReceiptPicker != null) {
+            cardBankReceiptPicker.setOnClickListener(v -> {
+                if (pickBankReceiptLauncher != null) pickBankReceiptLauncher.launch("image/*");
+            });
+        }
+        if (btnRemoveBankReceipt != null) {
+            btnRemoveBankReceipt.setOnClickListener(v -> {
+                selectedBankReceiptUri = null;
+                if (layoutBankReceiptEmptyState != null) layoutBankReceiptEmptyState.setVisibility(View.VISIBLE);
+                if (layoutBankReceiptSelectedState != null) layoutBankReceiptSelectedState.setVisibility(View.GONE);
+                if (ivBankReceiptThumbnail != null) ivBankReceiptThumbnail.setImageDrawable(null);
+            });
+        }
+
+        cardQrReceiptPicker = view.findViewById(R.id.cardQrReceiptPicker);
+        layoutQrReceiptEmptyState = view.findViewById(R.id.layoutQrReceiptEmptyState);
+        layoutQrReceiptSelectedState = view.findViewById(R.id.layoutQrReceiptSelectedState);
+        ivQrReceiptThumbnail = view.findViewById(R.id.ivQrReceiptThumbnail);
+        btnRemoveQrReceipt = view.findViewById(R.id.btnRemoveQrReceipt);
+
+        if (cardQrReceiptPicker != null) {
+            cardQrReceiptPicker.setOnClickListener(v -> {
+                if (pickQrReceiptLauncher != null) pickQrReceiptLauncher.launch("image/*");
+            });
+        }
+        if (btnRemoveQrReceipt != null) {
+            btnRemoveQrReceipt.setOnClickListener(v -> {
+                selectedQrReceiptUri = null;
+                if (layoutQrReceiptEmptyState != null) layoutQrReceiptEmptyState.setVisibility(View.VISIBLE);
+                if (layoutQrReceiptSelectedState != null) layoutQrReceiptSelectedState.setVisibility(View.GONE);
+                if (ivQrReceiptThumbnail != null) ivQrReceiptThumbnail.setImageDrawable(null);
+            });
+        }
+
+        dividerConfirmTransferReceipt = view.findViewById(R.id.dividerConfirmTransferReceipt);
+        layoutConfirmTransferReceiptRow = view.findViewById(R.id.layoutConfirmTransferReceiptRow);
+        tvConfirmTransferReceiptState = view.findViewById(R.id.tvConfirmTransferReceiptState);
 
         tvSuccessTitle = view.findViewById(R.id.tvSuccessTitle);
         tvSuccessAmount = view.findViewById(R.id.tvSuccessAmount);
@@ -547,13 +633,13 @@ public class RoomTransferFragment extends Fragment {
                 if (parsed != null && parsed.accountNumber != null) {
                     setScannedQrData(parsed);
                 } else {
-                    Toast.makeText(requireContext(), "Không tìm thấy thông tin chuyển khoản VietQR trong ảnh", Toast.LENGTH_LONG).show();
+                    com.sharedfund.app.ui.widget.AppToaster.error(requireActivity(), "Không tìm thấy thông tin chuyển khoản VietQR trong ảnh", "Vui lòng chọn ảnh chứa rõ mã VietQR");
                 }
             } else {
-                Toast.makeText(requireContext(), "Không quét được mã QR từ ảnh này", Toast.LENGTH_SHORT).show();
+                com.sharedfund.app.ui.widget.AppToaster.error(requireActivity(), "Không quét được mã QR từ ảnh này", "Vui lòng chọn ảnh chứa rõ mã VietQR hợp lệ");
             }
         } catch (Exception e) {
-            Toast.makeText(requireContext(), "Không quét được mã QR từ ảnh này", Toast.LENGTH_SHORT).show();
+            com.sharedfund.app.ui.widget.AppToaster.error(requireActivity(), "Không quét được mã QR từ ảnh này", "Vui lòng chọn ảnh chứa rõ mã VietQR hợp lệ");
         }
     }
 
@@ -688,6 +774,11 @@ public class RoomTransferFragment extends Fragment {
         }
 
         tvConfirmStepNote.setText(note);
+
+        boolean hasReceipt = (selectedBankReceiptUri != null && tabLayoutRoomTransfer.getSelectedTabPosition() == 1)
+                || (selectedQrReceiptUri != null && tabLayoutRoomTransfer.getSelectedTabPosition() == 2);
+        if (dividerConfirmTransferReceipt != null) dividerConfirmTransferReceipt.setVisibility(hasReceipt ? View.VISIBLE : View.GONE);
+        if (layoutConfirmTransferReceiptRow != null) layoutConfirmTransferReceiptRow.setVisibility(hasReceipt ? View.VISIBLE : View.GONE);
 
         btnConfirmStepExecute.setOnClickListener(v -> {
             layoutConfirmStep.setVisibility(View.GONE);
@@ -865,6 +956,31 @@ public class RoomTransferFragment extends Fragment {
         final double finalAmt2 = amount; final String finalNote2 = note; final String finalBank2 = bankName; final String finalAcc2 = accNum; final String finalHolder2 = accHolder; showVerificationDialog("Chuyển đến Ngân hàng", amount, roomName, accHolder, accNum, bankName, note, () -> executeBankTransfer(finalAmt2, finalBank2, finalAcc2, finalHolder2, finalNote2));
     }
 
+    private byte[] getCompressedReceiptBytesFromUri(Uri uri) {
+        if (getContext() == null || uri == null) return null;
+        try (InputStream is = requireContext().getContentResolver().openInputStream(uri)) {
+            Bitmap bmp = BitmapFactory.decodeStream(is);
+            if (bmp == null) return null;
+            int maxDim = 1280;
+            int w = bmp.getWidth();
+            int h = bmp.getHeight();
+            if (w > maxDim || h > maxDim) {
+                float ratio = Math.min((float) maxDim / w, (float) maxDim / h);
+                int newW = Math.round(w * ratio);
+                int newH = Math.round(h * ratio);
+                Bitmap scaled = Bitmap.createScaledBitmap(bmp, newW, newH, true);
+                if (scaled != bmp) bmp.recycle();
+                bmp = scaled;
+            }
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            bmp.compress(Bitmap.CompressFormat.JPEG, 80, baos);
+            bmp.recycle();
+            return baos.toByteArray();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     private void executeBankTransfer(double amount, String bankName, String accNum, String accHolder, String note) {
         layoutRoomTransferForm.setVisibility(View.GONE);
         if (layoutBottomTransferDock != null) {
@@ -872,17 +988,45 @@ public class RoomTransferFragment extends Fragment {
         }
         layoutProcessingNotice.setVisibility(View.VISIBLE);
 
-        boolean isOwner = isCurrentUserOwner();
+        final boolean isOwner = isCurrentUserOwner();
         UserSessionManager session = UserSessionManager.getInstance(requireContext());
-        String userId = session.getUserId();
-        String userName = session.getCurrentUserName();
+        final String finalUserId = session.getUserId();
+        final String finalUserName = session.getCurrentUserName();
 
-        TransactionRepository remote = new TransactionRepository();
+        final TransactionRepository remote = new TransactionRepository();
         remote.setAccessToken(session.getAccessToken());
-        String category = selectedCategory != null ? selectedCategory : ("Chuyển đến " + bankName);
-        String fullNote = note + " [STK: " + accNum + " - " + accHolder + " - " + bankName + "]";
+        final String category = selectedCategory != null ? selectedCategory : ("Chuyển đến " + bankName);
+        final String fullNote = note + " [STK: " + accNum + " - " + accHolder + " - " + bankName + "]";
 
-        remote.submitWithdrawal(userId, userName != null ? userName : "Member", roomId, amount, category, fullNote, isOwner,
+        Uri targetUri = (tabLayoutRoomTransfer != null && tabLayoutRoomTransfer.getSelectedTabPosition() == 2)
+                ? selectedQrReceiptUri
+                : selectedBankReceiptUri;
+
+        if (targetUri != null) {
+            byte[] imageBytes = getCompressedReceiptBytesFromUri(targetUri);
+            if (imageBytes != null && imageBytes.length > 0) {
+                remote.uploadReceiptImage(imageBytes, "image/jpeg", new TransactionRepository.DataCallback<String>() {
+                    @Override
+                    public void onSuccess(String publicUrl) {
+                        proceedBankWithdrawal(remote, finalUserId, finalUserName, amount, category, fullNote, publicUrl, isOwner, bankName, accNum, note);
+                    }
+
+                    @Override
+                    public void onError(String error) {
+                        proceedBankWithdrawal(remote, finalUserId, finalUserName, amount, category, fullNote, null, isOwner, bankName, accNum, note);
+                    }
+                });
+                return;
+            }
+        }
+
+        proceedBankWithdrawal(remote, finalUserId, finalUserName, amount, category, fullNote, null, isOwner, bankName, accNum, note);
+    }
+
+    private void proceedBankWithdrawal(TransactionRepository remote, String userId, String userName,
+                                      double amount, String category, String fullNote, String billImageUrl,
+                                      boolean isOwner, String bankName, String accNum, String note) {
+        remote.submitWithdrawal(userId, userName != null ? userName : "Member", roomId, amount, category, fullNote, billImageUrl, isOwner,
                 new TransactionRepository.DataCallback<Transaction>() {
                     @Override
                     public void onSuccess(Transaction created) {

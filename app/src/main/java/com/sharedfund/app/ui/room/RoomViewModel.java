@@ -9,8 +9,12 @@ import com.sharedfund.app.data.RoomRepository;
 import com.sharedfund.app.model.Room;
 import com.sharedfund.app.model.RoomMember;
 import com.sharedfund.app.model.Transaction;
+import com.sharedfund.app.ui.transaction.TransactionAdapter;
 
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -22,9 +26,20 @@ public class RoomViewModel extends ViewModel {
         EXPENSE
     }
 
+    public enum TimeFilterType {
+        ALL,
+        TODAY,
+        THIS_WEEK,
+        THIS_MONTH,
+        CUSTOM_RANGE
+    }
+
     private final RoomRepository repository;
     private String roomId;
     private FilterType currentFilter = FilterType.ALL;
+    private TimeFilterType currentTimeFilter = TimeFilterType.ALL;
+    private Long customStartMillis = null;
+    private Long customEndMillis = null;
 
     private final MutableLiveData<Room> roomLiveData = new MutableLiveData<>();
     private final MutableLiveData<List<Transaction>> recentTransactionsLiveData = new MutableLiveData<>();
@@ -105,13 +120,9 @@ public class RoomViewModel extends ViewModel {
             }
         }
         allTransactionsLiveData.setValue(confirmedHistory);
-        applyFilter(currentFilter);
         recentTransactionsLiveData.setValue(recent);
         pendingTransactionsLiveData.setValue(pending);
-
-        totalIncomeLiveData.setValue(repository.getRoomTotalIncome(roomId));
-        totalExpenseLiveData.setValue(repository.getRoomTotalExpense(roomId));
-        categoryStatsLiveData.setValue(repository.getCategoryBreakdown(roomId));
+        applyFilter(currentFilter);
         loadMembers();
         isLoading.setValue(false);
     }
@@ -121,28 +132,117 @@ public class RoomViewModel extends ViewModel {
         applyFilter(filter);
     }
 
+    public void setTimeFilter(TimeFilterType timeFilter, Long startMillis, Long endMillis) {
+        this.currentTimeFilter = timeFilter;
+        this.customStartMillis = startMillis;
+        this.customEndMillis = endMillis;
+        applyFilter(currentFilter);
+    }
+
     public FilterType getCurrentFilter() {
         return currentFilter;
+    }
+
+    public TimeFilterType getCurrentTimeFilter() {
+        return currentTimeFilter;
+    }
+
+    private boolean matchesTime(Transaction tx) {
+        if (currentTimeFilter == TimeFilterType.ALL || tx == null) return true;
+        Date txDate = TransactionAdapter.parseDate(tx.getCreatedAt());
+        if (txDate == null) return true;
+        long txMillis = txDate.getTime();
+
+        if (currentTimeFilter == TimeFilterType.TODAY) {
+            Calendar cal = Calendar.getInstance();
+            cal.set(Calendar.HOUR_OF_DAY, 0);
+            cal.set(Calendar.MINUTE, 0);
+            cal.set(Calendar.SECOND, 0);
+            cal.set(Calendar.MILLISECOND, 0);
+            long start = cal.getTimeInMillis();
+            long end = start + (24L * 60L * 60L * 1000L) - 1;
+            return txMillis >= start && txMillis <= end;
+        } else if (currentTimeFilter == TimeFilterType.THIS_WEEK) {
+            Calendar cal = Calendar.getInstance();
+            cal.set(Calendar.DAY_OF_WEEK, cal.getFirstDayOfWeek());
+            cal.set(Calendar.HOUR_OF_DAY, 0);
+            cal.set(Calendar.MINUTE, 0);
+            cal.set(Calendar.SECOND, 0);
+            cal.set(Calendar.MILLISECOND, 0);
+            long start = cal.getTimeInMillis();
+            long end = start + (7L * 24L * 60L * 60L * 1000L) - 1;
+            return txMillis >= start && txMillis <= end;
+        } else if (currentTimeFilter == TimeFilterType.THIS_MONTH) {
+            Calendar cal = Calendar.getInstance();
+            cal.set(Calendar.DAY_OF_MONTH, 1);
+            cal.set(Calendar.HOUR_OF_DAY, 0);
+            cal.set(Calendar.MINUTE, 0);
+            cal.set(Calendar.SECOND, 0);
+            cal.set(Calendar.MILLISECOND, 0);
+            long start = cal.getTimeInMillis();
+            cal.add(Calendar.MONTH, 1);
+            long end = cal.getTimeInMillis() - 1;
+            return txMillis >= start && txMillis <= end;
+        } else if (currentTimeFilter == TimeFilterType.CUSTOM_RANGE) {
+            if (customStartMillis != null && customEndMillis != null) {
+                Calendar s = Calendar.getInstance();
+                s.setTimeInMillis(customStartMillis);
+                s.set(Calendar.HOUR_OF_DAY, 0);
+                s.set(Calendar.MINUTE, 0);
+                s.set(Calendar.SECOND, 0);
+                s.set(Calendar.MILLISECOND, 0);
+
+                Calendar e = Calendar.getInstance();
+                e.setTimeInMillis(customEndMillis);
+                e.set(Calendar.HOUR_OF_DAY, 23);
+                e.set(Calendar.MINUTE, 59);
+                e.set(Calendar.SECOND, 59);
+                e.set(Calendar.MILLISECOND, 999);
+
+                return txMillis >= s.getTimeInMillis() && txMillis <= e.getTimeInMillis();
+            }
+        }
+        return true;
     }
 
     private void applyFilter(FilterType filter) {
         List<Transaction> all = allTransactionsLiveData.getValue();
         if (all == null) {
             filteredTransactionsLiveData.setValue(new ArrayList<>());
+            totalIncomeLiveData.setValue(0.0);
+            totalExpenseLiveData.setValue(0.0);
+            categoryStatsLiveData.setValue(new HashMap<>());
             return;
         }
-        if (filter == FilterType.ALL) {
-            filteredTransactionsLiveData.setValue(new ArrayList<>(all));
-            return;
-        }
+
+        double periodIncome = 0.0;
+        double periodExpense = 0.0;
+        Map<String, Double> periodCategoryStats = new HashMap<>();
+
         List<Transaction> filtered = new ArrayList<>();
         for (Transaction tx : all) {
-            if (filter == FilterType.INCOME && tx.isIncome()) {
-                filtered.add(tx);
-            } else if (filter == FilterType.EXPENSE && tx.isExpense()) {
-                filtered.add(tx);
+            if (matchesTime(tx)) {
+                if (tx.isIncome()) {
+                    periodIncome += tx.getAmount();
+                } else if (tx.isExpense()) {
+                    periodExpense += tx.getAmount();
+                    String cat = tx.getCategory() != null && !tx.getCategory().trim().isEmpty() ? tx.getCategory() : "Khác";
+                    periodCategoryStats.put(cat, periodCategoryStats.getOrDefault(cat, 0.0) + tx.getAmount());
+                }
+
+                if (filter == FilterType.ALL) {
+                    filtered.add(tx);
+                } else if (filter == FilterType.INCOME && tx.isIncome()) {
+                    filtered.add(tx);
+                } else if (filter == FilterType.EXPENSE && tx.isExpense()) {
+                    filtered.add(tx);
+                }
             }
         }
+
+        totalIncomeLiveData.setValue(periodIncome);
+        totalExpenseLiveData.setValue(periodExpense);
+        categoryStatsLiveData.setValue(periodCategoryStats);
         filteredTransactionsLiveData.setValue(filtered);
     }
 
