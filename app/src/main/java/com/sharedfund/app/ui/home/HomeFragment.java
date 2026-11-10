@@ -206,6 +206,8 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
             }
         }
 
+    }
+
     private void initViews(View view) {
         btnUserProfile = view.findViewById(R.id.btnUserProfile);
         layoutNotificationBell = view.findViewById(R.id.layoutNotificationBell);

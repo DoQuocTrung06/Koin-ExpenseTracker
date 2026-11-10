@@ -5,7 +5,6 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -67,6 +66,11 @@ public class CreateRecurringRuleBottomSheet extends BottomSheetDialogFragment {
         ImageButton btnClose = view.findViewById(R.id.btnCreateRecurringClose);
         if (btnClose != null) {
             btnClose.setOnClickListener(v -> dismiss());
+        }
+
+        MaterialButton btnCancel = view.findViewById(R.id.btnCancelRecurringRule);
+        if (btnCancel != null) {
+            btnCancel.setOnClickListener(v -> dismiss());
         }
 
         TextInputEditText etTitle = view.findViewById(R.id.etRecurringTitle);

@@ -16,7 +16,6 @@ public class RoomUtilitiesBottomSheet extends BottomSheetDialogFragment {
 
     public interface OnUtilityActionListener {
         void onSplitBillSelected();
-        void onRemindSelected();
         void onRecurringSelected();
     }
 
@@ -51,20 +50,12 @@ public class RoomUtilitiesBottomSheet extends BottomSheetDialogFragment {
         }
 
         View cardSplitBill = view.findViewById(R.id.cardOptionSplitBill);
-        View cardRemind = view.findViewById(R.id.cardOptionRemind);
         View cardRecurring = view.findViewById(R.id.cardOptionRecurring);
 
         if (cardSplitBill != null) {
             cardSplitBill.setOnClickListener(v -> {
                 dismiss();
                 if (listener != null) listener.onSplitBillSelected();
-            });
-        }
-
-        if (cardRemind != null) {
-            cardRemind.setOnClickListener(v -> {
-                dismiss();
-                if (listener != null) listener.onRemindSelected();
             });
         }
 

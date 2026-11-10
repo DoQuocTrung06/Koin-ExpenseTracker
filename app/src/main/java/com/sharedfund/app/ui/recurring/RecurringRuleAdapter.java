@@ -4,7 +4,6 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
-import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -57,7 +56,6 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
     }
 
     class RecurringRuleViewHolder extends RecyclerView.ViewHolder {
-        private final ImageView ivIcon;
         private final TextView tvTitle;
         private final TextView tvFrequency;
         private final TextView tvAmount;
@@ -66,7 +64,6 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
 
         RecurringRuleViewHolder(@NonNull View itemView) {
             super(itemView);
-            ivIcon = itemView.findViewById(R.id.ivRuleIcon);
             tvTitle = itemView.findViewById(R.id.tvRuleTitle);
             tvFrequency = itemView.findViewById(R.id.tvRuleFrequency);
             tvAmount = itemView.findViewById(R.id.tvRuleAmount);
@@ -76,9 +73,12 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
 
         void bind(RecurringRule rule) {
             tvTitle.setText(rule.getTitle() != null ? rule.getTitle() : "Khoản định kỳ");
-            tvFrequency.setText(rule.getFrequencyDescription());
+
+            String scopeLabel = RecurringRule.SCOPE_ROOM.equalsIgnoreCase(rule.getScope()) ? "Quỹ nhóm" : "Ví cá nhân";
+            String subText = rule.getFrequencyDescription() + " · " + scopeLabel;
+            tvFrequency.setText(subText);
+
             tvAmount.setText(rule.getFormattedAmount());
-            ivIcon.setImageResource(rule.getCategoryIconRes());
 
             switchActive.setOnCheckedChangeListener(null);
             switchActive.setChecked(rule.isActive());

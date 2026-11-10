@@ -5481,19 +5481,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
 
-            @Override
 
-
-
-            public void onRemindSelected() {
-
-
-
-                showRemindDialog();
-
-
-
-            }
 
             @Override
             public void onRecurringSelected() {

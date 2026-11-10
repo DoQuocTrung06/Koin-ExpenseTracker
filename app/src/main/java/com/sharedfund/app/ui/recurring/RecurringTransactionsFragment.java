@@ -20,8 +20,11 @@ import com.sharedfund.app.data.TransactionRepository;
 import com.sharedfund.app.data.UserSessionManager;
 import com.sharedfund.app.model.RecurringRule;
 
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public class RecurringTransactionsFragment extends Fragment implements RecurringRuleAdapter.OnRecurringActionListener {
 
@@ -34,6 +37,8 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
     private RecyclerView rvRules;
     private View layoutEmpty;
     private TextView tvHeaderTitle;
+    private TextView tvMonthlyTotal;
+    private TextView tvCountBadge;
     private RecurringRuleAdapter adapter;
     private final List<RecurringRule> localRules = new ArrayList<>();
     private final TransactionRepository transactionRepository = new TransactionRepository();
@@ -68,6 +73,8 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
 
         ImageButton btnBack = view.findViewById(R.id.btnRecurringBack);
         tvHeaderTitle = view.findViewById(R.id.tvRecurringHeaderTitle);
+        tvMonthlyTotal = view.findViewById(R.id.tvRecurringMonthlyTotal);
+        tvCountBadge = view.findViewById(R.id.tvRecurringCountBadge);
         MaterialButton btnAddTop = view.findViewById(R.id.btnAddRecurringTop);
         MaterialButton btnCreateFirst = view.findViewById(R.id.btnCreateFirstRecurring);
         rvRules = view.findViewById(R.id.rvRecurringRules);
@@ -166,6 +173,26 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
         boolean isEmpty = localRules.isEmpty();
         if (layoutEmpty != null) layoutEmpty.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
         if (rvRules != null) rvRules.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
+
+        long total = 0;
+        int activeCount = 0;
+        for (RecurringRule rule : localRules) {
+            if (rule.isActive()) {
+                total += (long) Math.abs(rule.getAmount());
+                activeCount++;
+            }
+        }
+
+        if (tvMonthlyTotal != null) {
+            DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.GERMANY);
+            symbols.setGroupingSeparator('.');
+            DecimalFormat df = new DecimalFormat("#,###", symbols);
+            tvMonthlyTotal.setText("-" + df.format(total) + " đ");
+        }
+
+        if (tvCountBadge != null) {
+            tvCountBadge.setText(localRules.size() + " khoản");
+        }
     }
 
     private void handleCreateRule(RecurringRule rule) {
@@ -191,6 +218,7 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
 
     @Override
     public void onToggleRule(RecurringRule rule, boolean isActive) {
+        updateUI();
         transactionRepository.toggleRecurringRule(rule.getId(), isActive, new TransactionRepository.DataCallback<Boolean>() {
             @Override
             public void onSuccess(Boolean result) {}
