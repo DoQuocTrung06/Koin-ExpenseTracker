@@ -77,29 +77,37 @@
 
                 <FrameLayout
                     android:id="@+id/layoutNotificationBell"
-                    android:layout_width="44dp"
-                    android:layout_height="44dp"
-                    android:layout_marginEnd="4dp"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_marginEnd="6dp"
                     android:clickable="true"
                     android:focusable="true"
                     android:background="?attr/selectableItemBackgroundBorderless">
 
                     <ImageView
                         android:id="@+id/ivNotificationBell"
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
+                        android:layout_width="21dp"
+                        android:layout_height="21dp"
                         android:layout_gravity="center"
                         android:contentDescription="Thông báo"
                         android:src="@drawable/ic_bell" />
 
-                    <View
-                        android:id="@+id/badgeNotificationDot"
-                        android:layout_width="8dp"
-                        android:layout_height="8dp"
+                    <TextView
+                        android:id="@+id/tvNotificationBadge"
+                        android:layout_width="wrap_content"
+                        android:layout_height="16dp"
+                        android:minWidth="16dp"
                         android:layout_gravity="top|end"
-                        android:layout_marginTop="8dp"
-                        android:layout_marginEnd="8dp"
-                        android:background="@drawable/bg_badge_dot"
+                        android:layout_marginTop="2dp"
+                        android:layout_marginEnd="2dp"
+                        android:background="@drawable/bg_notification_badge"
+                        android:gravity="center"
+                        android:includeFontPadding="false"
+                        android:paddingStart="4dp"
+                        android:paddingEnd="4dp"
+                        android:textColor="@color/white"
+                        android:textSize="9.5sp"
+                        android:textStyle="bold"
                         android:visibility="gone" />
                 </FrameLayout>
 

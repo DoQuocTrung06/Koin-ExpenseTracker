@@ -89,7 +89,7 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
 
     private View btnUserProfile;
     private View layoutNotificationBell;
-    private View badgeNotificationDot;
+    private TextView tvNotificationBadge;
     private View accountDrawerScrim;
     private LinearLayout accountDrawer;
     private TextView tvDrawerUserName;
@@ -175,6 +175,54 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
         }
     }
 
+        @Override
+    public void onNotificationsChanged(int unreadCount) {
+        if (isAdded() && tvNotificationBadge != null) {
+            requireActivity().runOnUiThread(() -> {
+                if (unreadCount <= 0) {
+                    tvNotificationBadge.setVisibility(View.GONE);
+                } else if (unreadCount > 99) {
+                    tvNotificationBadge.setVisibility(View.VISIBLE);
+                    tvNotificationBadge.setText("99+");
+                } else {
+                    tvNotificationBadge.setVisibility(View.VISIBLE);
+                    tvNotificationBadge.setText(String.valueOf(unreadCount));
+                }
+            });
+        }
+    }
+
+    private void updateNotificationBadge() {
+        if (tvNotificationBadge != null && getContext() != null) {
+            int unread = NotificationManager.getInstance(getContext()).getUnreadCount();
+            if (unread <= 0) {
+                tvNotificationBadge.setVisibility(View.GONE);
+            } else if (unread > 99) {
+                tvNotificationBadge.setVisibility(View.VISIBLE);
+                tvNotificationBadge.setText("99+");
+            } else {
+                tvNotificationBadge.setVisibility(View.VISIBLE);
+                tvNotificationBadge.setText(String.valueOf(unread));
+            }
+        }
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        if (getContext() != null) {
+            NotificationManager.getInstance(getContext()).addListener(this);
+        }
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        if (getContext() != null) {
+            NotificationManager.getInstance(getContext()).removeListener(this);
+        }
+    }
+
     @Override
     public void onNotificationsChanged(int unreadCount) {
         if (isAdded() && badgeNotificationDot != null) {
@@ -192,7 +240,7 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
     private void initViews(View view) {
         btnUserProfile = view.findViewById(R.id.btnUserProfile);
         layoutNotificationBell = view.findViewById(R.id.layoutNotificationBell);
-        badgeNotificationDot = view.findViewById(R.id.badgeNotificationDot);
+        tvNotificationBadge = view.findViewById(R.id.tvNotificationBadge);
         accountDrawerScrim = view.findViewById(R.id.accountDrawerScrim);
         accountDrawer = view.findViewById(R.id.accountDrawer);
         tvDrawerUserName = view.findViewById(R.id.tvDrawerUserName);

@@ -2,17 +2,16 @@ package com.sharedfund.app.ui.notification;
 
 import android.content.Context;
 import android.graphics.Color;
-import android.text.SpannableString;
-import android.text.style.ForegroundColorSpan;
+import android.graphics.drawable.ColorDrawable;
 import android.view.LayoutInflater;
-import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
+import android.widget.ImageView;
+import android.widget.PopupWindow;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
-import androidx.appcompat.widget.PopupMenu;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -97,34 +96,51 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
                 if (listener != null) listener.onNotificationClick(item);
             });
 
-            btnMore.setOnClickListener(v -> showPopupMenu(context, btnMore, item));
+            btnMore.setOnClickListener(v -> showCustomPopupMenu(context, btnMore, item));
         }
 
-        private void showPopupMenu(Context context, View anchor, AppNotification item) {
-            PopupMenu popup = new PopupMenu(context, anchor);
+        private void showCustomPopupMenu(Context context, View anchor, AppNotification item) {
+            View popupView = LayoutInflater.from(context).inflate(R.layout.popup_notification_menu, null);
+
+            final PopupWindow popupWindow = new PopupWindow(
+                    popupView,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    true
+            );
+
+            popupWindow.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            popupWindow.setElevation(16f);
+            popupWindow.setOutsideTouchable(true);
+
+            ImageView ivToggleIcon = popupView.findViewById(R.id.ivPopupToggleIcon);
+            TextView tvToggleText = popupView.findViewById(R.id.tvPopupToggleText);
+            View btnToggle = popupView.findViewById(R.id.layoutPopupToggleRead);
+            View btnDelete = popupView.findViewById(R.id.layoutPopupDelete);
 
             if (item.isRead()) {
-                popup.getMenu().add(0, 1, 0, "Đánh dấu chưa đọc");
+                tvToggleText.setText("Đánh dấu chưa đọc");
+                ivToggleIcon.setImageResource(R.drawable.ic_check);
+                ivToggleIcon.setColorFilter(ContextCompat.getColor(context, R.color.text_secondary));
             } else {
-                popup.getMenu().add(0, 1, 0, "Đánh dấu đã đọc");
+                tvToggleText.setText("Đánh dấu đã đọc");
+                ivToggleIcon.setImageResource(R.drawable.ic_check);
+                ivToggleIcon.setColorFilter(ContextCompat.getColor(context, R.color.primary));
             }
 
-            SpannableString deleteText = new SpannableString("Xóa thông báo");
-            deleteText.setSpan(new ForegroundColorSpan(Color.parseColor("#EF4444")), 0, deleteText.length(), 0);
-            MenuItem deleteItem = popup.getMenu().add(0, 2, 1, deleteText);
-
-            popup.setOnMenuItemClickListener(menuItem -> {
-                if (menuItem.getItemId() == 1) {
-                    if (listener != null) listener.onToggleReadStatus(item);
-                    return true;
-                } else if (menuItem.getItemId() == 2) {
-                    if (listener != null) listener.onDeleteNotification(item);
-                    return true;
-                }
-                return false;
+            btnToggle.setOnClickListener(v -> {
+                popupWindow.dismiss();
+                if (listener != null) listener.onToggleReadStatus(item);
             });
 
-            popup.show();
+            btnDelete.setOnClickListener(v -> {
+                popupWindow.dismiss();
+                if (listener != null) listener.onDeleteNotification(item);
+            });
+
+            popupView.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+            int xOffset = -(popupView.getMeasuredWidth() - anchor.getWidth());
+            popupWindow.showAsDropDown(anchor, xOffset, 4);
         }
     }
 }
