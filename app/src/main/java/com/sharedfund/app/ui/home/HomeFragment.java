@@ -205,37 +205,6 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
                 tvNotificationBadge.setText(String.valueOf(unread));
             }
         }
-    }
-
-    @Override
-    public void onStart() {
-        super.onStart();
-        if (getContext() != null) {
-            NotificationManager.getInstance(getContext()).addListener(this);
-        }
-    }
-
-    @Override
-    public void onStop() {
-        super.onStop();
-        if (getContext() != null) {
-            NotificationManager.getInstance(getContext()).removeListener(this);
-        }
-    }
-
-    @Override
-    public void onNotificationsChanged(int unreadCount) {
-        if (isAdded() && badgeNotificationDot != null) {
-            requireActivity().runOnUiThread(() -> badgeNotificationDot.setVisibility(unreadCount > 0 ? View.VISIBLE : View.GONE));
-        }
-    }
-
-    private void updateNotificationBadge() {
-        if (badgeNotificationDot != null && getContext() != null) {
-            int unread = NotificationManager.getInstance(getContext()).getUnreadCount();
-            badgeNotificationDot.setVisibility(unread > 0 ? View.VISIBLE : View.GONE);
-        }
-    }
 
     private void initViews(View view) {
         btnUserProfile = view.findViewById(R.id.btnUserProfile);
