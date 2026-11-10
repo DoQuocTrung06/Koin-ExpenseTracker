@@ -13,18 +13,15 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.google.android.material.button.MaterialButton;
 import com.sharedfund.app.R;
-import com.sharedfund.app.data.DataCallback;
-import com.sharedfund.app.data.SessionManager;
 import com.sharedfund.app.data.TransactionRepository;
+import com.sharedfund.app.data.UserSessionManager;
 import com.sharedfund.app.model.RecurringRule;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 public class RecurringTransactionsFragment extends Fragment implements RecurringRuleAdapter.OnRecurringActionListener {
 
@@ -34,12 +31,12 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
     private String roomId;
     private String roomName;
 
-    private SwipeRefreshLayout swipeRefresh;
     private RecyclerView rvRules;
     private View layoutEmpty;
     private TextView tvHeaderTitle;
     private RecurringRuleAdapter adapter;
     private final List<RecurringRule> localRules = new ArrayList<>();
+    private final TransactionRepository transactionRepository = new TransactionRepository();
 
     public static RecurringTransactionsFragment newInstance(String roomId, String roomName) {
         RecurringTransactionsFragment fragment = new RecurringTransactionsFragment();
@@ -73,7 +70,6 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
         tvHeaderTitle = view.findViewById(R.id.tvRecurringHeaderTitle);
         MaterialButton btnAddTop = view.findViewById(R.id.btnAddRecurringTop);
         MaterialButton btnCreateFirst = view.findViewById(R.id.btnCreateFirstRecurring);
-        swipeRefresh = view.findViewById(R.id.swipeRefreshRecurring);
         rvRules = view.findViewById(R.id.rvRecurringRules);
         layoutEmpty = view.findViewById(R.id.layoutEmptyRecurring);
 
@@ -100,21 +96,21 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
         rvRules.setLayoutManager(new LinearLayoutManager(requireContext()));
         rvRules.setAdapter(adapter);
 
-        swipeRefresh.setOnRefreshListener(this::loadRules);
-
         loadRules();
     }
 
     private void loadRules() {
-        swipeRefresh.setRefreshing(true);
-        String currentUserId = SessionManager.getInstance(requireContext()).getUserId();
+        UserSessionManager session = UserSessionManager.getInstance(requireContext());
+        String currentUserId = session.getUserId();
+        if (session.getAccessToken() != null && !session.getAccessToken().trim().isEmpty()) {
+            transactionRepository.setAccessToken(session.getAccessToken());
+        }
 
-        TransactionRepository.getInstance().getRecurringRules(currentUserId, roomId, new DataCallback<List<RecurringRule>>() {
+        transactionRepository.getRecurringRules(currentUserId, roomId, new TransactionRepository.DataCallback<List<RecurringRule>>() {
             @Override
             public void onSuccess(List<RecurringRule> rules) {
                 if (!isAdded()) return;
                 requireActivity().runOnUiThread(() -> {
-                    swipeRefresh.setRefreshing(false);
                     localRules.clear();
                     if (rules != null && !rules.isEmpty()) {
                         localRules.addAll(rules);
@@ -129,7 +125,6 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
             public void onError(String error) {
                 if (!isAdded()) return;
                 requireActivity().runOnUiThread(() -> {
-                    swipeRefresh.setRefreshing(false);
                     if (localRules.isEmpty()) {
                         seedSampleRules();
                     }
@@ -177,7 +172,7 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
         localRules.add(0, rule);
         updateUI();
 
-        TransactionRepository.getInstance().createRecurringRule(rule, new DataCallback<RecurringRule>() {
+        transactionRepository.createRecurringRule(rule, new TransactionRepository.DataCallback<RecurringRule>() {
             @Override
             public void onSuccess(RecurringRule created) {
                 if (isAdded()) {
@@ -196,7 +191,7 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
 
     @Override
     public void onToggleRule(RecurringRule rule, boolean isActive) {
-        TransactionRepository.getInstance().toggleRecurringRule(rule.getId(), isActive, new DataCallback<Boolean>() {
+        transactionRepository.toggleRecurringRule(rule.getId(), isActive, new TransactionRepository.DataCallback<Boolean>() {
             @Override
             public void onSuccess(Boolean result) {}
 
@@ -210,7 +205,7 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
         localRules.remove(rule);
         updateUI();
 
-        TransactionRepository.getInstance().deleteRecurringRule(rule.getId(), new DataCallback<Boolean>() {
+        transactionRepository.deleteRecurringRule(rule.getId(), new TransactionRepository.DataCallback<Boolean>() {
             @Override
             public void onSuccess(Boolean result) {
                 if (isAdded()) {
