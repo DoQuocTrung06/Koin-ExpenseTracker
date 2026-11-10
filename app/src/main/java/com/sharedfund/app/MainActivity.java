@@ -18,6 +18,8 @@ import com.sharedfund.app.ui.room.ExpenseApprovalFragment;
 import com.sharedfund.app.ui.room.FundActionFragment;
 import com.sharedfund.app.ui.room.RoomDetailFragment;
 import com.sharedfund.app.ui.room.RoomTransferFragment;
+import com.sharedfund.app.ui.notification.NotificationFragment;
+import com.sharedfund.app.ui.recurring.RecurringTransactionsFragment;
 import com.sharedfund.app.ui.widget.AppToaster;
 
 public class MainActivity extends AppCompatActivity {
@@ -113,6 +115,14 @@ public class MainActivity extends AppCompatActivity {
 
     public void openRoomDetail(String roomId) {
         loadFragment(RoomDetailFragment.newInstance(roomId), true);
+    }
+
+    public void openNotifications() {
+        loadFragment(new NotificationFragment(), true);
+    }
+
+    public void openRecurringRules(String roomId, String roomName) {
+        loadFragment(RecurringTransactionsFragment.newInstance(roomId, roomName), true);
     }
 
     public void openProfile() {

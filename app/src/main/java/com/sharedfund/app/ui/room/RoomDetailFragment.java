@@ -5495,6 +5495,15 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
             }
 
+            @Override
+            public void onRecurringSelected() {
+                if (getActivity() instanceof com.sharedfund.app.MainActivity) {
+                    com.sharedfund.app.model.Room r = viewModel.getRoom().getValue();
+                    String rName = r != null ? r.getName() : "Quỹ nhóm";
+                    ((com.sharedfund.app.MainActivity) getActivity()).openRecurringRules(getEffectiveRoomId(), rName);
+                }
+            }
+
 
 
         });

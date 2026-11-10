@@ -39,6 +39,7 @@ import com.google.android.material.textfield.TextInputLayout;
 import com.sharedfund.app.MainActivity;
 import com.sharedfund.app.R;
 import com.sharedfund.app.adapter.RoomAdapter;
+import com.sharedfund.app.data.NotificationManager;
 import com.sharedfund.app.data.RoomRepository;
 import com.sharedfund.app.data.UserSessionManager;
 import com.sharedfund.app.model.Room;
@@ -51,7 +52,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickListener {
+public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickListener, NotificationManager.NotificationChangeListener {
 
     private HomeViewModel viewModel;
     private RoomAdapter roomAdapter;
@@ -87,6 +88,8 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
     private double currentWalletBalance = 0.0;
 
     private View btnUserProfile;
+    private View layoutNotificationBell;
+    private View badgeNotificationDot;
     private View accountDrawerScrim;
     private LinearLayout accountDrawer;
     private TextView tvDrawerUserName;
@@ -153,10 +156,43 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
                 tvTotalRoomBalanceMini.setText(df.format(roomTotal).replace(',', '.') + " ₫");
             }
         }
+        updateNotificationBadge();
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        if (getContext() != null) {
+            NotificationManager.getInstance(getContext()).addListener(this);
+        }
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        if (getContext() != null) {
+            NotificationManager.getInstance(getContext()).removeListener(this);
+        }
+    }
+
+    @Override
+    public void onNotificationsChanged(int unreadCount) {
+        if (isAdded() && badgeNotificationDot != null) {
+            requireActivity().runOnUiThread(() -> badgeNotificationDot.setVisibility(unreadCount > 0 ? View.VISIBLE : View.GONE));
+        }
+    }
+
+    private void updateNotificationBadge() {
+        if (badgeNotificationDot != null && getContext() != null) {
+            int unread = NotificationManager.getInstance(getContext()).getUnreadCount();
+            badgeNotificationDot.setVisibility(unread > 0 ? View.VISIBLE : View.GONE);
+        }
     }
 
     private void initViews(View view) {
         btnUserProfile = view.findViewById(R.id.btnUserProfile);
+        layoutNotificationBell = view.findViewById(R.id.layoutNotificationBell);
+        badgeNotificationDot = view.findViewById(R.id.badgeNotificationDot);
         accountDrawerScrim = view.findViewById(R.id.accountDrawerScrim);
         accountDrawer = view.findViewById(R.id.accountDrawer);
         tvDrawerUserName = view.findViewById(R.id.tvDrawerUserName);
@@ -414,6 +450,13 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
             });
         }
 
+        if (layoutNotificationBell != null) {
+            layoutNotificationBell.setOnClickListener(v -> {
+                if (getActivity() instanceof MainActivity) {
+                    ((MainActivity) getActivity()).openNotifications();
+                }
+            });
+        }
         if (btnUserProfile != null) {
             btnUserProfile.setOnClickListener(v -> showAccountDrawer());
         }
