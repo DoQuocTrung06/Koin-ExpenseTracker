@@ -5,12 +5,15 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
+import android.widget.LinearLayout;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.textfield.TextInputEditText;
 import com.sharedfund.app.R;
 import com.sharedfund.app.model.RecurringRule;
@@ -27,6 +30,9 @@ public class CreateRecurringRuleBottomSheet extends BottomSheetDialogFragment {
 
     private String roomId;
     private OnRuleCreatedListener listener;
+
+    private String selectedFrequency = RecurringRule.FREQUENCY_MONTHLY;
+    private int selectedExecutionDay = 15;
 
     public static CreateRecurringRuleBottomSheet newInstance(String roomId) {
         CreateRecurringRuleBottomSheet sheet = new CreateRecurringRuleBottomSheet();
@@ -79,12 +85,49 @@ public class CreateRecurringRuleBottomSheet extends BottomSheetDialogFragment {
         TextInputEditText etDay = view.findViewById(R.id.etRecurringDay);
         MaterialButton btnSubmit = view.findViewById(R.id.btnSubmitRecurringRule);
 
+        ChipGroup chipGroupFrequency = view.findViewById(R.id.chipGroupFrequency);
+        ChipGroup chipGroupWeekDays = view.findViewById(R.id.chipGroupWeekDays);
+        LinearLayout layoutMonthly = view.findViewById(R.id.layoutMonthlyDayPicker);
+        LinearLayout layoutWeekly = view.findViewById(R.id.layoutWeeklyDayPicker);
+
+        if (chipGroupFrequency != null) {
+            chipGroupFrequency.setOnCheckedStateChangeListener((group, checkedIds) -> {
+                if (checkedIds.isEmpty()) return;
+                int id = checkedIds.get(0);
+                if (id == R.id.chipMonthly) {
+                    selectedFrequency = RecurringRule.FREQUENCY_MONTHLY;
+                    if (layoutMonthly != null) layoutMonthly.setVisibility(View.VISIBLE);
+                    if (layoutWeekly != null) layoutWeekly.setVisibility(View.GONE);
+                } else if (id == R.id.chipWeekly) {
+                    selectedFrequency = RecurringRule.FREQUENCY_WEEKLY;
+                    if (layoutMonthly != null) layoutMonthly.setVisibility(View.GONE);
+                    if (layoutWeekly != null) layoutWeekly.setVisibility(View.VISIBLE);
+                } else if (id == R.id.chipDaily) {
+                    selectedFrequency = RecurringRule.FREQUENCY_DAILY;
+                    if (layoutMonthly != null) layoutMonthly.setVisibility(View.GONE);
+                    if (layoutWeekly != null) layoutWeekly.setVisibility(View.GONE);
+                }
+            });
+        }
+
+        if (chipGroupWeekDays != null) {
+            chipGroupWeekDays.setOnCheckedStateChangeListener((group, checkedIds) -> {
+                if (checkedIds.isEmpty()) return;
+                int id = checkedIds.get(0);
+                Chip chip = view.findViewById(id);
+                if (chip != null && chip.getTag() != null) {
+                    try {
+                        selectedExecutionDay = Integer.parseInt(chip.getTag().toString());
+                    } catch (NumberFormatException ignored) {}
+                }
+            });
+        }
+
         if (btnSubmit != null) {
             btnSubmit.setOnClickListener(v -> {
                 String title = etTitle.getText() != null ? etTitle.getText().toString().trim() : "";
                 String amountStr = etAmount.getText() != null ? etAmount.getText().toString().trim() : "";
                 String category = etCategory.getText() != null ? etCategory.getText().toString().trim() : "Tiện ích & Nhà";
-                String dayStr = etDay.getText() != null ? etDay.getText().toString().trim() : "1";
 
                 if (title.isEmpty()) {
                     etTitle.setError("Vui lòng nhập tên khoản chi");
@@ -107,19 +150,29 @@ public class CreateRecurringRuleBottomSheet extends BottomSheetDialogFragment {
                     return;
                 }
 
-                int day = 1;
-                try {
-                    day = Integer.parseInt(dayStr);
-                    if (day < 1 || day > 31) day = 1;
-                } catch (NumberFormatException ignored) {}
+                int execDay = 1;
+                if (RecurringRule.FREQUENCY_MONTHLY.equalsIgnoreCase(selectedFrequency)) {
+                    String dayStr = etDay.getText() != null ? etDay.getText().toString().trim() : "15";
+                    try {
+                        execDay = Integer.parseInt(dayStr);
+                        if (execDay < 1) execDay = 1;
+                        if (execDay > 31) execDay = 31;
+                    } catch (NumberFormatException e) {
+                        execDay = 15;
+                    }
+                } else if (RecurringRule.FREQUENCY_WEEKLY.equalsIgnoreCase(selectedFrequency)) {
+                    execDay = selectedExecutionDay > 0 ? selectedExecutionDay : 2;
+                } else {
+                    execDay = 1;
+                }
 
                 RecurringRule rule = new RecurringRule();
                 rule.setId(UUID.randomUUID().toString());
                 rule.setTitle(title);
                 rule.setAmount(amount);
                 rule.setCategoryName(category);
-                rule.setFrequency(RecurringRule.FREQUENCY_MONTHLY);
-                rule.setExecutionDay(day);
+                rule.setFrequency(selectedFrequency);
+                rule.setExecutionDay(execDay);
                 rule.setType("Chi");
                 rule.setActive(true);
 

@@ -43,6 +43,7 @@ public class RecurringRule implements Serializable {
 
     public RecurringRule() {
         this.currency = "VND";
+        this.frequency = FREQUENCY_MONTHLY;
         this.isActive = true;
     }
 
@@ -127,7 +128,7 @@ public class RecurringRule implements Serializable {
     }
 
     public String getFrequency() {
-        return frequency;
+        return frequency != null ? frequency : FREQUENCY_MONTHLY;
     }
 
     public void setFrequency(String frequency) {
@@ -191,13 +192,41 @@ public class RecurringRule implements Serializable {
             return "Hằng ngày";
         }
         if (FREQUENCY_WEEKLY.equalsIgnoreCase(frequency)) {
-            return "Thứ " + (executionDay == 1 ? "CN" : String.valueOf(executionDay)) + " hằng tuần";
+            String dayLabel;
+            switch (executionDay) {
+                case 1:
+                case 8:
+                    dayLabel = "Chủ nhật";
+                    break;
+                case 2:
+                    dayLabel = "Thứ 2";
+                    break;
+                case 3:
+                    dayLabel = "Thứ 3";
+                    break;
+                case 4:
+                    dayLabel = "Thứ 4";
+                    break;
+                case 5:
+                    dayLabel = "Thứ 5";
+                    break;
+                case 6:
+                    dayLabel = "Thứ 6";
+                    break;
+                case 7:
+                    dayLabel = "Thứ 7";
+                    break;
+                default:
+                    dayLabel = "Thứ " + executionDay;
+                    break;
+            }
+            return dayLabel + " hàng tuần";
         }
-        return "Ngày " + executionDay + " hằng tháng";
+        return "Ngày " + (executionDay > 0 ? executionDay : 1) + " hàng tháng";
     }
 
     public int getCategoryIconRes() {
-        if (categoryName == null) return R.drawable.ic_receipt;
+        if (categoryName == null) return R.drawable.ic_recurring_calendar;
         String lower = categoryName.toLowerCase(Locale.ROOT);
         if (lower.contains("ăn") || lower.contains("uống")) return R.drawable.ic_restaurant;
         if (lower.contains("sắm")) return R.drawable.ic_shopping;
@@ -205,6 +234,6 @@ public class RecurringRule implements Serializable {
         if (lower.contains("xe") || lower.contains("chuyển")) return R.drawable.ic_transport;
         if (lower.contains("lương")) return R.drawable.ic_wallet;
         if (lower.contains("thưởng") || lower.contains("liên hoan")) return R.drawable.ic_sparkles;
-        return R.drawable.ic_receipt;
+        return R.drawable.ic_recurring_calendar;
     }
 }

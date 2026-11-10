@@ -68,7 +68,7 @@
             android:id="@+id/etRecurringTitle"
             android:layout_width="match_parent"
             android:layout_height="48dp"
-            android:hint="Ví dụ: Tiền mạng, Tiền trọ..."
+            android:hint="Ví dụ: Tiền phòng, Internet, Tiền chợ..."
             android:inputType="textCapSentences"
             android:maxLines="1"
             android:paddingStart="14dp"
@@ -78,98 +78,213 @@
             android:textSize="13.5sp" />
     </com.google.android.material.textfield.TextInputLayout>
 
-    <LinearLayout
-        android:layout_width="match_parent"
+    <TextView
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
-        android:orientation="horizontal"
-        android:weightSum="2">
+        android:layout_marginBottom="6dp"
+        android:text="Số tiền (₫)"
+        android:textColor="@color/text_secondary"
+        android:textSize="12sp"
+        android:textStyle="bold" />
 
-        <LinearLayout
-            android:layout_width="0dp"
+    <com.google.android.material.textfield.TextInputLayout
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:boxCornerRadiusBottomEnd="14dp"
+        app:boxCornerRadiusBottomStart="14dp"
+        app:boxCornerRadiusTopEnd="14dp"
+        app:boxCornerRadiusTopStart="14dp"
+        app:boxStrokeColor="@color/primary"
+        app:hintEnabled="false">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/etRecurringAmount"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:hint="Ví dụ: 250.000"
+            android:inputType="number"
+            android:maxLines="1"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:textColor="@color/text_primary"
+            android:textColorHint="@color/text_tertiary"
+            android:textSize="13.5sp"
+            android:textStyle="bold" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="6dp"
+        android:text="Chu kỳ lặp lại"
+        android:textColor="@color/text_secondary"
+        android:textSize="12sp"
+        android:textStyle="bold" />
+
+    <com.google.android.material.chip.ChipGroup
+        android:id="@+id/chipGroupFrequency"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:singleSelection="true">
+
+        <com.google.android.material.chip.Chip
+            android:id="@+id/chipMonthly"
+            style="@style/Widget.Material3.Chip.Filter"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="6dp"
-            android:layout_weight="1"
-            android:orientation="vertical">
+            android:checked="true"
+            android:text="Hàng tháng"
+            android:textSize="12.5sp" />
 
-            <TextView
+        <com.google.android.material.chip.Chip
+            android:id="@+id/chipWeekly"
+            style="@style/Widget.Material3.Chip.Filter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Hàng tuần"
+            android:textSize="12.5sp" />
+
+        <com.google.android.material.chip.Chip
+            android:id="@+id/chipDaily"
+            style="@style/Widget.Material3.Chip.Filter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Hàng ngày"
+            android:textSize="12.5sp" />
+    </com.google.android.material.chip.ChipGroup>
+
+    <LinearLayout
+        android:id="@+id/layoutMonthlyDayPicker"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="6dp"
+            android:text="Ngày đến hạn trong tháng (1 - 31)"
+            android:textColor="@color/text_secondary"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:boxCornerRadiusBottomEnd="14dp"
+            app:boxCornerRadiusBottomStart="14dp"
+            app:boxCornerRadiusTopEnd="14dp"
+            app:boxCornerRadiusTopStart="14dp"
+            app:boxStrokeColor="@color/primary"
+            app:hintEnabled="false">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etRecurringDay"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:hint="Ví dụ: 15"
+                android:inputType="number"
+                android:maxLines="1"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:text="15"
+                android:textColor="@color/text_primary"
+                android:textSize="13.5sp"
+                android:textStyle="bold" />
+        </com.google.android.material.textfield.TextInputLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/layoutWeeklyDayPicker"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="6dp"
+            android:text="Thứ lặp lại trong tuần"
+            android:textColor="@color/text_secondary"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none">
+
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/chipGroupWeekDays"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="6dp"
-                android:text="Số tiền (đ)"
-                android:textColor="@color/text_secondary"
-                android:textSize="12sp"
-                android:textStyle="bold" />
+                app:singleSelection="true">
 
-            <com.google.android.material.textfield.TextInputLayout
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                app:boxCornerRadiusBottomEnd="14dp"
-                app:boxCornerRadiusBottomStart="14dp"
-                app:boxCornerRadiusTopEnd="14dp"
-                app:boxCornerRadiusTopStart="14dp"
-                app:boxStrokeColor="@color/primary"
-                app:hintEnabled="false">
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chipDayMon"
+                    style="@style/Widget.Material3.Chip.Filter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checked="true"
+                    android:tag="2"
+                    android:text="Thứ 2" />
 
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/etRecurringAmount"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:hint="250.000"
-                    android:inputType="number"
-                    android:maxLines="1"
-                    android:paddingStart="14dp"
-                    android:paddingEnd="14dp"
-                    android:textColor="@color/text_primary"
-                    android:textColorHint="@color/text_tertiary"
-                    android:textSize="13.5sp"
-                    android:textStyle="bold" />
-            </com.google.android.material.textfield.TextInputLayout>
-        </LinearLayout>
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chipDayTue"
+                    style="@style/Widget.Material3.Chip.Filter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:tag="3"
+                    android:text="Thứ 3" />
 
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
-            android:layout_weight="1"
-            android:orientation="vertical">
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chipDayWed"
+                    style="@style/Widget.Material3.Chip.Filter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:tag="4"
+                    android:text="Thứ 4" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="6dp"
-                android:text="Ngày đến hạn (1-31)"
-                android:textColor="@color/text_secondary"
-                android:textSize="12sp"
-                android:textStyle="bold" />
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chipDayThu"
+                    style="@style/Widget.Material3.Chip.Filter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:tag="5"
+                    android:text="Thứ 5" />
 
-            <com.google.android.material.textfield.TextInputLayout
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                app:boxCornerRadiusBottomEnd="14dp"
-                app:boxCornerRadiusBottomStart="14dp"
-                app:boxCornerRadiusTopEnd="14dp"
-                app:boxCornerRadiusTopStart="14dp"
-                app:boxStrokeColor="@color/primary"
-                app:hintEnabled="false">
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chipDayFri"
+                    style="@style/Widget.Material3.Chip.Filter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:tag="6"
+                    android:text="Thứ 6" />
 
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/etRecurringDay"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:hint="15"
-                    android:inputType="number"
-                    android:maxLines="1"
-                    android:paddingStart="14dp"
-                    android:paddingEnd="14dp"
-                    android:text="15"
-                    android:textColor="@color/text_primary"
-                    android:textSize="13.5sp"
-                    android:textStyle="bold" />
-            </com.google.android.material.textfield.TextInputLayout>
-        </LinearLayout>
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chipDaySat"
+                    style="@style/Widget.Material3.Chip.Filter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:tag="7"
+                    android:text="Thứ 7" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chipDaySun"
+                    style="@style/Widget.Material3.Chip.Filter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:tag="1"
+                    android:text="Chủ nhật" />
+            </com.google.android.material.chip.ChipGroup>
+        </HorizontalScrollView>
     </LinearLayout>
 
     <TextView
