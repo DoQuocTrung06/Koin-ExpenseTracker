@@ -251,15 +251,6 @@ public class AppToaster {
                 })
                 .start();
     }
-                        parent.removeView(view);
-                    } catch (Exception ignored) {
-                    }
-                    if (currentToastView != null && currentToastView.get() == view) {
-                        currentToastView = null;
-                    }
-                })
-                .start();
-    }
 
     public static void dismissCurrentImmediately() {
         if (currentProgressAnimator != null && currentProgressAnimator.get() != null) {
