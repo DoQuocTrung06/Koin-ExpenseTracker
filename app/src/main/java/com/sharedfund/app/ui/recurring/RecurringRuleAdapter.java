@@ -275,8 +275,7 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
                     btnActionPay.setVisibility(View.VISIBLE);
                     btnActionNudge.setVisibility(View.GONE);
                 } else {
-                    btnActionPay.setVisibility(View.GONE);
-                    btnActionNudge.setVisibility(View.VISIBLE);
+                    bindNudgeButton(context, rule);
                 }
             } else if (diff == 0) {
                 tvStatusBadge.setVisibility(View.VISIBLE);
@@ -289,8 +288,7 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
                     btnActionPay.setVisibility(View.VISIBLE);
                     btnActionNudge.setVisibility(View.GONE);
                 } else {
-                    btnActionPay.setVisibility(View.GONE);
-                    btnActionNudge.setVisibility(View.VISIBLE);
+                    bindNudgeButton(context, rule);
                 }
             } else {
                 tvStatusBadge.setVisibility(View.GONE);
@@ -301,6 +299,23 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
                 tvRemainingBadge.setText("Còn " + Math.abs(diff) + " ngày");
                 tvRemainingBadge.setBackgroundResource(R.drawable.bg_badge_remaining);
                 tvRemainingBadge.setTextColor(ContextCompat.getColor(context, R.color.text_secondary));
+            }
+        }
+
+        private void bindNudgeButton(Context context, RecurringRule rule) {
+            btnActionPay.setVisibility(View.GONE);
+            btnActionNudge.setVisibility(View.VISIBLE);
+            android.content.SharedPreferences prefs = context.getSharedPreferences("recurring_nudge_prefs", Context.MODE_PRIVATE);
+            long lastNudge = prefs.getLong("nudge_cooldown_" + rule.getId(), 0);
+            long now = System.currentTimeMillis();
+            long cooldownMs = 60 * 60 * 1000L;
+            if (now - lastNudge < cooldownMs) {
+                long remainingMinutes = (cooldownMs - (now - lastNudge) + 59999) / 60000;
+                btnActionNudge.setText("Đã nhắc (" + remainingMinutes + "p)");
+                btnActionNudge.setAlpha(0.6f);
+            } else {
+                btnActionNudge.setText("Nhắc đóng tiền");
+                btnActionNudge.setAlpha(1.0f);
             }
         }
 

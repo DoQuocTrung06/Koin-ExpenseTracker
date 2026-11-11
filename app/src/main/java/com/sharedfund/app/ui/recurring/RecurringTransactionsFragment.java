@@ -416,6 +416,19 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
     @Override
     public void onNudgeRule(RecurringRule rule) {
         if (rule == null || !isAdded()) return;
+        Context context = requireContext();
+        android.content.SharedPreferences prefs = context.getSharedPreferences("recurring_nudge_prefs", Context.MODE_PRIVATE);
+        long lastNudge = prefs.getLong("nudge_cooldown_" + rule.getId(), 0);
+        long now = System.currentTimeMillis();
+        long diff = now - lastNudge;
+        long cooldownMs = 60 * 60 * 1000L;
+        if (diff < cooldownMs) {
+            long remainingMinutes = (cooldownMs - diff + 59999) / 60000;
+            AppToaster.info(requireActivity(), "Bạn vừa gửi nhắc nhở rồi. Vui lòng chờ " + remainingMinutes + " phút nữa nhé!");
+            return;
+        }
+
+        prefs.edit().putLong("nudge_cooldown_" + rule.getId(), now).apply();
         AppToaster.success(requireActivity(), "Đã gửi thông báo nhắc đóng " + rule.getTitle());
 
         AppNotification notif = new AppNotification(
@@ -423,12 +436,13 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
                 AppNotification.TYPE_RECURRING_DUE,
                 rule.getRoomName() != null ? rule.getRoomName() : "Lịch định kỳ",
                 "Nhắc thanh toán: " + rule.getTitle(),
-                "Thành viên " + UserSessionManager.getInstance(requireContext()).getFullName() + " nhắc đóng khoản định kỳ " + rule.getTitle(),
+                "Thành viên " + UserSessionManager.getInstance(context).getFullName() + " nhắc đóng khoản định kỳ " + rule.getTitle(),
                 "Vừa xong",
                 false,
                 rule.getRoomId(),
                 rule.getRoomName()
         );
-        NotificationManager.getInstance(requireContext()).addNotification(notif);
+        NotificationManager.getInstance(context).addNotification(notif);
+        updateUI();
     }
 }
