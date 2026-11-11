@@ -303,4 +303,23 @@ public class RecurringRule implements Serializable {
         if (lower.contains("thưởng") || lower.contains("liên hoan")) return R.drawable.ic_sparkles;
         return R.drawable.ic_recurring_calendar;
     }
+
+    public boolean isPaidInCurrentMonth() {
+        if (lastRunDate == null || lastRunDate.trim().isEmpty()) return false;
+        java.util.Calendar now = java.util.Calendar.getInstance();
+        int currentYear = now.get(java.util.Calendar.YEAR);
+        int currentMonth = now.get(java.util.Calendar.MONTH) + 1;
+        String yearMonth = String.format(Locale.ROOT, "%04d-%02d", currentYear, currentMonth);
+        String yearMonthSlash = String.format(Locale.ROOT, "%02d/%04d", currentMonth, currentYear);
+        return lastRunDate.contains(yearMonth) || lastRunDate.contains(yearMonthSlash);
+    }
+
+    public int getDaysDiffCurrentMonth() {
+        java.util.Calendar now = java.util.Calendar.getInstance();
+        int currentDay = now.get(java.util.Calendar.DAY_OF_MONTH);
+        int currentYear = now.get(java.util.Calendar.YEAR);
+        int currentMonth = now.get(java.util.Calendar.MONTH) + 1;
+        int targetDay = getSafeExecutionDay(currentYear, currentMonth, executionDay > 0 ? executionDay : 1);
+        return currentDay - targetDay;
+    }
 }

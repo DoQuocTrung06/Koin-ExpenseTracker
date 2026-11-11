@@ -20,6 +20,7 @@ import com.sharedfund.app.MainActivity;
 import com.sharedfund.app.R;
 import com.sharedfund.app.data.NotificationManager;
 import com.sharedfund.app.model.AppNotification;
+import com.sharedfund.app.ui.widget.AppToaster;
 
 import java.util.List;
 
@@ -27,12 +28,8 @@ public class NotificationFragment extends Fragment implements NotificationAdapte
 
     private RecyclerView rvNotifications;
     private View layoutEmptyNotification;
-    private LinearLayout layoutTopPillToast;
-    private TextView tvTopPillToastMsg;
     private NotificationAdapter adapter;
     private NotificationManager notificationManager;
-    private final Handler toastHandler = new Handler(Looper.getMainLooper());
-    private Runnable hideToastRunnable;
 
     @Nullable
     @Override
@@ -50,8 +47,6 @@ public class NotificationFragment extends Fragment implements NotificationAdapte
         View btnMarkAllRead = view.findViewById(R.id.btnMarkAllRead);
         rvNotifications = view.findViewById(R.id.rvNotifications);
         layoutEmptyNotification = view.findViewById(R.id.layoutEmptyNotification);
-        layoutTopPillToast = view.findViewById(R.id.layoutTopPillToast);
-        tvTopPillToastMsg = view.findViewById(R.id.tvTopPillToastMsg);
 
         if (btnBack != null) {
             btnBack.setOnClickListener(v -> requireActivity().getOnBackPressedDispatcher().onBackPressed());
@@ -61,7 +56,9 @@ public class NotificationFragment extends Fragment implements NotificationAdapte
             btnMarkAllRead.setOnClickListener(v -> {
                 notificationManager.markAllAsRead();
                 refreshList();
-                showTopPillToast("Đã đọc tất cả thông báo");
+                if (isAdded()) {
+                    AppToaster.success(requireActivity(), "Đã đọc tất cả thông báo");
+                }
             });
         }
 
@@ -85,9 +82,6 @@ public class NotificationFragment extends Fragment implements NotificationAdapte
         super.onStop();
         if (notificationManager != null) {
             notificationManager.removeListener(this);
-        }
-        if (hideToastRunnable != null) {
-            toastHandler.removeCallbacks(hideToastRunnable);
         }
     }
 
@@ -150,38 +144,8 @@ public class NotificationFragment extends Fragment implements NotificationAdapte
         if (item == null) return;
         notificationManager.deleteNotification(item.getId());
         refreshList();
-        showTopPillToast("Đã xóa thông báo thành công");
-    }
-
-    private void showTopPillToast(String message) {
-        if (layoutTopPillToast == null || tvTopPillToastMsg == null) return;
-
-        if (hideToastRunnable != null) {
-            toastHandler.removeCallbacks(hideToastRunnable);
+        if (isAdded()) {
+            AppToaster.success(requireActivity(), "Đã xóa thông báo");
         }
-
-        tvTopPillToastMsg.setText(message);
-        layoutTopPillToast.setVisibility(View.VISIBLE);
-        layoutTopPillToast.setAlpha(0f);
-        layoutTopPillToast.setTranslationY(-80f);
-
-        layoutTopPillToast.animate()
-                .alpha(1f)
-                .translationY(0f)
-                .setDuration(220)
-                .start();
-
-        hideToastRunnable = () -> {
-            if (layoutTopPillToast != null) {
-                layoutTopPillToast.animate()
-                        .alpha(0f)
-                        .translationY(-80f)
-                        .setDuration(200)
-                        .withEndAction(() -> layoutTopPillToast.setVisibility(View.GONE))
-                        .start();
-            }
-        };
-
-        toastHandler.postDelayed(hideToastRunnable, 1800);
     }
 }

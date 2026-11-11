@@ -1,12 +1,12 @@
 package com.sharedfund.app.ui.recurring;
 
+import android.content.Context;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -16,9 +16,14 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.button.MaterialButton;
 import com.sharedfund.app.R;
+import com.sharedfund.app.data.NotificationManager;
+import com.sharedfund.app.data.RoomRepository;
 import com.sharedfund.app.data.TransactionRepository;
 import com.sharedfund.app.data.UserSessionManager;
+import com.sharedfund.app.model.AppNotification;
 import com.sharedfund.app.model.RecurringRule;
+import com.sharedfund.app.model.Room;
+import com.sharedfund.app.model.Transaction;
 import com.sharedfund.app.ui.widget.AppToaster;
 
 import java.text.DecimalFormat;
@@ -26,6 +31,7 @@ import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 
 public class RecurringTransactionsFragment extends Fragment implements RecurringRuleAdapter.OnRecurringActionListener {
 
@@ -40,6 +46,8 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
     private TextView tvHeaderTitle;
     private TextView tvMonthlyTotal;
     private TextView tvCountBadge;
+    private MaterialButton btnAddTop;
+    private MaterialButton btnCreateFirst;
     private RecurringRuleAdapter adapter;
     private final List<RecurringRule> localRules = new ArrayList<>();
     private final TransactionRepository transactionRepository = new TransactionRepository();
@@ -76,8 +84,8 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
         tvHeaderTitle = view.findViewById(R.id.tvRecurringHeaderTitle);
         tvMonthlyTotal = view.findViewById(R.id.tvRecurringMonthlyTotal);
         tvCountBadge = view.findViewById(R.id.tvRecurringCountBadge);
-        MaterialButton btnAddTop = view.findViewById(R.id.btnAddRecurringTop);
-        MaterialButton btnCreateFirst = view.findViewById(R.id.btnCreateFirstRecurring);
+        btnAddTop = view.findViewById(R.id.btnAddRecurringTop);
+        btnCreateFirst = view.findViewById(R.id.btnCreateFirstRecurring);
         rvRules = view.findViewById(R.id.rvRecurringRules);
         layoutEmpty = view.findViewById(R.id.layoutEmptyRecurring);
 
@@ -87,20 +95,58 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
 
         tvHeaderTitle.setText("Chi tiêu định kỳ");
 
+        boolean isManager = isCurrentUserFundManager();
+
         View.OnClickListener openAddDialog = v -> {
             CreateRecurringRuleBottomSheet sheet = CreateRecurringRuleBottomSheet.newInstance(roomId, roomName);
             sheet.setListener(this::handleCreateRule);
             sheet.show(getChildFragmentManager(), "create_recurring_rule_sheet");
         };
 
-        if (btnAddTop != null) btnAddTop.setOnClickListener(openAddDialog);
-        if (btnCreateFirst != null) btnCreateFirst.setOnClickListener(openAddDialog);
+        if (btnAddTop != null) {
+            if (isManager) {
+                btnAddTop.setVisibility(View.VISIBLE);
+                btnAddTop.setOnClickListener(openAddDialog);
+            } else {
+                btnAddTop.setVisibility(View.GONE);
+            }
+        }
+        if (btnCreateFirst != null) {
+            if (isManager) {
+                btnCreateFirst.setVisibility(View.VISIBLE);
+                btnCreateFirst.setOnClickListener(openAddDialog);
+            } else {
+                btnCreateFirst.setVisibility(View.GONE);
+            }
+        }
 
         adapter = new RecurringRuleAdapter(this);
+        adapter.setManager(isManager);
+        adapter.setRoomScope(roomId != null && !roomId.trim().isEmpty());
         rvRules.setLayoutManager(new LinearLayoutManager(requireContext()));
         rvRules.setAdapter(adapter);
 
+        RoomRepository.getInstance().getRecurringRulesChangedLiveData().observe(getViewLifecycleOwner(), changed -> {
+            if (Boolean.TRUE.equals(changed)) {
+                loadRules();
+            }
+        });
+
         loadRules();
+    }
+
+    private boolean isCurrentUserFundManager() {
+        if (roomId == null || roomId.trim().isEmpty()) {
+            return true;
+        }
+        Room room = RoomRepository.getInstance().getRoomSync(roomId);
+        if (room == null) return true;
+        String role = room.getCurrentUserRole();
+        if ("OWNER".equalsIgnoreCase(role) || "TREASURER".equalsIgnoreCase(role)) {
+            return true;
+        }
+        String myId = UserSessionManager.getInstance(requireContext()).getUserId();
+        return room.getCreatedBy() != null && room.getCreatedBy().equalsIgnoreCase(myId);
     }
 
     private void loadRules() {
@@ -146,7 +192,7 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
         rule1.setAmount(250000);
         rule1.setCategoryName("Tiện ích & Nhà");
         rule1.setFrequency(RecurringRule.FREQUENCY_MONTHLY);
-        rule1.setExecutionDay(5);
+        rule1.setExecutionDay(25);
         rule1.setType("Chi");
         rule1.setActive(true);
         rule1.setRoomId(roomId);
@@ -159,7 +205,7 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
         rule2.setAmount(2800000);
         rule2.setCategoryName("Tiền phòng");
         rule2.setFrequency(RecurringRule.FREQUENCY_MONTHLY);
-        rule2.setExecutionDay(15);
+        rule2.setExecutionDay(10);
         rule2.setType("Chi");
         rule2.setActive(true);
         rule2.setRoomId(roomId);
@@ -206,7 +252,11 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
 
         transactionRepository.createRecurringRule(rule, new TransactionRepository.DataCallback<RecurringRule>() {
             @Override
-            public void onSuccess(RecurringRule created) {}
+            public void onSuccess(RecurringRule created) {
+                if (created != null && created.getId() != null) {
+                    rule.setId(created.getId());
+                }
+            }
 
             @Override
             public void onError(String error) {}
@@ -245,6 +295,9 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
 
     @Override
     public void onEditRule(RecurringRule rule) {
+        if (!isCurrentUserFundManager()) {
+            return;
+        }
         CreateRecurringRuleBottomSheet sheet = CreateRecurringRuleBottomSheet.newInstance(roomId, roomName, rule);
         sheet.setListener(updatedRule -> {
             int index = -1;
@@ -261,7 +314,91 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
             if (isAdded()) {
                 AppToaster.success(requireActivity(), "Đã cập nhật khoản định kỳ");
             }
+            transactionRepository.updateRecurringRule(updatedRule, new TransactionRepository.DataCallback<RecurringRule>() {
+                @Override
+                public void onSuccess(RecurringRule result) {}
+
+                @Override
+                public void onError(String error) {}
+            });
         });
         sheet.show(getChildFragmentManager(), "edit_recurring_rule_sheet");
+    }
+
+    @Override
+    public void onPayRule(RecurringRule rule) {
+        if (rule == null) return;
+        Context context = requireContext();
+        UserSessionManager session = UserSessionManager.getInstance(context);
+
+        Transaction tx = new Transaction();
+        tx.setId(UUID.randomUUID().toString());
+        tx.setRoomId(rule.getRoomId());
+        tx.setUserId(session.getUserId());
+        tx.setUserName(session.getFullName());
+        tx.setAmount(Math.abs(rule.getAmount()));
+        tx.setType(Transaction.TYPE_EXPENSE);
+        tx.setCategory(rule.getCategoryName() != null ? rule.getCategoryName() : "Định kỳ");
+        tx.setNote(rule.getTitle());
+        tx.setStatus("APPROVED");
+
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault());
+        tx.setCreatedAt(sdf.format(new java.util.Date()));
+
+        java.text.SimpleDateFormat isoFormat = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US);
+        isoFormat.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+        rule.setLastRunDate(isoFormat.format(new java.util.Date()));
+
+        updateUI();
+
+        DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.GERMANY);
+        symbols.setGroupingSeparator('.');
+        DecimalFormat df = new DecimalFormat("#,###", symbols);
+        String amountStr = df.format(Math.abs(rule.getAmount())) + " đ";
+
+        if (isAdded()) {
+            AppToaster.success(requireActivity(), "Đã xuất quỹ " + amountStr + " cho " + rule.getTitle());
+        }
+
+        transactionRepository.createTransaction(tx, new TransactionRepository.DataCallback<Transaction>() {
+            @Override
+            public void onSuccess(Transaction createdTx) {
+                if (roomId != null && isAdded()) {
+                    requireActivity().runOnUiThread(() -> {
+                        RoomRepository.getInstance().refreshRoomTransactions(roomId, null);
+                    });
+                }
+            }
+
+            @Override
+            public void onError(String error) {}
+        });
+
+        transactionRepository.updateRecurringRule(rule, new TransactionRepository.DataCallback<RecurringRule>() {
+            @Override
+            public void onSuccess(RecurringRule updated) {}
+
+            @Override
+            public void onError(String error) {}
+        });
+    }
+
+    @Override
+    public void onNudgeRule(RecurringRule rule) {
+        if (rule == null || !isAdded()) return;
+        AppToaster.success(requireActivity(), "Đã gửi thông báo nhắc đóng " + rule.getTitle());
+
+        AppNotification notif = new AppNotification(
+                UUID.randomUUID().toString(),
+                AppNotification.TYPE_RECURRING_DUE,
+                rule.getRoomName() != null ? rule.getRoomName() : "Lịch định kỳ",
+                "Nhắc thanh toán: " + rule.getTitle(),
+                "Thành viên " + UserSessionManager.getInstance(requireContext()).getFullName() + " nhắc đóng khoản định kỳ " + rule.getTitle(),
+                "Vừa xong",
+                false,
+                rule.getRoomId(),
+                rule.getRoomName()
+        );
+        NotificationManager.getInstance(requireContext()).addNotification(notif);
     }
 }

@@ -1,5 +1,6 @@
 package com.sharedfund.app.ui.recurring;
 
+import android.content.Context;
 import android.content.res.ColorStateList;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -11,6 +12,7 @@ import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.materialswitch.MaterialSwitch;
 import com.sharedfund.app.R;
@@ -28,14 +30,28 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
         void onToggleRule(RecurringRule rule, boolean isActive);
         void onDeleteRule(RecurringRule rule);
         void onEditRule(RecurringRule rule);
+        void onPayRule(RecurringRule rule);
+        void onNudgeRule(RecurringRule rule);
     }
 
     private final List<RecurringRule> rules = new ArrayList<>();
     private final OnRecurringActionListener listener;
+    private boolean isManager = true;
+    private boolean isRoomScope = false;
     private RecurringRuleViewHolder currentlySwipedHolder = null;
 
     public RecurringRuleAdapter(OnRecurringActionListener listener) {
         this.listener = listener;
+    }
+
+    public void setManager(boolean isManager) {
+        this.isManager = isManager;
+        notifyDataSetChanged();
+    }
+
+    public void setRoomScope(boolean isRoomScope) {
+        this.isRoomScope = isRoomScope;
+        notifyDataSetChanged();
     }
 
     public void submitList(List<RecurringRule> newRules) {
@@ -76,7 +92,11 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
         private final View btnDelete;
         private final TextView tvTitle;
         private final TextView tvFrequency;
+        private final TextView tvStatusBadge;
         private final TextView tvAmount;
+        private final TextView tvRemainingBadge;
+        private final MaterialButton btnActionPay;
+        private final MaterialButton btnActionNudge;
         private final MaterialSwitch switchActive;
 
         private float downX = 0f;
@@ -92,7 +112,11 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
             btnDelete = itemView.findViewById(R.id.btnSwipeDeleteRule);
             tvTitle = itemView.findViewById(R.id.tvRuleTitle);
             tvFrequency = itemView.findViewById(R.id.tvRuleFrequency);
+            tvStatusBadge = itemView.findViewById(R.id.tvRuleStatusBadge);
             tvAmount = itemView.findViewById(R.id.tvRuleAmount);
+            tvRemainingBadge = itemView.findViewById(R.id.tvRuleRemainingBadge);
+            btnActionPay = itemView.findViewById(R.id.btnActionPay);
+            btnActionNudge = itemView.findViewById(R.id.btnActionNudge);
             switchActive = itemView.findViewById(R.id.switchRuleActive);
 
             if (layoutDeleteBackground != null) {
@@ -105,6 +129,20 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
 
         private void setupTouchGestures() {
             cardForeground.setOnTouchListener((v, event) -> {
+                if (!isManager) {
+                    if (event.getActionMasked() == MotionEvent.ACTION_UP) {
+                        float deltaX = Math.abs(event.getRawX() - downX);
+                        float deltaY = Math.abs(event.getRawY() - downY);
+                        if (deltaX < 12 && deltaY < 12) {
+                            int pos = getAdapterPosition();
+                            if (pos != RecyclerView.NO_POSITION && listener != null) {
+                                listener.onEditRule(rules.get(pos));
+                            }
+                        }
+                    }
+                    return false;
+                }
+
                 switch (event.getActionMasked()) {
                     case MotionEvent.ACTION_DOWN:
                         downX = event.getRawX();
@@ -120,88 +158,81 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
                         float deltaX = event.getRawX() - downX;
                         float deltaY = event.getRawY() - downY;
 
-                        if (!isSwiping) {
-                            if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 15) {
-                                isSwiping = true;
-                                if (layoutDeleteBackground != null) {
-                                    layoutDeleteBackground.setVisibility(View.VISIBLE);
-                                }
-                                v.getParent().requestDisallowInterceptTouchEvent(true);
+                        if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 10) {
+                            isSwiping = true;
+                            v.getParent().requestDisallowInterceptTouchEvent(true);
+
+                            float newTranslateX = isOpen ? -maxSwipeDistance + deltaX : deltaX;
+                            if (newTranslateX > 0) newTranslateX = 0;
+                            if (newTranslateX < -maxSwipeDistance) newTranslateX = -maxSwipeDistance;
+
+                            cardForeground.setTranslationX(newTranslateX);
+
+                            if (layoutDeleteBackground != null) {
+                                layoutDeleteBackground.setVisibility(newTranslateX < 0 ? View.VISIBLE : View.GONE);
                             }
-                        }
 
-                        if (isSwiping) {
-                            float currentTranslation = isOpen ? -maxSwipeDistance + deltaX : deltaX;
-                            if (currentTranslation > 0) currentTranslation = 0;
-                            if (currentTranslation < -maxSwipeDistance) currentTranslation = -maxSwipeDistance;
-
-                            cardForeground.setTranslationX(currentTranslation);
-
-                            float progress = Math.abs(currentTranslation) / maxSwipeDistance;
+                            float progress = Math.abs(newTranslateX) / maxSwipeDistance;
                             switchActive.setAlpha(1.0f - progress);
-                            switchActive.setScaleX(1.0f - (0.4f * progress));
-                            switchActive.setScaleY(1.0f - (0.4f * progress));
-                            switchActive.setVisibility(progress >= 0.95f ? View.GONE : View.VISIBLE);
+                            switchActive.setScaleX(1.0f - progress * 0.4f);
+                            switchActive.setScaleY(1.0f - progress * 0.4f);
+                            return true;
                         }
-                        return true;
+                        break;
 
                     case MotionEvent.ACTION_UP:
                     case MotionEvent.ACTION_CANCEL:
                         v.getParent().requestDisallowInterceptTouchEvent(false);
-                        if (isSwiping) {
-                            float totalDiff = event.getRawX() - downX;
-                            if (isOpen) {
-                                if (totalDiff > maxSwipeDistance / 3) {
-                                    closeSwipe(true);
-                                } else {
-                                    openSwipe(true);
-                                }
-                            } else {
-                                if (totalDiff < -maxSwipeDistance / 3) {
-                                    openSwipe(true);
-                                } else {
-                                    closeSwipe(true);
-                                }
-                            }
-                        } else {
+                        float finalDeltaX = event.getRawX() - downX;
+                        float finalDeltaY = Math.abs(event.getRawY() - downY);
+
+                        if (!isSwiping && Math.abs(finalDeltaX) < 12 && finalDeltaY < 12) {
                             if (isOpen) {
                                 closeSwipe(true);
                             } else {
-                                int pos = getBindingAdapterPosition();
-                                if (pos != RecyclerView.NO_POSITION && pos < rules.size()) {
-                                    if (listener != null) listener.onEditRule(rules.get(pos));
+                                int pos = getAdapterPosition();
+                                if (pos != RecyclerView.NO_POSITION && listener != null) {
+                                    listener.onEditRule(rules.get(pos));
                                 }
                             }
+                            return true;
                         }
-                        return true;
+
+                        if (isSwiping) {
+                            float currentTranslation = cardForeground.getTranslationX();
+                            if (currentTranslation < -maxSwipeDistance * 0.45f) {
+                                openSwipe();
+                            } else {
+                                closeSwipe(true);
+                            }
+                            return true;
+                        }
+                        break;
                 }
                 return false;
             });
 
             btnDelete.setOnClickListener(v -> {
-                int pos = getBindingAdapterPosition();
-                if (pos != RecyclerView.NO_POSITION && pos < rules.size()) {
-                    RecurringRule rule = rules.get(pos);
-                    closeSwipe(false);
-                    if (listener != null) listener.onDeleteRule(rule);
+                int pos = getAdapterPosition();
+                if (pos != RecyclerView.NO_POSITION && listener != null) {
+                    listener.onDeleteRule(rules.get(pos));
                 }
             });
         }
 
-        void openSwipe(boolean animated) {
+        void openSwipe() {
             isOpen = true;
             currentlySwipedHolder = this;
             if (layoutDeleteBackground != null) {
                 layoutDeleteBackground.setVisibility(View.VISIBLE);
             }
-            if (animated) {
-                cardForeground.animate().translationX(-maxSwipeDistance).setDuration(220).start();
-                switchActive.animate().alpha(0f).scaleX(0.6f).scaleY(0.6f).setDuration(200).withEndAction(() -> switchActive.setVisibility(View.GONE)).start();
-            } else {
-                cardForeground.setTranslationX(-maxSwipeDistance);
-                switchActive.setAlpha(0f);
-                switchActive.setVisibility(View.GONE);
-            }
+            cardForeground.animate()
+                    .translationX(-maxSwipeDistance)
+                    .setDuration(180)
+                    .withEndAction(() -> {
+                        switchActive.setVisibility(View.GONE);
+                    })
+                    .start();
         }
 
         void closeSwipe(boolean animated) {
@@ -209,39 +240,47 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
             if (currentlySwipedHolder == this) {
                 currentlySwipedHolder = null;
             }
-            switchActive.setVisibility(View.VISIBLE);
+            if (isManager) {
+                switchActive.setVisibility(View.VISIBLE);
+            }
             if (animated) {
                 cardForeground.animate().translationX(0f).setDuration(220).withEndAction(() -> {
                     if (!isOpen && layoutDeleteBackground != null) {
                         layoutDeleteBackground.setVisibility(View.GONE);
                     }
                 }).start();
-                switchActive.animate().alpha(1.0f).scaleX(1.0f).scaleY(1.0f).setDuration(200).start();
+                if (isManager) {
+                    switchActive.animate().alpha(1.0f).scaleX(1.0f).scaleY(1.0f).setDuration(200).start();
+                }
             } else {
                 cardForeground.setTranslationX(0f);
                 if (layoutDeleteBackground != null) {
                     layoutDeleteBackground.setVisibility(View.GONE);
                 }
-                switchActive.setAlpha(1.0f);
-                switchActive.setScaleX(1.0f);
-                switchActive.setScaleY(1.0f);
+                if (isManager) {
+                    switchActive.setAlpha(1.0f);
+                    switchActive.setScaleX(1.0f);
+                    switchActive.setScaleY(1.0f);
+                }
             }
         }
 
         void bind(RecurringRule rule) {
             closeSwipe(false);
+            Context context = itemView.getContext();
 
             tvTitle.setText(rule.getTitle() != null ? rule.getTitle() : "Khoản định kỳ");
 
-            String scopeLabel;
-            if (rule.getRoomName() != null && !rule.getRoomName().trim().isEmpty()) {
-                scopeLabel = rule.getRoomName();
+            String subText;
+            if (isRoomScope) {
+                subText = rule.getFrequencyDescription();
+            } else if (rule.getRoomName() != null && !rule.getRoomName().trim().isEmpty()) {
+                subText = rule.getFrequencyDescription() + " · " + rule.getRoomName();
             } else if (RecurringRule.SCOPE_ROOM.equalsIgnoreCase(rule.getScope())) {
-                scopeLabel = "Quỹ nhóm";
+                subText = rule.getFrequencyDescription() + " · Quỹ nhóm";
             } else {
-                scopeLabel = "Ví cá nhân";
+                subText = rule.getFrequencyDescription() + " · Ví cá nhân";
             }
-            String subText = rule.getFrequencyDescription() + " · " + scopeLabel;
             tvFrequency.setText(subText);
 
             DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.GERMANY);
@@ -251,13 +290,93 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
 
             applyActiveState(rule.isActive());
 
-            switchActive.setOnCheckedChangeListener(null);
-            switchActive.setChecked(rule.isActive());
-            switchActive.setOnCheckedChangeListener((buttonView, isChecked) -> {
-                rule.setActive(isChecked);
-                applyActiveState(isChecked);
-                if (listener != null) listener.onToggleRule(rule, isChecked);
+            if (!isManager) {
+                switchActive.setVisibility(View.GONE);
+            } else {
+                switchActive.setVisibility(View.VISIBLE);
+                switchActive.setOnCheckedChangeListener(null);
+                switchActive.setChecked(rule.isActive());
+                switchActive.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                    rule.setActive(isChecked);
+                    applyActiveState(isChecked);
+                    if (listener != null) listener.onToggleRule(rule, isChecked);
+                });
+            }
+
+            btnActionPay.setOnClickListener(v -> {
+                if (listener != null) listener.onPayRule(rule);
             });
+
+            btnActionNudge.setOnClickListener(v -> {
+                if (listener != null) listener.onNudgeRule(rule);
+            });
+
+            bindStatusAndActions(context, rule);
+        }
+
+        private void bindStatusAndActions(Context context, RecurringRule rule) {
+            if (!rule.isActive()) {
+                tvStatusBadge.setVisibility(View.GONE);
+                tvRemainingBadge.setVisibility(View.VISIBLE);
+                tvRemainingBadge.setText("Đang tạm dừng");
+                tvRemainingBadge.setBackgroundResource(R.drawable.bg_badge_remaining);
+                tvRemainingBadge.setTextColor(ContextCompat.getColor(context, R.color.text_tertiary));
+                btnActionPay.setVisibility(View.GONE);
+                btnActionNudge.setVisibility(View.GONE);
+                return;
+            }
+
+            if (rule.isPaidInCurrentMonth()) {
+                tvStatusBadge.setVisibility(View.GONE);
+                tvRemainingBadge.setVisibility(View.VISIBLE);
+                tvRemainingBadge.setText("Đã thanh toán tháng này");
+                tvRemainingBadge.setBackgroundResource(R.drawable.bg_badge_paid);
+                tvRemainingBadge.setTextColor(ContextCompat.getColor(context, R.color.accent_income));
+                btnActionPay.setVisibility(View.GONE);
+                btnActionNudge.setVisibility(View.GONE);
+                return;
+            }
+
+            int diff = rule.getDaysDiffCurrentMonth();
+
+            if (diff > 0) {
+                tvStatusBadge.setVisibility(View.VISIBLE);
+                tvStatusBadge.setText("Quá hạn " + diff + " ngày");
+                tvStatusBadge.setBackgroundResource(R.drawable.bg_badge_overdue);
+                tvStatusBadge.setTextColor(ContextCompat.getColor(context, R.color.accent_expense));
+
+                tvRemainingBadge.setVisibility(View.GONE);
+                if (isManager) {
+                    btnActionPay.setVisibility(View.VISIBLE);
+                    btnActionNudge.setVisibility(View.GONE);
+                } else {
+                    btnActionPay.setVisibility(View.GONE);
+                    btnActionNudge.setVisibility(View.VISIBLE);
+                }
+            } else if (diff == 0) {
+                tvStatusBadge.setVisibility(View.VISIBLE);
+                tvStatusBadge.setText("Đến hạn hôm nay");
+                tvStatusBadge.setBackgroundResource(R.drawable.bg_badge_overdue);
+                tvStatusBadge.setTextColor(ContextCompat.getColor(context, R.color.accent_expense));
+
+                tvRemainingBadge.setVisibility(View.GONE);
+                if (isManager) {
+                    btnActionPay.setVisibility(View.VISIBLE);
+                    btnActionNudge.setVisibility(View.GONE);
+                } else {
+                    btnActionPay.setVisibility(View.GONE);
+                    btnActionNudge.setVisibility(View.VISIBLE);
+                }
+            } else {
+                tvStatusBadge.setVisibility(View.GONE);
+                btnActionPay.setVisibility(View.GONE);
+                btnActionNudge.setVisibility(View.GONE);
+
+                tvRemainingBadge.setVisibility(View.VISIBLE);
+                tvRemainingBadge.setText("Còn " + Math.abs(diff) + " ngày");
+                tvRemainingBadge.setBackgroundResource(R.drawable.bg_badge_remaining);
+                tvRemainingBadge.setTextColor(ContextCompat.getColor(context, R.color.text_secondary));
+            }
         }
 
         private void applyActiveState(boolean isActive) {

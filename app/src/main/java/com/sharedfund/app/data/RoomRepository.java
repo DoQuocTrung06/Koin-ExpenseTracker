@@ -12,18 +12,23 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
 
-import com.sharedfund.app.model.Room;
-import com.sharedfund.app.model.Transaction;
-import com.sharedfund.app.model.RoomMember;
+import com.sharedfund.app.model.AppNotification;
 import com.sharedfund.app.model.Profile;
+import com.sharedfund.app.model.RecurringRule;
+import com.sharedfund.app.model.Room;
+import com.sharedfund.app.model.RoomMember;
+import com.sharedfund.app.model.Transaction;
 
+import java.io.IOException;
+import java.lang.reflect.Type;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
-import java.io.IOException;
-import java.lang.reflect.Type;
 import okhttp3.Call;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
@@ -58,7 +63,12 @@ public class RoomRepository {
     private final MutableLiveData<List<Transaction>> transactionsLiveData = new MutableLiveData<>();
     private final MutableLiveData<Double> totalBalanceLiveData = new MutableLiveData<>();
     private final MutableLiveData<Double> userWalletLiveData = new MutableLiveData<>(0.0);
+    private final MutableLiveData<Boolean> recurringRulesChangedLiveData = new MutableLiveData<>();
     private double currentWalletBalance = 0.0;
+
+    public LiveData<Boolean> getRecurringRulesChangedLiveData() {
+        return recurringRulesChangedLiveData;
+    }
     private final Map<String, String> userAvatarCache = new java.util.concurrent.ConcurrentHashMap<>();
 
     public String getUserAvatar(String userId) {
@@ -123,6 +133,11 @@ public class RoomRepository {
                 @Override
                 public void onProfileUpdated(String userId, com.google.gson.JsonObject profileRecord) {
                     onRemoteProfileUpdated(userId, profileRecord);
+                }
+
+                @Override
+                public void onRecurringRuleChanged(String roomId, String eventType, RecurringRule rule) {
+                    recurringRulesChangedLiveData.postValue(Boolean.TRUE);
                 }
             });
             realtimeClient.connect();
@@ -853,6 +868,28 @@ public class RoomRepository {
         }
         if (!updated) {
             transactionList.add(0, tx);
+            if (tx.isPending() && SharedFundApp.getInstance() != null) {
+                Room r = getRoomSync(tx.getRoomId());
+                String rName = (r != null && r.getName() != null) ? r.getName() : "Quỹ nhóm";
+                DecimalFormatSymbols sym = new DecimalFormatSymbols(Locale.GERMANY);
+                sym.setGroupingSeparator('.');
+                DecimalFormat df = new DecimalFormat("#,###", sym);
+                String creator = (tx.getUserName() != null && !tx.getUserName().isEmpty()) ? tx.getUserName() : "Thành viên";
+                String title = creator + " yêu cầu rút quỹ " + df.format(Math.abs(tx.getAmount())) + " đ";
+                String note = (tx.getNote() != null && !tx.getNote().isEmpty()) ? tx.getNote() : "Yêu cầu chi tiêu";
+                AppNotification notif = new AppNotification(
+                        "tx_pending_" + tx.getId(),
+                        AppNotification.TYPE_EXPENSE_APPROVAL,
+                        rName,
+                        title,
+                        "Nội dung: " + note + ". Bấm để xem hóa đơn và phê duyệt.",
+                        "Vừa xong",
+                        false,
+                        tx.getRoomId(),
+                        rName
+                );
+                NotificationManager.getInstance(SharedFundApp.getInstance()).addNotification(notif);
+            }
         }
         if (tx.getUserId() != null && !tx.getUserId().trim().isEmpty() && !userAvatarCache.containsKey(tx.getUserId())) {
             loadUserProfile(tx.getUserId(), null);

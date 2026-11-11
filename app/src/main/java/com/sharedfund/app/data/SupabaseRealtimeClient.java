@@ -7,6 +7,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.sharedfund.app.model.RecurringRule;
 import com.sharedfund.app.model.Room;
 import com.sharedfund.app.model.Transaction;
 
@@ -26,6 +27,7 @@ public class SupabaseRealtimeClient {
         default void onRoomDeleted(String roomId) {}
         default void onRoomMemberChanged(String roomId, String eventType, String userId) {}
         default void onProfileUpdated(String userId, JsonObject profileRecord) {}
+        default void onRecurringRuleChanged(String roomId, String eventType, RecurringRule rule) {}
     }
 
     private static volatile SupabaseRealtimeClient instance;
@@ -160,6 +162,12 @@ public class SupabaseRealtimeClient {
         profilesChange.addProperty("schema", "public");
         profilesChange.addProperty("table", "profiles");
         pgChanges.add(profilesChange);
+
+        JsonObject recurringChange = new JsonObject();
+        recurringChange.addProperty("event", "*");
+        recurringChange.addProperty("schema", "public");
+        recurringChange.addProperty("table", "recurring_rules");
+        pgChanges.add(recurringChange);
 
         config.add("postgres_changes", pgChanges);
         payload.add("config", config);
@@ -367,10 +375,33 @@ public class SupabaseRealtimeClient {
                         if (profileId != null && record != null) {
                             notifyProfileUpdated(profileId, record);
                         }
+                    } else if ("recurring_rules".equalsIgnoreCase(table)) {
+                        RecurringRule rule = null;
+                        if (record != null) {
+                            try {
+                                rule = gson.fromJson(record, RecurringRule.class);
+                            } catch (Exception ignored) {}
+                        } else if (oldRecord != null) {
+                            try {
+                                rule = gson.fromJson(oldRecord, RecurringRule.class);
+                            } catch (Exception ignored) {}
+                        }
+                        String rId = rule != null ? rule.getRoomId() : null;
+                        notifyRecurringRuleChanged(rId, type, rule);
                     }
                 }
             }
         } catch (Exception ignored) {
+        }
+    }
+
+    private void notifyRecurringRuleChanged(String roomId, String eventType, RecurringRule rule) {
+        if (listener != null) {
+            if (mainHandler != null) {
+                mainHandler.post(() -> listener.onRecurringRuleChanged(roomId, eventType, rule));
+            } else {
+                listener.onRecurringRuleChanged(roomId, eventType, rule);
+            }
         }
     }
 

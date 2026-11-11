@@ -629,4 +629,42 @@ public class TransactionRepository {
         });
     }
 
+    public void updateRecurringRule(RecurringRule rule, DataCallback<RecurringRule> callback) {
+        if (rule == null || rule.getId() == null) {
+            if (callback != null) callback.onError("Rule ID is required for update.");
+            return;
+        }
+        String url = SupabaseConfig.REST_URL + "/recurring_rules?id=eq." + rule.getId();
+        String jsonBody = gson.toJson(rule);
+        RequestBody body = RequestBody.create(jsonBody, JSON);
+        Request request = new Request.Builder()
+                .url(url)
+                .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
+                .addHeader("Authorization", "Bearer " + getEffectiveToken())
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Prefer", "return=representation")
+                .patch(body)
+                .build();
+
+        client.newCall(request).enqueue(new Callback() {
+            @Override public void onFailure(Call call, IOException e) {
+                if (callback != null) callback.onError(e.getMessage());
+            }
+            @Override public void onResponse(Call call, Response response) throws IOException {
+                String json = response.body() != null ? response.body().string() : "";
+                if (!response.isSuccessful()) {
+                    if (callback != null) callback.onError("HTTP " + response.code() + ": " + json);
+                    return;
+                }
+                Type listType = new TypeToken<List<RecurringRule>>() {}.getType();
+                List<RecurringRule> updatedList = gson.fromJson(json, listType);
+                if (updatedList != null && !updatedList.isEmpty()) {
+                    if (callback != null) callback.onSuccess(updatedList.get(0));
+                } else if (callback != null) {
+                    callback.onSuccess(rule);
+                }
+            }
+        });
+    }
+
 }

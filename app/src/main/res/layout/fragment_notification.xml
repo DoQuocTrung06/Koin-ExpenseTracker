@@ -112,38 +112,4 @@
             </LinearLayout>
         </FrameLayout>
     </LinearLayout>
-
-    <LinearLayout
-        android:id="@+id/layoutTopPillToast"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="top|center_horizontal"
-        android:layout_marginTop="68dp"
-        android:background="@drawable/bg_pill_toast"
-        android:elevation="12dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingStart="16dp"
-        android:paddingTop="9dp"
-        android:paddingEnd="16dp"
-        android:paddingBottom="9dp"
-        android:visibility="gone">
-
-        <ImageView
-            android:layout_width="16dp"
-            android:layout_height="16dp"
-            android:contentDescription="Thành công"
-            android:src="@drawable/ic_check"
-            app:tint="@color/white" />
-
-        <TextView
-            android:id="@+id/tvTopPillToastMsg"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:text="Đã xóa thông báo thành công"
-            android:textColor="@color/white"
-            android:textSize="12.5sp"
-            android:textStyle="bold" />
-    </LinearLayout>
 </FrameLayout>
