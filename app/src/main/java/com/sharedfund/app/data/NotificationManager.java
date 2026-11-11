@@ -140,48 +140,9 @@ public class NotificationManager {
                 cachedList.addAll(saved);
             }
         } else if (!prefs.getBoolean(KEY_INITIALIZED, false)) {
-            seedDefaultNotifications();
             prefs.edit().putBoolean(KEY_INITIALIZED, true).apply();
             saveNotifications();
         }
-    }
-
-    private void seedDefaultNotifications() {
-        cachedList.add(new AppNotification(
-                "notif_1",
-                AppNotification.TYPE_EXPENSE_APPROVAL,
-                "Quỹ Ăn Tết",
-                "Phạm Quốc Cường yêu cầu rút quỹ 20.000 đ",
-                "Nội dung: Mua bánh kẹo liên hoan. Bấm để xem hóa đơn và phê duyệt.",
-                "14:14 Hôm nay",
-                false,
-                "room_tet_01",
-                "Quỹ Ăn Tết"
-        ));
-
-        cachedList.add(new AppNotification(
-                "notif_2",
-                AppNotification.TYPE_MEMBER_JOIN,
-                "Quỹ Ăn Tết",
-                "Trương Cao Sang xin tham gia vào quỹ",
-                "Thành viên Trương Cao Sang (524H0125) đã gửi yêu cầu tham gia quỹ của bạn. Bấm để phê duyệt.",
-                "10:20 Hôm qua",
-                false,
-                "room_tet_01",
-                "Quỹ Ăn Tết"
-        ));
-
-        cachedList.add(new AppNotification(
-                "notif_3",
-                AppNotification.TYPE_RECURRING_DUE,
-                "Lịch định kỳ",
-                "Đến hạn thanh toán Internet & Truyền hình FPT",
-                "Khoản định kỳ tháng của Quỹ Ăn Tết với số tiền 250.000 đ. Nhấn để kiểm tra và xác nhận chi ngay.",
-                "08:00 Hôm nay",
-                false,
-                "room_tet_01",
-                "Quỹ Ăn Tết"
-        ));
     }
 
     private void saveNotifications() {

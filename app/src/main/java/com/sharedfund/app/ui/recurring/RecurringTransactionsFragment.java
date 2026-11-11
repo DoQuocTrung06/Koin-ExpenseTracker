@@ -99,6 +99,12 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
         boolean isManager = isCurrentUserFundManager();
 
         View.OnClickListener openAddDialog = v -> {
+            if (!isCurrentUserFundManager()) {
+                if (isAdded()) {
+                    AppToaster.info(requireActivity(), "Chỉ Chủ quỹ và Phó quỹ mới có quyền tạo khoản chi định kỳ");
+                }
+                return;
+            }
             if (getActivity() instanceof MainActivity) {
                 ((MainActivity) getActivity()).openCreateRecurringRule(roomId, roomName, null);
             } else {
@@ -110,11 +116,11 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
         };
 
         if (btnAddTop != null) {
-            btnAddTop.setVisibility(View.VISIBLE);
+            btnAddTop.setVisibility(isManager ? View.VISIBLE : View.GONE);
             btnAddTop.setOnClickListener(openAddDialog);
         }
         if (btnCreateFirst != null) {
-            btnCreateFirst.setVisibility(View.VISIBLE);
+            btnCreateFirst.setVisibility(isManager ? View.VISIBLE : View.GONE);
             btnCreateFirst.setOnClickListener(openAddDialog);
         }
 
@@ -134,11 +140,11 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
     }
 
     private boolean isCurrentUserFundManager() {
-        if (roomId == null || roomId.trim().isEmpty() || roomId.startsWith("room-") || roomId.startsWith("mock_")) {
+        if (roomId == null || roomId.trim().isEmpty()) {
             return true;
         }
         Room room = RoomRepository.getInstance().getRoomSync(roomId);
-        if (room == null) return true;
+        if (room == null) return false;
         String role = room.getCurrentUserRole();
         if ("OWNER".equalsIgnoreCase(role) || "TREASURER".equalsIgnoreCase(role) || "ADMIN".equalsIgnoreCase(role)) {
             return true;
@@ -148,10 +154,7 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
             if (myId.equalsIgnoreCase(room.getCreatedBy())) return true;
             if (room.getTreasurerIds() != null && room.getTreasurerIds().contains(myId)) return true;
         }
-        if (RoomRepository.getInstance().isCurrentUserAdmin(roomId)) {
-            return true;
-        }
-        return true;
+        return RoomRepository.getInstance().isCurrentUserAdmin(roomId);
     }
 
     private void loadRules() {
@@ -222,6 +225,17 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
     }
 
     private void updateUI() {
+        boolean isManager = isCurrentUserFundManager();
+        if (btnAddTop != null) {
+            btnAddTop.setVisibility(isManager ? View.VISIBLE : View.GONE);
+        }
+        if (btnCreateFirst != null) {
+            btnCreateFirst.setVisibility(isManager ? View.VISIBLE : View.GONE);
+        }
+        if (adapter != null) {
+            adapter.setManager(isManager);
+        }
+
         adapter.submitList(localRules);
         boolean isEmpty = localRules.isEmpty();
         if (layoutEmpty != null) layoutEmpty.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
@@ -270,6 +284,13 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
 
     @Override
     public void onToggleRule(RecurringRule rule, boolean isActive) {
+        if (!isCurrentUserFundManager()) {
+            if (isAdded()) {
+                AppToaster.info(requireActivity(), "Chỉ Chủ quỹ và Phó quỹ mới có quyền bật/tắt khoản định kỳ");
+            }
+            updateUI();
+            return;
+        }
         updateUI();
         transactionRepository.toggleRecurringRule(rule.getId(), isActive, new TransactionRepository.DataCallback<Boolean>() {
             @Override
@@ -282,6 +303,12 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
 
     @Override
     public void onDeleteRule(RecurringRule rule) {
+        if (!isCurrentUserFundManager()) {
+            if (isAdded()) {
+                AppToaster.info(requireActivity(), "Chỉ Chủ quỹ và Phó quỹ mới có quyền xóa khoản định kỳ");
+            }
+            return;
+        }
         localRules.remove(rule);
         updateUI();
 
@@ -306,6 +333,12 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
 
     @Override
     public void onEditRule(RecurringRule rule) {
+        if (!isCurrentUserFundManager()) {
+            if (isAdded()) {
+                AppToaster.info(requireActivity(), "Chỉ Chủ quỹ và Phó quỹ mới có quyền chỉnh sửa khoản chi định kỳ");
+            }
+            return;
+        }
         if (getActivity() instanceof MainActivity) {
             ((MainActivity) getActivity()).openCreateRecurringRule(roomId, roomName, rule);
         } else {
@@ -319,6 +352,12 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
     @Override
     public void onPayRule(RecurringRule rule) {
         if (rule == null) return;
+        if (!isCurrentUserFundManager()) {
+            if (isAdded()) {
+                AppToaster.info(requireActivity(), "Chỉ Chủ quỹ và Phó quỹ mới có quyền xác nhận chi");
+            }
+            return;
+        }
         Context context = requireContext();
         UserSessionManager session = UserSessionManager.getInstance(context);
 

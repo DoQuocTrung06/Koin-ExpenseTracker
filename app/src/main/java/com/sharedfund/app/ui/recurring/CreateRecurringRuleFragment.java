@@ -362,6 +362,16 @@ public class CreateRecurringRuleFragment extends Fragment {
     }
 
     private void handleSubmit() {
+        if (roomId != null && !roomId.trim().isEmpty()) {
+            com.sharedfund.app.model.Room room = RoomRepository.getInstance().getRoomSync(roomId);
+            if (room != null && !RoomRepository.getInstance().isCurrentUserAdmin(roomId)) {
+                if (getActivity() != null) {
+                    AppToaster.error(getActivity(), "Bạn không có quyền quản lý khoản định kỳ này");
+                }
+                return;
+            }
+        }
+
         String title = etRecurringTitle.getText() != null ? etRecurringTitle.getText().toString().trim() : "";
         String amountStr = etRecurringAmount.getText() != null ? etRecurringAmount.getText().toString().trim() : "";
 
