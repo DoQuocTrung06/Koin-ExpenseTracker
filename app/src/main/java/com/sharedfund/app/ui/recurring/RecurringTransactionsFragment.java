@@ -370,7 +370,10 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
                                 showPaymentSuccessDialog(rule, createdTx, updatedBalance, formattedTime);
                                 if (targetRoomId != null) {
                                     RoomRepository.getInstance().refreshRoomTransactions(targetRoomId, null);
-                                    RoomRepository.getInstance().refreshRooms(null);
+                                    String curUid = UserSessionManager.getInstance(requireContext()).getUserId();
+                                    if (curUid != null && !curUid.trim().isEmpty()) {
+                                        RoomRepository.getInstance().loadUserData(curUid, null);
+                                    }
                                 }
                             });
                         }
@@ -430,7 +433,7 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
         String displayRoomName = (roomName != null && !roomName.trim().isEmpty()) ? roomName : (rule.getRoomName() != null ? rule.getRoomName() : "Quỹ nhóm");
         if (tvRoomName != null) tvRoomName.setText(displayRoomName);
 
-        if (tvUserName != null) tvUserName.setText(tx.getUserName() != null ? tx.getUserName() : sessionUserName);
+        if (tvUserName != null) tvUserName.setText(tx.getUserName() != null ? tx.getUserName() : UserSessionManager.getInstance(requireContext()).getFullName());
         if (tvTime != null) tvTime.setText(formattedTime);
         if (tvBalanceAfter != null) tvBalanceAfter.setText(df.format(newBalance) + " đ");
 
