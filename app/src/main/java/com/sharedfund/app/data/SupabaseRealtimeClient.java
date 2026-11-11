@@ -7,6 +7,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.sharedfund.app.model.AppNotification;
 import com.sharedfund.app.model.RecurringRule;
 import com.sharedfund.app.model.Room;
 import com.sharedfund.app.model.Transaction;
@@ -28,6 +29,7 @@ public class SupabaseRealtimeClient {
         default void onRoomMemberChanged(String roomId, String eventType, String userId) {}
         default void onProfileUpdated(String userId, JsonObject profileRecord) {}
         default void onRecurringRuleChanged(String roomId, String eventType, RecurringRule rule) {}
+        default void onNotificationChanged(String eventType, AppNotification notification) {}
     }
 
     private static volatile SupabaseRealtimeClient instance;
@@ -168,6 +170,12 @@ public class SupabaseRealtimeClient {
         recurringChange.addProperty("schema", "public");
         recurringChange.addProperty("table", "recurring_rules");
         pgChanges.add(recurringChange);
+
+        JsonObject notifsChange = new JsonObject();
+        notifsChange.addProperty("event", "*");
+        notifsChange.addProperty("schema", "public");
+        notifsChange.addProperty("table", "notifications");
+        pgChanges.add(notifsChange);
 
         config.add("postgres_changes", pgChanges);
         payload.add("config", config);
@@ -388,6 +396,18 @@ public class SupabaseRealtimeClient {
                         }
                         String rId = rule != null ? rule.getRoomId() : null;
                         notifyRecurringRuleChanged(rId, type, rule);
+                    } else if ("notifications".equalsIgnoreCase(table)) {
+                        AppNotification notif = null;
+                        if (record != null) {
+                            try {
+                                notif = gson.fromJson(record, AppNotification.class);
+                            } catch (Exception ignored) {}
+                        } else if (oldRecord != null) {
+                            try {
+                                notif = gson.fromJson(oldRecord, AppNotification.class);
+                            } catch (Exception ignored) {}
+                        }
+                        notifyNotificationChanged(type, notif);
                     }
                 }
             }
@@ -401,6 +421,18 @@ public class SupabaseRealtimeClient {
                 mainHandler.post(() -> listener.onRecurringRuleChanged(roomId, eventType, rule));
             } else {
                 listener.onRecurringRuleChanged(roomId, eventType, rule);
+            }
+        }
+    }
+
+    private void notifyNotificationChanged(String eventType, AppNotification notification) {
+        if (listener != null) {
+            if (mainHandler != null) {
+                mainHandler.post(() -> listener.onNotificationChanged(eventType, notification));
+            } else {
+                listener.onNotificationChanged(eventType, notification);
+            }
+        }
             }
         }
     }

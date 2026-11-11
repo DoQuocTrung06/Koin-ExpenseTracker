@@ -74,6 +74,7 @@ public class NotificationFragment extends Fragment implements NotificationAdapte
         super.onStart();
         if (notificationManager != null) {
             notificationManager.addListener(this);
+            notificationManager.fetchNotificationsFromCloud(null, this::refreshList);
         }
     }
 

@@ -178,8 +178,6 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
                     localRules.clear();
                     if (rules != null && !rules.isEmpty()) {
                         localRules.addAll(rules);
-                    } else if (localRules.isEmpty()) {
-                        seedSampleRules();
                     }
                     updateUI();
                 });
@@ -189,45 +187,10 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
             public void onError(String error) {
                 if (!isAdded()) return;
                 requireActivity().runOnUiThread(() -> {
-                    if (localRules.isEmpty()) {
-                        seedSampleRules();
-                    }
                     updateUI();
                 });
             }
         });
-    }
-
-    private void seedSampleRules() {
-        String currentFund = (roomName != null && !roomName.trim().isEmpty()) ? roomName : "Quỹ nhóm";
-        RecurringRule rule1 = new RecurringRule();
-        rule1.setId("mock_rule_1");
-        rule1.setTitle("Tiền Internet & Truyền hình FPT");
-        rule1.setAmount(250000);
-        rule1.setCategoryName("Tiện ích & Nhà");
-        rule1.setFrequency(RecurringRule.FREQUENCY_MONTHLY);
-        rule1.setExecutionDay(25);
-        rule1.setType("Chi");
-        rule1.setActive(true);
-        rule1.setRoomId(roomId);
-        rule1.setRoomName(currentFund);
-        rule1.setScope(roomId != null ? RecurringRule.SCOPE_ROOM : RecurringRule.SCOPE_PERSONAL);
-
-        RecurringRule rule2 = new RecurringRule();
-        rule2.setId("mock_rule_2");
-        rule2.setTitle("Tiền phòng trọ & quản lý");
-        rule2.setAmount(2800000);
-        rule2.setCategoryName("Tiền phòng");
-        rule2.setFrequency(RecurringRule.FREQUENCY_MONTHLY);
-        rule2.setExecutionDay(10);
-        rule2.setType("Chi");
-        rule2.setActive(true);
-        rule2.setRoomId(roomId);
-        rule2.setRoomName(currentFund);
-        rule2.setScope(roomId != null ? RecurringRule.SCOPE_ROOM : RecurringRule.SCOPE_PERSONAL);
-
-        localRules.add(rule1);
-        localRules.add(rule2);
     }
 
     private void updateUI() {
@@ -546,7 +509,14 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
                 rule.getRoomId(),
                 rule.getRoomName()
         );
-        NotificationManager.getInstance(context).addNotification(notif);
+        String targetRoom = (rule.getRoomId() != null && !rule.getRoomId().trim().isEmpty()) ? rule.getRoomId() : roomId;
+        Room r = targetRoom != null ? RoomRepository.getInstance().getRoomSync(targetRoom) : null;
+        String ownerId = (r != null) ? r.getOwnerId() : null;
+        if (ownerId != null && !ownerId.trim().isEmpty()) {
+            NotificationManager.getInstance(context).sendNotificationToUser(notif, ownerId);
+        } else {
+            NotificationManager.getInstance(context).addNotification(notif);
+        }
         updateUI();
     }
 }

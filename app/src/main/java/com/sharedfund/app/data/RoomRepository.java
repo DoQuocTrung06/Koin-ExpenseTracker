@@ -140,6 +140,13 @@ public class RoomRepository {
                 }
 
                 @Override
+                public void onNotificationChanged(String eventType, AppNotification notification) {
+                    if (SharedFundApp.getInstance() != null) {
+                        NotificationManager.getInstance(SharedFundApp.getInstance()).onRemoteNotificationReceived(eventType, notification);
+                    }
+                }
+
+                @Override
                 public void onRecurringRuleChanged(String roomId, String eventType, RecurringRule rule) {
                     recurringRulesChangedLiveData.postValue(Boolean.TRUE);
                 }
