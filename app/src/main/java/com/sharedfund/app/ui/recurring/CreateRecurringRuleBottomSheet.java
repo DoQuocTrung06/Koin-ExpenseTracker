@@ -17,9 +17,8 @@ import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.textfield.TextInputEditText;
 import com.sharedfund.app.R;
 import com.sharedfund.app.model.RecurringRule;
-import com.sharedfund.app.ui.widget.CategoryChipHelper;
 
-import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 public class CreateRecurringRuleBottomSheet extends BottomSheetDialogFragment {
@@ -35,7 +34,6 @@ public class CreateRecurringRuleBottomSheet extends BottomSheetDialogFragment {
 
     private String selectedFrequency = RecurringRule.FREQUENCY_MONTHLY;
     private int selectedExecutionDay = 15;
-    private String selectedCategory = "Tiền phòng";
 
     public static CreateRecurringRuleBottomSheet newInstance(String roomId) {
         CreateRecurringRuleBottomSheet sheet = new CreateRecurringRuleBottomSheet();
@@ -87,14 +85,6 @@ public class CreateRecurringRuleBottomSheet extends BottomSheetDialogFragment {
         TextInputEditText etDay = view.findViewById(R.id.etRecurringDay);
         MaterialButton btnSubmit = view.findViewById(R.id.btnSubmitRecurringRule);
 
-        LinearLayout layoutCategoryChips = view.findViewById(R.id.layoutRecurringCategoryChips);
-        if (layoutCategoryChips != null) {
-            List<CategoryChipHelper.CategoryItem> categories = CategoryChipHelper.getDefaultExpenseCategories();
-            CategoryChipHelper.populateChips(requireContext(), layoutCategoryChips, categories, selectedCategory, cat -> {
-                selectedCategory = cat;
-            });
-        }
-
         ChipGroup chipGroupFrequency = view.findViewById(R.id.chipGroupFrequency);
         ChipGroup chipGroupWeekDays = view.findViewById(R.id.chipGroupWeekDays);
         LinearLayout layoutMonthly = view.findViewById(R.id.layoutMonthlyDayPicker);
@@ -137,7 +127,6 @@ public class CreateRecurringRuleBottomSheet extends BottomSheetDialogFragment {
             btnSubmit.setOnClickListener(v -> {
                 String title = etTitle.getText() != null ? etTitle.getText().toString().trim() : "";
                 String amountStr = etAmount.getText() != null ? etAmount.getText().toString().trim() : "";
-                String category = selectedCategory != null ? selectedCategory : "Khác";
 
                 if (title.isEmpty()) {
                     etTitle.setError("Vui lòng nhập tên khoản chi");
@@ -176,11 +165,13 @@ public class CreateRecurringRuleBottomSheet extends BottomSheetDialogFragment {
                     execDay = 1;
                 }
 
+                String inferredCategory = inferCategory(title);
+
                 RecurringRule rule = new RecurringRule();
                 rule.setId(UUID.randomUUID().toString());
                 rule.setTitle(title);
                 rule.setAmount(amount);
-                rule.setCategoryName(category);
+                rule.setCategoryName(inferredCategory);
                 rule.setFrequency(selectedFrequency);
                 rule.setExecutionDay(execDay);
                 rule.setType("Chi");
@@ -199,5 +190,26 @@ public class CreateRecurringRuleBottomSheet extends BottomSheetDialogFragment {
                 dismiss();
             });
         }
+    }
+
+    private String inferCategory(String title) {
+        if (title == null) return "Tiện ích & Nhà";
+        String lower = title.toLowerCase(Locale.ROOT);
+        if (lower.contains("phòng") || lower.contains("trọ") || lower.contains("nhà") || lower.contains("thuê")) {
+            return "Tiền phòng";
+        }
+        if (lower.contains("điện") || lower.contains("nước") || lower.contains("mạng") || lower.contains("internet") || lower.contains("wifi") || lower.contains("fpt") || lower.contains("viettel")) {
+            return "Điện nước";
+        }
+        if (lower.contains("ăn") || lower.contains("uống") || lower.contains("chợ") || lower.contains("cơm") || lower.contains("thực phẩm")) {
+            return "Ăn uống";
+        }
+        if (lower.contains("xe") || lower.contains("xăng") || lower.contains("gửi xe") || lower.contains("vé")) {
+            return "Di chuyển";
+        }
+        if (lower.contains("sắm") || lower.contains("đồ")) {
+            return "Mua sắm";
+        }
+        return "Tiện ích & Nhà";
     }
 }

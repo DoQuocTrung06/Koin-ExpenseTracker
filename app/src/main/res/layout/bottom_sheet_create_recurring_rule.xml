@@ -68,7 +68,7 @@
             android:id="@+id/etRecurringTitle"
             android:layout_width="match_parent"
             android:layout_height="48dp"
-            android:hint="Ví dụ: Tiền phòng, Internet, Tiền chợ..."
+            android:hint="Ví dụ: Tiền phòng, Internet, Tiền điện..."
             android:inputType="textCapSentences"
             android:maxLines="1"
             android:paddingStart="14dp"
@@ -113,30 +113,6 @@
             android:textSize="13.5sp"
             android:textStyle="bold" />
     </com.google.android.material.textfield.TextInputLayout>
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="14dp"
-        android:layout_marginBottom="6dp"
-        android:text="Danh mục chi tiêu"
-        android:textColor="@color/text_primary"
-        android:textSize="13sp"
-        android:textStyle="bold" />
-
-    <HorizontalScrollView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="2dp"
-        android:overScrollMode="never"
-        android:scrollbars="none">
-
-        <LinearLayout
-            android:id="@+id/layoutRecurringCategoryChips"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal" />
-    </HorizontalScrollView>
 
     <TextView
         android:layout_width="wrap_content"
