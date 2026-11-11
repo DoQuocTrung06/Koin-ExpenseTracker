@@ -8,6 +8,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -27,12 +28,16 @@ import java.util.UUID;
 public class CreateRecurringRuleBottomSheet extends BottomSheetDialogFragment {
 
     private static final String ARG_ROOM_ID = "arg_room_id";
+    private static final String ARG_ROOM_NAME = "arg_room_name";
+    private static final String ARG_RULE_EDIT = "arg_rule_edit";
 
     public interface OnRuleCreatedListener {
         void onRuleCreated(RecurringRule rule);
     }
 
     private String roomId;
+    private String roomName;
+    private RecurringRule ruleToEdit;
     private OnRuleCreatedListener listener;
 
     private String selectedFrequency = RecurringRule.FREQUENCY_MONTHLY;
@@ -49,9 +54,21 @@ public class CreateRecurringRuleBottomSheet extends BottomSheetDialogFragment {
     private final List<MaterialButton> weekDayButtons = new ArrayList<>();
 
     public static CreateRecurringRuleBottomSheet newInstance(String roomId) {
+        return newInstance(roomId, null, null);
+    }
+
+    public static CreateRecurringRuleBottomSheet newInstance(String roomId, String roomName) {
+        return newInstance(roomId, roomName, null);
+    }
+
+    public static CreateRecurringRuleBottomSheet newInstance(String roomId, String roomName, RecurringRule ruleToEdit) {
         CreateRecurringRuleBottomSheet sheet = new CreateRecurringRuleBottomSheet();
         Bundle args = new Bundle();
         args.putString(ARG_ROOM_ID, roomId);
+        args.putString(ARG_ROOM_NAME, roomName);
+        if (ruleToEdit != null) {
+            args.putSerializable(ARG_RULE_EDIT, ruleToEdit);
+        }
         sheet.setArguments(args);
         return sheet;
     }
@@ -65,6 +82,8 @@ public class CreateRecurringRuleBottomSheet extends BottomSheetDialogFragment {
         super.onCreate(savedInstanceState);
         if (getArguments() != null) {
             roomId = getArguments().getString(ARG_ROOM_ID);
+            roomName = getArguments().getString(ARG_ROOM_NAME);
+            ruleToEdit = (RecurringRule) getArguments().getSerializable(ARG_RULE_EDIT);
         }
     }
 
@@ -93,6 +112,7 @@ public class CreateRecurringRuleBottomSheet extends BottomSheetDialogFragment {
             btnCancel.setOnClickListener(v -> dismiss());
         }
 
+        TextView tvSheetHeader = view.findViewById(R.id.tvSheetHeaderTitle);
         TextInputEditText etTitle = view.findViewById(R.id.etRecurringTitle);
         TextInputEditText etAmount = view.findViewById(R.id.etRecurringAmount);
         TextInputEditText etDay = view.findViewById(R.id.etRecurringDay);
@@ -107,6 +127,29 @@ public class CreateRecurringRuleBottomSheet extends BottomSheetDialogFragment {
 
         setupFrequencySegments();
         setupWeekDayPills(view);
+
+        if (ruleToEdit != null) {
+            if (tvSheetHeader != null) tvSheetHeader.setText("Chỉnh sửa khoản định kỳ");
+            if (btnSubmit != null) btnSubmit.setText("Lưu thay đổi");
+
+            if (etTitle != null) etTitle.setText(ruleToEdit.getTitle());
+            if (etAmount != null) {
+                java.text.DecimalFormatSymbols sym = new java.text.DecimalFormatSymbols(Locale.GERMANY);
+                sym.setGroupingSeparator('.');
+                java.text.DecimalFormat df = new java.text.DecimalFormat("#,###", sym);
+                etAmount.setText(df.format((long) Math.abs(ruleToEdit.getAmount())));
+            }
+
+            selectedFrequency = ruleToEdit.getFrequency();
+            selectFrequency(selectedFrequency);
+
+            if (RecurringRule.FREQUENCY_MONTHLY.equalsIgnoreCase(selectedFrequency)) {
+                if (etDay != null) etDay.setText(String.valueOf(ruleToEdit.getExecutionDay()));
+            } else if (RecurringRule.FREQUENCY_WEEKLY.equalsIgnoreCase(selectedFrequency)) {
+                selectedWeekDay = ruleToEdit.getExecutionDay();
+                updateWeekDayPillsState();
+            }
+        }
 
         if (btnSubmit != null) {
             btnSubmit.setOnClickListener(v -> {
@@ -152,8 +195,11 @@ public class CreateRecurringRuleBottomSheet extends BottomSheetDialogFragment {
 
                 String inferredCategory = inferCategory(title);
 
-                RecurringRule rule = new RecurringRule();
-                rule.setId(UUID.randomUUID().toString());
+                RecurringRule rule = (ruleToEdit != null) ? ruleToEdit : new RecurringRule();
+                if (ruleToEdit == null) {
+                    rule.setId(UUID.randomUUID().toString());
+                    rule.setActive(true);
+                }
                 rule.setTitle(title);
                 rule.setAmount(amount);
                 rule.setCategoryName(inferredCategory);
@@ -161,13 +207,14 @@ public class CreateRecurringRuleBottomSheet extends BottomSheetDialogFragment {
                 rule.setExecutionDay(execDay);
                 rule.setNextRunDate(rule.computeNextRunDateIso());
                 rule.setType("Chi");
-                rule.setActive(true);
 
                 if (roomId != null && !roomId.trim().isEmpty()) {
                     rule.setRoomId(roomId);
+                    rule.setRoomName(roomName != null && !roomName.trim().isEmpty() ? roomName : "Quỹ nhóm");
                     rule.setScope(RecurringRule.SCOPE_ROOM);
                 } else {
                     rule.setScope(RecurringRule.SCOPE_PERSONAL);
+                    rule.setRoomName("Ví cá nhân");
                 }
 
                 if (listener != null) {

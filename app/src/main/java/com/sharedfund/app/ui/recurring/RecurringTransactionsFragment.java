@@ -88,7 +88,7 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
         tvHeaderTitle.setText("Chi tiêu định kỳ");
 
         View.OnClickListener openAddDialog = v -> {
-            CreateRecurringRuleBottomSheet sheet = CreateRecurringRuleBottomSheet.newInstance(roomId);
+            CreateRecurringRuleBottomSheet sheet = CreateRecurringRuleBottomSheet.newInstance(roomId, roomName);
             sheet.setListener(this::handleCreateRule);
             sheet.show(getChildFragmentManager(), "create_recurring_rule_sheet");
         };
@@ -139,6 +139,7 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
     }
 
     private void seedSampleRules() {
+        String currentFund = (roomName != null && !roomName.trim().isEmpty()) ? roomName : "Quỹ nhóm";
         RecurringRule rule1 = new RecurringRule();
         rule1.setId("mock_rule_1");
         rule1.setTitle("Tiền Internet & Truyền hình FPT");
@@ -148,6 +149,8 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
         rule1.setExecutionDay(5);
         rule1.setType("Chi");
         rule1.setActive(true);
+        rule1.setRoomId(roomId);
+        rule1.setRoomName(currentFund);
         rule1.setScope(roomId != null ? RecurringRule.SCOPE_ROOM : RecurringRule.SCOPE_PERSONAL);
 
         RecurringRule rule2 = new RecurringRule();
@@ -159,6 +162,8 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
         rule2.setExecutionDay(15);
         rule2.setType("Chi");
         rule2.setActive(true);
+        rule2.setRoomId(roomId);
+        rule2.setRoomName(currentFund);
         rule2.setScope(roomId != null ? RecurringRule.SCOPE_ROOM : RecurringRule.SCOPE_PERSONAL);
 
         localRules.add(rule1);
@@ -236,5 +241,27 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
             @Override
             public void onError(String error) {}
         });
+    }
+
+    @Override
+    public void onEditRule(RecurringRule rule) {
+        CreateRecurringRuleBottomSheet sheet = CreateRecurringRuleBottomSheet.newInstance(roomId, roomName, rule);
+        sheet.setListener(updatedRule -> {
+            int index = -1;
+            for (int i = 0; i < localRules.size(); i++) {
+                if (localRules.get(i).getId() != null && localRules.get(i).getId().equals(updatedRule.getId())) {
+                    index = i;
+                    break;
+                }
+            }
+            if (index >= 0) {
+                localRules.set(index, updatedRule);
+            }
+            updateUI();
+            if (isAdded()) {
+                AppToaster.success(requireActivity(), "Đã cập nhật khoản định kỳ");
+            }
+        });
+        sheet.show(getChildFragmentManager(), "edit_recurring_rule_sheet");
     }
 }

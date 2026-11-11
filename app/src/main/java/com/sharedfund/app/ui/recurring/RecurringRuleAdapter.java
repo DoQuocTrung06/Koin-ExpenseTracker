@@ -27,6 +27,7 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
     public interface OnRecurringActionListener {
         void onToggleRule(RecurringRule rule, boolean isActive);
         void onDeleteRule(RecurringRule rule);
+        void onEditRule(RecurringRule rule);
     }
 
     private final List<RecurringRule> rules = new ArrayList<>();
@@ -165,6 +166,11 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
                         } else {
                             if (isOpen) {
                                 closeSwipe(true);
+                            } else {
+                                int pos = getBindingAdapterPosition();
+                                if (pos != RecyclerView.NO_POSITION && pos < rules.size()) {
+                                    if (listener != null) listener.onEditRule(rules.get(pos));
+                                }
                             }
                         }
                         return true;
@@ -227,7 +233,14 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
 
             tvTitle.setText(rule.getTitle() != null ? rule.getTitle() : "Khoản định kỳ");
 
-            String scopeLabel = RecurringRule.SCOPE_ROOM.equalsIgnoreCase(rule.getScope()) ? "Quỹ nhóm" : "Ví cá nhân";
+            String scopeLabel;
+            if (rule.getRoomName() != null && !rule.getRoomName().trim().isEmpty()) {
+                scopeLabel = rule.getRoomName();
+            } else if (RecurringRule.SCOPE_ROOM.equalsIgnoreCase(rule.getScope())) {
+                scopeLabel = "Quỹ nhóm";
+            } else {
+                scopeLabel = "Ví cá nhân";
+            }
             String subText = rule.getFrequencyDescription() + " · " + scopeLabel;
             tvFrequency.setText(subText);
 

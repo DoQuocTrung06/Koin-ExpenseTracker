@@ -22,6 +22,8 @@ public class RecurringRule implements Serializable {
     private String userName;
     @SerializedName("room_id")
     private String roomId;
+    @SerializedName("room_name")
+    private String roomName;
     private String scope;
     private String title;
     private double amount;
@@ -77,6 +79,14 @@ public class RecurringRule implements Serializable {
 
     public void setRoomId(String roomId) {
         this.roomId = roomId;
+    }
+
+    public String getRoomName() {
+        return roomName;
+    }
+
+    public void setRoomName(String roomName) {
+        this.roomName = roomName;
     }
 
     public String getScope() {
