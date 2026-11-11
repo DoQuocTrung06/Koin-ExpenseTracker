@@ -230,7 +230,7 @@ public class AppToaster {
 
         currentToastView = new WeakReference<>(toastView);
 
-        int dismissTime = (durationMs > 0 && durationMs < 2500) ? durationMs : 1800;
+        int dismissTime = (type == ToastType.ERROR) ? 2500 : ((durationMs > 0 && durationMs < 2500) ? durationMs : 1800);
         new Handler(Looper.getMainLooper()).postDelayed(() -> {
             if (currentToastView != null && currentToastView.get() == toastView) {
                 dismissToast(toastView, root);

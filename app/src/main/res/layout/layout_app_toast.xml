@@ -40,29 +40,4 @@
         android:textColor="@color/white"
         android:textSize="13sp"
         android:textStyle="bold" />
-
-    <TextView
-        android:id="@+id/tvToastTitle"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:visibility="gone" />
-
-    <ImageView
-        android:id="@+id/btnToastClose"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:visibility="gone" />
-
-    <FrameLayout
-        android:id="@+id/flToastProgressTrack"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:visibility="gone">
-
-        <View
-            android:id="@+id/viewToastProgressFill"
-            android:layout_width="0dp"
-            android:layout_height="0dp"
-            android:visibility="gone" />
-    </FrameLayout>
 </LinearLayout>
