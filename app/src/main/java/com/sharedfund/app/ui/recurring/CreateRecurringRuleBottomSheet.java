@@ -17,7 +17,9 @@ import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.textfield.TextInputEditText;
 import com.sharedfund.app.R;
 import com.sharedfund.app.model.RecurringRule;
+import com.sharedfund.app.ui.widget.CategoryChipHelper;
 
+import java.util.List;
 import java.util.UUID;
 
 public class CreateRecurringRuleBottomSheet extends BottomSheetDialogFragment {
@@ -33,6 +35,7 @@ public class CreateRecurringRuleBottomSheet extends BottomSheetDialogFragment {
 
     private String selectedFrequency = RecurringRule.FREQUENCY_MONTHLY;
     private int selectedExecutionDay = 15;
+    private String selectedCategory = "Tiền phòng";
 
     public static CreateRecurringRuleBottomSheet newInstance(String roomId) {
         CreateRecurringRuleBottomSheet sheet = new CreateRecurringRuleBottomSheet();
@@ -81,9 +84,16 @@ public class CreateRecurringRuleBottomSheet extends BottomSheetDialogFragment {
 
         TextInputEditText etTitle = view.findViewById(R.id.etRecurringTitle);
         TextInputEditText etAmount = view.findViewById(R.id.etRecurringAmount);
-        TextInputEditText etCategory = view.findViewById(R.id.etRecurringCategory);
         TextInputEditText etDay = view.findViewById(R.id.etRecurringDay);
         MaterialButton btnSubmit = view.findViewById(R.id.btnSubmitRecurringRule);
+
+        LinearLayout layoutCategoryChips = view.findViewById(R.id.layoutRecurringCategoryChips);
+        if (layoutCategoryChips != null) {
+            List<CategoryChipHelper.CategoryItem> categories = CategoryChipHelper.getDefaultExpenseCategories();
+            CategoryChipHelper.populateChips(requireContext(), layoutCategoryChips, categories, selectedCategory, cat -> {
+                selectedCategory = cat;
+            });
+        }
 
         ChipGroup chipGroupFrequency = view.findViewById(R.id.chipGroupFrequency);
         ChipGroup chipGroupWeekDays = view.findViewById(R.id.chipGroupWeekDays);
@@ -127,7 +137,7 @@ public class CreateRecurringRuleBottomSheet extends BottomSheetDialogFragment {
             btnSubmit.setOnClickListener(v -> {
                 String title = etTitle.getText() != null ? etTitle.getText().toString().trim() : "";
                 String amountStr = etAmount.getText() != null ? etAmount.getText().toString().trim() : "";
-                String category = etCategory.getText() != null ? etCategory.getText().toString().trim() : "Tiện ích & Nhà";
+                String category = selectedCategory != null ? selectedCategory : "Khác";
 
                 if (title.isEmpty()) {
                     etTitle.setError("Vui lòng nhập tên khoản chi");

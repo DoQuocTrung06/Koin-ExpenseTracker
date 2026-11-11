@@ -187,7 +187,7 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
             DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.GERMANY);
             symbols.setGroupingSeparator('.');
             DecimalFormat df = new DecimalFormat("#,###", symbols);
-            tvMonthlyTotal.setText("-" + df.format(total) + " đ");
+            tvMonthlyTotal.setText(df.format(total) + " đ");
         }
 
         if (tvCountBadge != null) {
