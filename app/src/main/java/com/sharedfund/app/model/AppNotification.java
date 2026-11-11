@@ -124,6 +124,14 @@ public class AppNotification implements Serializable {
         return content;
     }
 
+    public String getMessage() {
+        return getDescription();
+    }
+
+    public void setMessage(String message) {
+        setDescription(message);
+    }
+
     public void setDescription(String description) {
         this.description = description;
         if (this.content == null || this.content.trim().isEmpty()) {

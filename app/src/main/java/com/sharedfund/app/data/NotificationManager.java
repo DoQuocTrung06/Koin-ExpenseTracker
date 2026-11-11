@@ -375,12 +375,12 @@ public class NotificationManager {
         boolean changed = false;
         for (AppNotification notif : cachedList) {
             if (notif.getTitle() != null && notif.getTitle().contains(ruleTitle)) {
-                String oldMessage = notif.getMessage();
+                String oldMessage = notif.getDescription();
                 if (oldMessage != null && oldMessage.contains("đ")) {
                     String updatedMessage = oldMessage.replaceAll("[0-9.]+\\s*đ", formattedAmount);
-                    notif.setMessage(updatedMessage);
+                    notif.setDescription(updatedMessage);
                     changed = true;
-                    String patchJson = "{\"message\":\"" + updatedMessage + "\"}";
+                    String patchJson = "{\"description\":\"" + updatedMessage + "\",\"content\":\"" + updatedMessage + "\"}";
                     patchRemoteNotification(notif.getId(), patchJson);
                 }
             }
