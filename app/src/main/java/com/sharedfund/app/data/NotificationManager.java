@@ -7,7 +7,6 @@ import android.os.Looper;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import com.sharedfund.app.auth.UserSessionManager;
 import com.sharedfund.app.model.AppNotification;
 
 import java.io.IOException;
