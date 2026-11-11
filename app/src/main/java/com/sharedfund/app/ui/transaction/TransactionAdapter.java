@@ -185,7 +185,15 @@ public class TransactionAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
     public static String inferCategoryFromNote(String note) {
         if (note == null || note.trim().isEmpty()) return "Khác";
         String lower = note.toLowerCase(Locale.ROOT);
-        if (lower.contains("điện") || lower.contains("nước") || lower.contains("dien nuoc") || lower.contains("mạng") || lower.contains("internet") || lower.contains("wifi") || lower.contains("fpt") || lower.contains("viettel")) {
+        if (lower.contains("wifi") || lower.contains("wi-fi") || lower.contains("internet")
+                || lower.contains("mạng") || lower.contains("tien mang") || lower.contains("dong mang")
+                || lower.contains("cuoc mang") || lower.contains("lap mang") || lower.contains("mang internet")
+                || lower.contains("mang wifi") || lower.contains("cáp quang") || lower.contains("cap quang")
+                || lower.contains("fpt") || lower.contains("viettel") || lower.contains("vnpt")
+                || lower.contains("mobifone") || lower.contains("vinaphone") || lower.contains("4g") || lower.contains("5g")) {
+            return "Internet / Wifi";
+        }
+        if (lower.contains("điện") || lower.contains("nước") || lower.contains("dien nuoc")) {
             return "Điện nước";
         }
         if (lower.contains("phòng") || lower.contains("trọ") || lower.contains("nhà") || lower.contains("thuê") || lower.contains("phong tro")) {
@@ -204,6 +212,27 @@ public class TransactionAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
             return "Liên hoan";
         }
         return "Khác";
+    }
+
+    public static String resolveDisplayCategory(String storedCategory, String note) {
+        if (storedCategory == null || storedCategory.trim().isEmpty()
+                || "Dinh ky".equalsIgnoreCase(storedCategory)
+                || "Định kỳ".equalsIgnoreCase(storedCategory)
+                || "Khác".equalsIgnoreCase(storedCategory)
+                || "Giao dịch".equalsIgnoreCase(storedCategory)) {
+            String inferred = inferCategoryFromNote(note);
+            if (!"Khác".equalsIgnoreCase(inferred) || storedCategory == null || storedCategory.trim().isEmpty()) {
+                return inferred;
+            }
+            return storedCategory;
+        }
+        if ("Điện nước".equalsIgnoreCase(storedCategory)) {
+            String inferred = inferCategoryFromNote(note);
+            if ("Internet / Wifi".equalsIgnoreCase(inferred)) {
+                return inferred;
+            }
+        }
+        return storedCategory;
     }
 
     public static Date parseDate(String raw) {
@@ -355,7 +384,7 @@ public class TransactionAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
                     actionTitle += " góp quỹ";
                 } else {
                     String rawNote = tx.getNote() != null ? tx.getNote().trim() : "";
-                    String rawCat = tx.getCategory() != null ? tx.getCategory().trim() : "";
+                    String rawCat = resolveDisplayCategory(tx.getCategory() != null ? tx.getCategory().trim() : "", rawNote);
                     if (rawNote.contains("[STK:") || rawCat.toLowerCase().contains("chuyển đến") || rawCat.toLowerCase().contains("ngân hàng")) {
                         actionTitle += " chuyển tiền";
                     } else if (!rawCat.isEmpty() && !rawCat.equalsIgnoreCase("Giao dịch") && !rawCat.equalsIgnoreCase("Khác") && !rawCat.toLowerCase().contains("rút")) {
@@ -598,13 +627,10 @@ public class TransactionAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
                     } else {
                         displayNote = rawNote;
                     }
-                } else if (!rawCat.isEmpty() && !rawCat.equalsIgnoreCase("Giao dịch") && !rawCat.equalsIgnoreCase("Khác") && !rawCat.equalsIgnoreCase("Dinh ky") && !rawCat.equalsIgnoreCase("Định kỳ")) {
-                    actionText = "Chi tiêu " + rawCat;
-                    displayNote = rawNote;
                 } else {
-                    String inferred = inferCategoryFromNote(rawNote);
-                    if (!inferred.equalsIgnoreCase("Khác")) {
-                        actionText = "Chi tiêu " + inferred;
+                    String resolvedCat = resolveDisplayCategory(rawCat, rawNote);
+                    if (!resolvedCat.isEmpty() && !resolvedCat.equalsIgnoreCase("Giao dịch") && !resolvedCat.equalsIgnoreCase("Khác")) {
+                        actionText = "Chi tiêu " + resolvedCat;
                     } else {
                         actionText = "Chi tiêu quỹ";
                     }

@@ -513,6 +513,7 @@
                         </LinearLayout>
 
                         <View
+                            android:id="@+id/dividerRecurringSuccessBalance"
                             android:layout_width="match_parent"
                             android:layout_height="1dp"
                             android:layout_marginTop="11dp"
@@ -520,6 +521,7 @@
                             android:background="@color/border_light" />
 
                         <LinearLayout
+                            android:id="@+id/layoutRecurringSuccessBalanceRow"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="horizontal">

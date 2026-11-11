@@ -275,13 +275,7 @@ public class ProfileFragment extends Fragment {
             String currentUserId = session.getUserId();
             for (Room room : roomList) {
                 if (room == null) continue;
-                boolean isOwner = "OWNER".equalsIgnoreCase(room.getCurrentUserRole())
-                        || (currentUserId != null && currentUserId.equals(room.getCreatedBy()));
-                boolean isTreasurer = "TREASURER".equalsIgnoreCase(room.getCurrentUserRole())
-                        || (currentUserId != null && requireContext().getSharedPreferences("room_roles_" + room.getId(), Context.MODE_PRIVATE)
-                                .getBoolean("treasurer_" + currentUserId, false))
-                        || (currentUserId != null && room.getTreasurerIds().contains(currentUserId));
-                if (isOwner || isTreasurer) {
+                if (repo.isUserRoomOwner(room.getId(), currentUserId) || repo.isUserRoomTreasurer(room.getId(), currentUserId)) {
                     adminCount++;
                 }
             }

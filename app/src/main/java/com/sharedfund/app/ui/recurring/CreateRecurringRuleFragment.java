@@ -29,6 +29,7 @@ import com.sharedfund.app.data.RoomRepository;
 import com.sharedfund.app.data.TransactionRepository;
 import com.sharedfund.app.data.UserSessionManager;
 import com.sharedfund.app.model.RecurringRule;
+import com.sharedfund.app.ui.transaction.TransactionAdapter;
 import com.sharedfund.app.ui.widget.AppToaster;
 
 import java.text.DecimalFormat;
@@ -342,17 +343,6 @@ public class CreateRecurringRuleFragment extends Fragment {
         }
         com.sharedfund.app.model.Room room = RoomRepository.getInstance().getRoomSync(roomId);
         if (room == null) return true;
-        String role = room.getCurrentUserRole();
-        if ("OWNER".equalsIgnoreCase(role) || "TREASURER".equalsIgnoreCase(role) || "ADMIN".equalsIgnoreCase(role)) {
-            return true;
-        }
-        if (getContext() != null) {
-            String myId = com.sharedfund.app.data.UserSessionManager.getInstance(getContext()).getUserId();
-            if (myId != null && !myId.isEmpty()) {
-                if (myId.equalsIgnoreCase(room.getCreatedBy())) return true;
-                if (room.getTreasurerIds() != null && room.getTreasurerIds().contains(myId)) return true;
-            }
-        }
         return RoomRepository.getInstance().isCurrentUserAdmin(roomId);
     }
 
@@ -410,7 +400,7 @@ public class CreateRecurringRuleFragment extends Fragment {
             execDay = 1;
         }
 
-        String inferredCategory = inferCategory(title);
+        String inferredCategory = TransactionAdapter.inferCategoryFromNote(title);
         boolean isEdit = (ruleToEdit != null);
         RecurringRule rule = isEdit ? ruleToEdit : new RecurringRule();
         if (!isEdit) {
@@ -489,29 +479,5 @@ public class CreateRecurringRuleFragment extends Fragment {
 
     private int dpToPx(float dp) {
         return Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, getResources().getDisplayMetrics()));
-    }
-
-    private String inferCategory(String title) {
-        if (title == null) return "Khác";
-        String lower = title.toLowerCase(Locale.ROOT);
-        if (lower.contains("điện") || lower.contains("nước") || lower.contains("dien nuoc") || lower.contains("mạng") || lower.contains("internet") || lower.contains("wifi") || lower.contains("fpt") || lower.contains("viettel")) {
-            return "Điện nước";
-        }
-        if (lower.contains("phòng") || lower.contains("trọ") || lower.contains("nhà") || lower.contains("thuê") || lower.contains("phong tro")) {
-            return "Tiền phòng";
-        }
-        if (lower.contains("ăn") || lower.contains("uống") || lower.contains("chợ") || lower.contains("cơm") || lower.contains("thực phẩm") || lower.contains("food") || lower.contains("an uong")) {
-            return "Ăn uống";
-        }
-        if (lower.contains("xe") || lower.contains("xăng") || lower.contains("gửi xe") || lower.contains("vé") || lower.contains("di chuyen") || lower.contains("grab")) {
-            return "Di chuyển";
-        }
-        if (lower.contains("sắm") || lower.contains("đồ") || lower.contains("mua") || lower.contains("siêu thị") || lower.contains("mua sam")) {
-            return "Mua sắm";
-        }
-        if (lower.contains("liên hoan") || lower.contains("tiệc") || lower.contains("sinh nhật") || lower.contains("party") || lower.contains("bóng") || lower.contains("thể thao") || lower.contains("bong da")) {
-            return "Liên hoan";
-        }
-        return "Khác";
     }
 }

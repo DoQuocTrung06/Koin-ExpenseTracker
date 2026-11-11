@@ -3026,6 +3026,10 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
 
+        if (lower.contains("wifi") || lower.contains("wi-fi") || lower.contains("internet") || lower.contains("mạng") || lower.contains("4g") || lower.contains("5g")) return Color.parseColor("#8B5CF6");
+
+
+
         if (lower.contains("điện") || lower.contains("nước") || lower.contains("hóa đơn")) return Color.parseColor("#10B981");
 
 
@@ -3634,6 +3638,10 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
 
+        RoomRepository.getInstance().updateMemberRole(roomId, userId, "TREASURER", null);
+
+
+
     }
 
 
@@ -3643,6 +3651,18 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
     private void removeRoomTreasurer(String roomId, String userId) {
+
+
+
+        removeRoomTreasurer(roomId, userId, true);
+
+
+
+    }
+
+
+
+    private void removeRoomTreasurer(String roomId, String userId, boolean syncMemberRole) {
 
 
 
@@ -3682,6 +3702,18 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
 
+        if (syncMemberRole) {
+
+
+
+            RoomRepository.getInstance().updateMemberRole(roomId, userId, "MEMBER", null);
+
+
+
+        }
+
+
+
     }
 
 
@@ -3714,11 +3746,11 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
 
-        if (r != null && r.hasServerTreasurers()) {
+        if (r != null) {
 
 
 
-            return r.getTreasurerIds().contains(userId);
+            return RoomRepository.getInstance().isUserRoomTreasurer(roomId, userId);
 
 
 
@@ -3762,6 +3794,58 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
 
+        if (room == null && rId != null) {
+
+
+
+            room = RoomRepository.getInstance().getRoomSync(rId);
+
+
+
+        }
+
+
+
+        String currentUserId = getContext() != null ? UserSessionManager.getInstance(requireContext()).getUserId() : null;
+
+
+
+        if (currentUserId == null || currentUserId.trim().isEmpty()) {
+
+
+
+            currentUserId = RoomRepository.getInstance().getCurrentUserId();
+
+
+
+        }
+
+
+
+        if (room != null) {
+
+
+
+            if (room.getCreatedBy() != null && !room.getCreatedBy().trim().isEmpty()) {
+
+
+
+                return currentUserId != null && currentUserId.equalsIgnoreCase(room.getCreatedBy());
+
+
+
+            }
+
+
+
+            return "OWNER".equalsIgnoreCase(room.getCurrentUserRole());
+
+
+
+        }
+
+
+
         if (rId != null && getContext() != null) {
 
 
@@ -3778,10 +3862,6 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
 
-                String currentUserId = UserSessionManager.getInstance(requireContext()).getUserId();
-
-
-
                 return currentUserId != null && currentUserId.equals(savedOwnerId);
 
 
@@ -3794,15 +3874,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
 
-        String currentUserId = getContext() != null ? UserSessionManager.getInstance(requireContext()).getUserId() : null;
-
-
-
-        return room != null && ("OWNER".equalsIgnoreCase(room.getCurrentUserRole())
-
-
-
-                || (currentUserId != null && currentUserId.equals(room.getCreatedBy())));
+        return false;
 
 
 
@@ -3934,15 +4006,35 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
 
-        if (room == null) return false;
+        if (room == null && roomId != null) {
 
 
 
-        if ("TREASURER".equalsIgnoreCase(room.getCurrentUserRole())) return true;
+            room = RoomRepository.getInstance().getRoomSync(roomId);
 
 
 
-        String currentUserId = UserSessionManager.getInstance(requireContext()).getUserId();
+        }
+
+
+
+        if (room == null || isCurrentUserOwner()) return false;
+
+
+
+        String currentUserId = getContext() != null ? UserSessionManager.getInstance(requireContext()).getUserId() : null;
+
+
+
+        if (currentUserId == null || currentUserId.trim().isEmpty()) {
+
+
+
+            currentUserId = RoomRepository.getInstance().getCurrentUserId();
+
+
+
+        }
 
 
 
@@ -3950,7 +4042,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
 
-        if (isSavedTreasurer(room.getId(), currentUserId)) return true;
+        if (RoomRepository.getInstance().isUserRoomTreasurer(room.getId(), currentUserId)) return true;
 
 
 
@@ -3966,7 +4058,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
 
-                if (currentUserId.equals(m.getUserId()) && "TREASURER".equalsIgnoreCase(m.getRole())) {
+                if (m != null && currentUserId.equalsIgnoreCase(m.getUserId()) && "TREASURER".equalsIgnoreCase(m.getRole())) {
 
 
 
@@ -4054,7 +4146,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
 
-                if (ownerId != null && m.getUserId() != null && m.getUserId().equals(ownerId)) {
+                if (ownerId != null && m.getUserId() != null && m.getUserId().equalsIgnoreCase(ownerId)) {
 
 
 
@@ -4062,7 +4154,15 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
 
-                } else if (isSavedTreasurer(rId, m.getUserId())) {
+                } else if ((room != null && room.getTreasurerIds().contains(m.getUserId()))
+
+
+
+                        || ((room == null || !room.hasServerTreasurers()) && "TREASURER".equalsIgnoreCase(m.getRole()))
+
+
+
+                        || (room == null && isSavedTreasurer(rId, m.getUserId()))) {
 
 
 
@@ -5515,7 +5615,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
                 int overdueCount = 0;
                 if (rules != null) {
                     for (com.sharedfund.app.model.RecurringRule rule : rules) {
-                        if (rule != null && rule.isActive() && !rule.isPaidInCurrentMonth() && rule.getDaysDiffCurrentMonth() >= 0) {
+                        if (rule != null && rule.isActive() && !rule.isPaidInCurrentCycle() && rule.getDaysDiffCurrentCycle() >= 0) {
                             overdueCount++;
                         }
                     }
@@ -8175,7 +8275,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
 
-                            removeRoomTreasurer(roomId, member.getUserId());
+                            removeRoomTreasurer(roomId, member.getUserId(), false);
 
 
 
@@ -10611,7 +10711,43 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
 
-        TransactionDetailBottomSheet sheet = TransactionDetailBottomSheet.newInstance(transaction, isCurrentUserAdmin());
+        String myId = getContext() != null ? UserSessionManager.getInstance(requireContext()).getUserId() : null;
+
+
+
+        if (myId == null || myId.trim().isEmpty()) {
+
+
+
+            myId = RoomRepository.getInstance().getCurrentUserId();
+
+
+
+        }
+
+
+
+        boolean isSelf = myId != null && transaction != null && transaction.getUserId() != null && myId.equalsIgnoreCase(transaction.getUserId());
+
+
+
+        boolean requesterPrivileged = transaction != null && transaction.getUserId() != null
+
+
+
+                && (RoomRepository.getInstance().isUserRoomOwner(roomId, transaction.getUserId())
+
+
+
+                || RoomRepository.getInstance().isUserRoomTreasurer(roomId, transaction.getUserId()));
+
+
+
+        boolean canReview = isCurrentUserAdmin() && !isSelf && (isCurrentUserOwner() || !requesterPrivileged);
+
+
+
+        TransactionDetailBottomSheet sheet = TransactionDetailBottomSheet.newInstance(transaction, canReview);
 
 
 
@@ -10647,6 +10783,18 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
 
+                final Context appCtx = requireContext().getApplicationContext();
+
+
+
+                final String approverId = adminId;
+
+
+
+                final String roleLabel = RoomRepository.getInstance().isUserRoomOwner(roomId, adminId) ? "Chủ quỹ" : "Phó quỹ";
+
+
+
                 RoomRepository.getInstance().configureAccessToken(session.getAccessToken());
 
 
@@ -10668,6 +10816,14 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
                     public void onSuccess(com.google.gson.JsonObject data) {
+
+
+
+                        RoomRepository.getInstance().markRecurringRulePaidIfMatched(roomId, tx);
+
+
+
+                        RoomRepository.getInstance().dispatchExpenseResultNotification(appCtx, roomId, tx, true, null, approverId, roleLabel);
 
 
 
@@ -10847,6 +11003,18 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
 
+                final Context appCtx = requireContext().getApplicationContext();
+
+
+
+                final String approverId = adminId;
+
+
+
+                final String roleLabel = RoomRepository.getInstance().isUserRoomOwner(roomId, adminId) ? "Chủ quỹ" : "Phó quỹ";
+
+
+
                 RoomRepository.getInstance().configureAccessToken(session.getAccessToken());
 
 
@@ -10868,6 +11036,10 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
                     public void onSuccess(com.google.gson.JsonObject data) {
+
+
+
+                        RoomRepository.getInstance().dispatchExpenseResultNotification(appCtx, roomId, tx, false, reason, approverId, roleLabel);
 
 
 

@@ -170,11 +170,16 @@ public class TransactionRepository {
 
     public void submitWithdrawal(String userId, String userName, String roomId, double amount, String category, String note,
                                  boolean approveImmediately, DataCallback<Transaction> callback) {
-        submitWithdrawal(userId, userName, roomId, amount, category, note, null, approveImmediately, callback);
+        submitWithdrawal(userId, userName, roomId, amount, category, note, null, approveImmediately, false, null, callback);
     }
 
     public void submitWithdrawal(String userId, String userName, String roomId, double amount, String category, String note,
                                  String billImageUrl, boolean approveImmediately, DataCallback<Transaction> callback) {
+        submitWithdrawal(userId, userName, roomId, amount, category, note, billImageUrl, approveImmediately, false, null, callback);
+    }
+
+    public void submitWithdrawal(String userId, String userName, String roomId, double amount, String category, String note,
+                                 String billImageUrl, boolean approveImmediately, boolean isRecurring, String recurringRuleId, DataCallback<Transaction> callback) {
         Transaction request = new Transaction();
         request.setRoomId(roomId);
         request.setUserId(userId);
@@ -184,6 +189,10 @@ public class TransactionRepository {
         request.setCategory(category);
         request.setNote(note);
         request.setBillImageUrl(billImageUrl);
+        request.setRecurring(isRecurring);
+        if (recurringRuleId != null && !recurringRuleId.trim().isEmpty()) {
+            request.setRecurringRuleId(recurringRuleId);
+        }
         request.setStatus("PENDING");
         request.setTransactionDate(java.time.LocalDate.now().toString());
         createTransaction(request, new DataCallback<Transaction>() {

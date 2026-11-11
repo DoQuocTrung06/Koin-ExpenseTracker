@@ -295,6 +295,10 @@ public class RecurringRule implements Serializable {
     public int getCategoryIconRes() {
         if (categoryName == null) return R.drawable.ic_recurring_calendar;
         String lower = categoryName.toLowerCase(Locale.ROOT);
+        if (lower.contains("wifi") || lower.contains("wi-fi") || lower.contains("internet")
+                || lower.contains("mạng") || lower.contains("điện") || lower.contains("nước")) {
+            return R.drawable.ic_receipt;
+        }
         if (lower.contains("ăn") || lower.contains("uống")) return R.drawable.ic_restaurant;
         if (lower.contains("sắm")) return R.drawable.ic_shopping;
         if (lower.contains("phòng") || lower.contains("nhà") || lower.contains("trọ")) return R.drawable.ic_home_category;

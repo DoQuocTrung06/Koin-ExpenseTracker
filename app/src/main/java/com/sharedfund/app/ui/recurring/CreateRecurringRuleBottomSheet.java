@@ -19,6 +19,7 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
 import com.sharedfund.app.R;
 import com.sharedfund.app.model.RecurringRule;
+import com.sharedfund.app.ui.transaction.TransactionAdapter;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -193,7 +194,7 @@ public class CreateRecurringRuleBottomSheet extends BottomSheetDialogFragment {
                     execDay = 1;
                 }
 
-                String inferredCategory = inferCategory(title);
+                String inferredCategory = TransactionAdapter.inferCategoryFromNote(title);
 
                 RecurringRule rule = (ruleToEdit != null) ? ruleToEdit : new RecurringRule();
                 if (ruleToEdit == null) {
@@ -325,26 +326,5 @@ public class CreateRecurringRuleBottomSheet extends BottomSheetDialogFragment {
 
     private int dpToPx(float dp) {
         return Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, getResources().getDisplayMetrics()));
-    }
-
-    private String inferCategory(String title) {
-        if (title == null) return "Tiện ích & Nhà";
-        String lower = title.toLowerCase(Locale.ROOT);
-        if (lower.contains("phòng") || lower.contains("trọ") || lower.contains("nhà") || lower.contains("thuê")) {
-            return "Tiền phòng";
-        }
-        if (lower.contains("điện") || lower.contains("nước") || lower.contains("mạng") || lower.contains("internet") || lower.contains("wifi") || lower.contains("fpt") || lower.contains("viettel")) {
-            return "Điện nước";
-        }
-        if (lower.contains("ăn") || lower.contains("uống") || lower.contains("chợ") || lower.contains("cơm") || lower.contains("thực phẩm")) {
-            return "Ăn uống";
-        }
-        if (lower.contains("xe") || lower.contains("xăng") || lower.contains("gửi xe") || lower.contains("vé")) {
-            return "Di chuyển";
-        }
-        if (lower.contains("sắm") || lower.contains("đồ")) {
-            return "Mua sắm";
-        }
-        return "Tiện ích & Nhà";
     }
 }

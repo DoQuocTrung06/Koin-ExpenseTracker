@@ -23,12 +23,16 @@ import com.sharedfund.app.R;
 import com.sharedfund.app.data.RoomRepository;
 import com.sharedfund.app.data.TransactionRepository;
 import com.sharedfund.app.data.UserSessionManager;
+import com.sharedfund.app.model.Room;
+import com.sharedfund.app.model.RoomMember;
 import com.sharedfund.app.model.Transaction;
 import com.sharedfund.app.ui.widget.AppToaster;
 import com.sharedfund.app.util.ErrorMessageHelper;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class ExpenseApprovalFragment extends Fragment {
 
@@ -42,6 +46,8 @@ public class ExpenseApprovalFragment extends Fragment {
     private LinearLayout layoutEmptyApproval;
     private PendingApprovalAdapter adapter;
     private TransactionRepository transactionRepository;
+    private boolean isViewerOwner = false;
+    private final Set<String> privilegedRequesterIds = new HashSet<>();
 
     public static ExpenseApprovalFragment newInstance(String roomId) {
         ExpenseApprovalFragment fragment = new ExpenseApprovalFragment();
@@ -99,7 +105,92 @@ public class ExpenseApprovalFragment extends Fragment {
         });
         rvPendingApprovals.setAdapter(adapter);
 
+        RoomRepository.getInstance().getTransactionsLiveData().observe(getViewLifecycleOwner(), list -> {
+            if (isAdded()) {
+                refreshPendingFromCache();
+            }
+        });
+        RoomRepository.getInstance().getRoomsLiveData().observe(getViewLifecycleOwner(), rooms -> {
+            if (isAdded()) {
+                refreshApprovalPermissions();
+            }
+        });
+
+        refreshApprovalPermissions();
         loadPendingTransactions();
+    }
+
+    private void refreshPendingFromCache() {
+        if (roomId == null) return;
+        List<Transaction> all = RoomRepository.getInstance().getTransactionsForRoom(roomId);
+        List<Transaction> pending = new ArrayList<>();
+        if (all != null) {
+            for (Transaction tx : all) {
+                if (tx.isPending()) {
+                    pending.add(tx);
+                }
+            }
+        }
+        updateUI(pending);
+    }
+
+    private void refreshApprovalPermissions() {
+        if (roomId == null || !isAdded()) return;
+        String myId = UserSessionManager.getInstance(requireContext()).getUserId();
+        if (myId == null || myId.trim().isEmpty()) {
+            myId = RoomRepository.getInstance().getCurrentUserId();
+        }
+        isViewerOwner = RoomRepository.getInstance().isUserRoomOwner(roomId, myId);
+        privilegedRequesterIds.clear();
+        Room r = RoomRepository.getInstance().getRoomSync(roomId);
+        if (r != null) {
+            if (r.getCreatedBy() != null && !r.getCreatedBy().trim().isEmpty()) {
+                privilegedRequesterIds.add(r.getCreatedBy().trim());
+            }
+            if (r.getTreasurerIds() != null) {
+                privilegedRequesterIds.addAll(r.getTreasurerIds());
+            }
+        }
+        if (adapter != null) {
+            adapter.setApprovalContext(isViewerOwner, privilegedRequesterIds);
+        }
+        RoomRepository.getInstance().loadRoomMembers(roomId, new RoomRepository.DataCallback<List<RoomMember>>() {
+            @Override
+            public void onSuccess(List<RoomMember> members) {
+                if (!isAdded()) return;
+                Set<String> updatedSet = new HashSet<>(privilegedRequesterIds);
+                if (members != null) {
+                    for (RoomMember m : members) {
+                        if (m == null || m.getUserId() == null || m.getUserId().trim().isEmpty()) continue;
+                        if ("OWNER".equalsIgnoreCase(m.getRole()) || "TREASURER".equalsIgnoreCase(m.getRole()) || "ADMIN".equalsIgnoreCase(m.getRole())) {
+                            updatedSet.add(m.getUserId().trim());
+                        }
+                    }
+                }
+                requireActivity().runOnUiThread(() -> {
+                    privilegedRequesterIds.clear();
+                    privilegedRequesterIds.addAll(updatedSet);
+                    if (adapter != null) {
+                        adapter.setApprovalContext(isViewerOwner, privilegedRequesterIds);
+                    }
+                });
+            }
+
+            @Override
+            public void onError(String message) {}
+        });
+    }
+
+    private boolean isRequesterPrivileged(String userId) {
+        if (userId == null || userId.trim().isEmpty()) return false;
+        if (RoomRepository.getInstance().isUserRoomOwner(roomId, userId)
+                || RoomRepository.getInstance().isUserRoomTreasurer(roomId, userId)) {
+            return true;
+        }
+        for (String id : privilegedRequesterIds) {
+            if (id != null && id.equalsIgnoreCase(userId.trim())) return true;
+        }
+        return false;
     }
 
     private void loadPendingTransactions() {
@@ -169,8 +260,13 @@ public class ExpenseApprovalFragment extends Fragment {
         if (adminId == null || adminId.isEmpty()) {
             adminId = RoomRepository.getInstance().getCurrentUserId();
         }
-        if (adminId != null && adminId.equals(tx.getUserId())) {
+        if (adminId != null && tx.getUserId() != null && adminId.equalsIgnoreCase(tx.getUserId())) {
             AppToaster.error(requireActivity(), "Không thể tự phê duyệt khoản chi của chính mình!");
+            return;
+        }
+        boolean isOwnerViewer = RoomRepository.getInstance().isUserRoomOwner(roomId, adminId);
+        if (!isOwnerViewer && isRequesterPrivileged(tx.getUserId())) {
+            AppToaster.error(requireActivity(), "Yêu cầu của Phó quỹ cần Chủ quỹ phê duyệt!");
             return;
         }
 
@@ -182,11 +278,16 @@ public class ExpenseApprovalFragment extends Fragment {
             rvPendingApprovals.setVisibility(View.GONE);
         }
 
+        final android.content.Context appCtx = requireContext().getApplicationContext();
+        final String approverId = adminId;
+        final String roleLabel = isOwnerViewer ? "Chủ quỹ" : "Phó quỹ";
         RoomRepository.getInstance().configureAccessToken(session.getAccessToken());
         transactionRepository.setAccessToken(session.getAccessToken());
         transactionRepository.approveExpense(adminId, tx.getId(), new TransactionRepository.DataCallback<JsonObject>() {
             @Override
             public void onSuccess(JsonObject data) {
+                RoomRepository.getInstance().markRecurringRulePaidIfMatched(roomId, tx);
+                RoomRepository.getInstance().dispatchExpenseResultNotification(appCtx, roomId, tx, true, null, approverId, roleLabel);
                 if (isAdded()) {
                     requireActivity().runOnUiThread(() -> {
                         RoomRepository.getInstance().loadUserProfile();
@@ -257,6 +358,15 @@ public class ExpenseApprovalFragment extends Fragment {
         if (adminId == null || adminId.isEmpty()) {
             adminId = RoomRepository.getInstance().getCurrentUserId();
         }
+        if (adminId != null && tx.getUserId() != null && adminId.equalsIgnoreCase(tx.getUserId())) {
+            AppToaster.error(requireActivity(), "Không thể tự từ chối khoản chi của chính mình!");
+            return;
+        }
+        boolean isOwnerViewer = RoomRepository.getInstance().isUserRoomOwner(roomId, adminId);
+        if (!isOwnerViewer && isRequesterPrivileged(tx.getUserId())) {
+            AppToaster.error(requireActivity(), "Yêu cầu của Phó quỹ cần Chủ quỹ xử lý!");
+            return;
+        }
 
         adapter.removeItem(position);
         int remaining = adapter.getItemCount();
@@ -266,11 +376,15 @@ public class ExpenseApprovalFragment extends Fragment {
             rvPendingApprovals.setVisibility(View.GONE);
         }
 
+        final android.content.Context appCtx = requireContext().getApplicationContext();
+        final String approverId = adminId;
+        final String roleLabel = isOwnerViewer ? "Chủ quỹ" : "Phó quỹ";
         RoomRepository.getInstance().configureAccessToken(session.getAccessToken());
         transactionRepository.setAccessToken(session.getAccessToken());
         transactionRepository.rejectExpense(adminId, tx.getId(), reason, new TransactionRepository.DataCallback<JsonObject>() {
             @Override
             public void onSuccess(JsonObject data) {
+                RoomRepository.getInstance().dispatchExpenseResultNotification(appCtx, roomId, tx, false, reason, approverId, roleLabel);
                 if (isAdded()) {
                     requireActivity().runOnUiThread(() -> {
                         RoomRepository.getInstance().refreshRoomTransactions(roomId, null);

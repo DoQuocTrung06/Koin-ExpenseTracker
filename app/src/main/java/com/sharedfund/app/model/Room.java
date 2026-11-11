@@ -90,6 +90,7 @@ public class Room implements Serializable {
     public static final String TREASURER_TAG = "||TREASURERS:";
     public static final String PRIVATE_TAG = "||PRIVATE:";
     public static final String REQUESTS_TAG = "||REQUESTS:";
+    public static final String NUDGE_TAG = "||NUDGES:";
 
     public String getRawDescription() {
         return description;
@@ -112,6 +113,8 @@ public class Room implements Serializable {
         if (idx2 >= 0) clean = clean.substring(0, idx2);
         int idx3 = clean.indexOf(REQUESTS_TAG);
         if (idx3 >= 0) clean = clean.substring(0, idx3);
+        int idx4 = clean.indexOf(NUDGE_TAG);
+        if (idx4 >= 0) clean = clean.substring(0, idx4);
         if (clean.startsWith("treasurers:")) return "";
         return clean.trim();
     }
@@ -186,7 +189,32 @@ public class Room implements Serializable {
         return end >= 0 ? text.substring(start, end).trim() : text.substring(start).trim();
     }
 
+    public java.util.Map<String, Long> getRecurringNudgeTimestamps() {
+        java.util.Map<String, Long> map = new java.util.HashMap<>();
+        if (description == null) return map;
+        String raw = extractTagValue(description, NUDGE_TAG);
+        if (raw == null || raw.trim().isEmpty()) return map;
+        long now = System.currentTimeMillis();
+        for (String part : raw.split(",")) {
+            int eq = part.indexOf('=');
+            if (eq > 0 && eq < part.length() - 1) {
+                String k = part.substring(0, eq).trim();
+                try {
+                    long ts = Long.parseLong(part.substring(eq + 1).trim());
+                    if (ts > 0L && (now - ts) < 3600000L && (ts - now) < 300000L) {
+                        map.put(k, ts);
+                    }
+                } catch (NumberFormatException ignored) {}
+            }
+        }
+        return map;
+    }
+
     public static String buildFullDescription(String cleanDesc, java.util.Set<String> treasurers, boolean isPrivate, java.util.List<JoinRequestMeta> requests) {
+        return buildFullDescription(cleanDesc, treasurers, isPrivate, requests, null);
+    }
+
+    public static String buildFullDescription(String cleanDesc, java.util.Set<String> treasurers, boolean isPrivate, java.util.List<JoinRequestMeta> requests, java.util.Map<String, Long> nudges) {
         StringBuilder sb = new StringBuilder(stripMetadata(cleanDesc));
         if (treasurers != null && !treasurers.isEmpty()) {
             sb.append(TREASURER_TAG);
@@ -204,6 +232,21 @@ public class Room implements Serializable {
         }
         if (requests != null && !requests.isEmpty()) {
             sb.append(REQUESTS_TAG).append(new com.google.gson.Gson().toJson(requests));
+        }
+        if (nudges != null && !nudges.isEmpty()) {
+            long now = System.currentTimeMillis();
+            StringBuilder nsb = new StringBuilder();
+            for (java.util.Map.Entry<String, Long> entry : nudges.entrySet()) {
+                String k = entry.getKey();
+                Long v = entry.getValue();
+                if (k != null && !k.trim().isEmpty() && v != null && v > 0L && (now - v) < 3600000L && (v - now) < 300000L) {
+                    if (nsb.length() > 0) nsb.append(",");
+                    nsb.append(k.trim()).append("=").append(v);
+                }
+            }
+            if (nsb.length() > 0) {
+                sb.append(NUDGE_TAG).append(nsb);
+            }
         }
         return sb.toString();
     }

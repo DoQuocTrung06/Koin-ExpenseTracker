@@ -4,8 +4,10 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import com.sharedfund.app.model.AppNotification;
 import com.sharedfund.app.model.Transaction;
 import com.sharedfund.app.ui.home.WalletTransactionsFragment;
+import com.sharedfund.app.ui.transaction.TransactionAdapter;
 import com.sharedfund.app.util.ErrorMessageHelper;
 
 import org.junit.Test;
@@ -234,5 +236,30 @@ public class WalletTransactionLogicAndErrorTest {
 
         assertEquals(1, pending.size());
         assertEquals("tx-3", pending.get(0).getId());
+    }
+
+    @Test
+    public void testInferCategoryFromNoteAndLegacyUpgrade() {
+        assertEquals("Internet / Wifi", TransactionAdapter.inferCategoryFromNote("wifi"));
+        assertEquals("Internet / Wifi", TransactionAdapter.inferCategoryFromNote("Đóng tiền mạng FPT tháng 11"));
+        assertEquals("Internet / Wifi", TransactionAdapter.inferCategoryFromNote("Tiền internet viettel"));
+        assertEquals("Internet / Wifi", TransactionAdapter.inferCategoryFromNote("Đóng cước 4g"));
+        assertEquals("Điện nước", TransactionAdapter.inferCategoryFromNote("Tiền điện nước tháng 11"));
+        assertEquals("Ăn uống", TransactionAdapter.inferCategoryFromNote("mang cơm đi làm"));
+
+        assertEquals("Internet / Wifi", TransactionAdapter.resolveDisplayCategory("Điện nước", "wifi"));
+        assertEquals("Điện nước", TransactionAdapter.resolveDisplayCategory("Định kỳ", "Tiền điện"));
+        assertEquals("Điện nước", TransactionAdapter.resolveDisplayCategory("Điện nước", "Tiền điện tháng 11"));
+        assertEquals("Khác", TransactionAdapter.resolveDisplayCategory(null, ""));
+    }
+
+    @Test
+    public void testAppNotificationTimestampParsing() {
+        long ts1 = AppNotification.parseCreatedAtMillis("2026-11-11T10:00:00Z");
+        long ts2 = AppNotification.parseCreatedAtMillis("2026-11-11T10:00:00.123456+00:00");
+        assertTrue(ts1 > 0L);
+        assertEquals(ts1, ts2);
+        assertEquals(0L, AppNotification.parseCreatedAtMillis(null));
+        assertEquals(0L, AppNotification.parseCreatedAtMillis(""));
     }
 }

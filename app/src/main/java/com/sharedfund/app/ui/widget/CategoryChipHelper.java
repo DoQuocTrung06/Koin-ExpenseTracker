@@ -38,6 +38,7 @@ public class CategoryChipHelper {
         list.add(new CategoryItem("Liên hoan", R.drawable.ic_sparkles));
         list.add(new CategoryItem("Tiền phòng", R.drawable.ic_home_category));
         list.add(new CategoryItem("Điện nước", R.drawable.ic_receipt));
+        list.add(new CategoryItem("Internet / Wifi", R.drawable.ic_receipt));
         list.add(new CategoryItem("Di chuyển", R.drawable.ic_transport));
         list.add(new CategoryItem("Rút về ví", R.drawable.ic_wallet));
         list.add(new CategoryItem("Khác", R.drawable.ic_receipt));

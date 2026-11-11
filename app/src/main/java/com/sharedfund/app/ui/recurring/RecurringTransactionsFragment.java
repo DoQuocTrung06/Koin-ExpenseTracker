@@ -31,13 +31,18 @@ import com.sharedfund.app.model.AppNotification;
 import com.sharedfund.app.model.RecurringRule;
 import com.sharedfund.app.model.Room;
 import com.sharedfund.app.model.Transaction;
+import com.sharedfund.app.ui.transaction.TransactionAdapter;
 import com.sharedfund.app.ui.widget.AppToaster;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public class RecurringTransactionsFragment extends Fragment implements RecurringRuleAdapter.OnRecurringActionListener {
@@ -58,8 +63,10 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
     private RecurringRuleAdapter adapter;
     private final List<RecurringRule> localRules = new ArrayList<>();
     private final TransactionRepository transactionRepository = new TransactionRepository();
-    private static final java.util.Map<String, Long> nudgeCooldownMap = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<String, Long> cloudNudgeTimestamps = new HashMap<>();
+    private final Set<String> pendingRuleKeys = new HashSet<>();
     private static final java.util.Set<String> overdueNotifiedSet = java.util.Collections.synchronizedSet(new java.util.HashSet<>());
+    private final android.os.Handler uiHandler = new android.os.Handler(android.os.Looper.getMainLooper());
 
     private View layoutMainContent;
     private View layoutProcessing;
@@ -75,6 +82,8 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
     private TextView tvSuccessRoomName;
     private TextView tvSuccessUserName;
     private TextView tvSuccessTime;
+    private View dividerSuccessBalance;
+    private View layoutSuccessBalanceRow;
     private TextView tvSuccessBalance;
     private MaterialButton btnSuccessDone;
 
@@ -129,6 +138,8 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
         tvSuccessRoomName = view.findViewById(R.id.tvRecurringSuccessRoomName);
         tvSuccessUserName = view.findViewById(R.id.tvRecurringSuccessUserName);
         tvSuccessTime = view.findViewById(R.id.tvRecurringSuccessTime);
+        dividerSuccessBalance = view.findViewById(R.id.dividerRecurringSuccessBalance);
+        layoutSuccessBalanceRow = view.findViewById(R.id.layoutRecurringSuccessBalanceRow);
         tvSuccessBalance = view.findViewById(R.id.tvRecurringSuccessBalance);
         btnSuccessDone = view.findViewById(R.id.btnRecurringSuccessDone);
 
@@ -142,6 +153,7 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
                 if (layoutSuccess != null && layoutSuccess.getVisibility() == View.VISIBLE) {
                     layoutSuccess.setVisibility(View.GONE);
                     if (layoutMainContent != null) layoutMainContent.setVisibility(View.VISIBLE);
+                    refreshPendingRuleKeys();
                     loadRules();
                     return;
                 }
@@ -186,34 +198,177 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
         adapter = new RecurringRuleAdapter(this);
         adapter.setManager(isManager);
         adapter.setRoomScope(roomId != null && !roomId.trim().isEmpty());
+        adapter.setScopeRoomId(roomId);
         rvRules.setLayoutManager(new LinearLayoutManager(requireContext()));
         rvRules.setAdapter(adapter);
 
         RoomRepository.getInstance().getRecurringRulesChangedLiveData().observe(getViewLifecycleOwner(), changed -> {
             if (Boolean.TRUE.equals(changed)) {
                 loadRules();
+                refreshPendingRuleKeys();
             }
         });
 
+        RoomRepository.getInstance().getRoomsLiveData().observe(getViewLifecycleOwner(), rooms -> {
+            refreshCloudNudgeState();
+            updateManagerControls();
+        });
+
+        RoomRepository.getInstance().getTransactionsLiveData().observe(getViewLifecycleOwner(), transactions -> {
+            Set<String> prevPending = new HashSet<>(pendingRuleKeys);
+            refreshPendingRuleKeys();
+            if (!prevPending.isEmpty() && !prevPending.equals(pendingRuleKeys)) {
+                loadRules();
+            }
+        });
+
+        refreshCloudNudgeState();
+        refreshPendingRuleKeys();
+        fetchRoomNudgeTimestamps();
         loadRules();
+    }
+
+    private void updateManagerControls() {
+        boolean isManager = isCurrentUserFundManager();
+        if (btnAddTop != null) {
+            btnAddTop.setVisibility(isManager ? View.VISIBLE : View.GONE);
+        }
+        if (btnCreateFirst != null) {
+            btnCreateFirst.setVisibility(isManager ? View.VISIBLE : View.GONE);
+        }
+        if (adapter != null) {
+            adapter.setManager(isManager);
+        }
     }
 
     private boolean isCurrentUserFundManager() {
         if (roomId == null || roomId.trim().isEmpty()) {
             return true;
         }
-        Room room = RoomRepository.getInstance().getRoomSync(roomId);
-        if (room == null) return false;
-        String role = room.getCurrentUserRole();
-        if ("OWNER".equalsIgnoreCase(role) || "TREASURER".equalsIgnoreCase(role) || "ADMIN".equalsIgnoreCase(role)) {
+        String myId = getContext() != null ? UserSessionManager.getInstance(requireContext()).getUserId() : "";
+        RoomRepository repo = RoomRepository.getInstance();
+        return repo.isUserRoomOwner(roomId, myId)
+                || repo.isUserRoomTreasurer(roomId, myId)
+                || repo.isCurrentUserAdmin(roomId);
+    }
+
+    private boolean isManagerForRule(RecurringRule rule) {
+        if (rule != null && rule.getRoomId() != null && !rule.getRoomId().trim().isEmpty()) {
+            String targetRoomId = rule.getRoomId().trim();
+            String myId = getContext() != null ? UserSessionManager.getInstance(requireContext()).getUserId() : "";
+            RoomRepository repo = RoomRepository.getInstance();
+            return repo.isUserRoomOwner(targetRoomId, myId)
+                    || repo.isUserRoomTreasurer(targetRoomId, myId)
+                    || repo.isCurrentUserAdmin(targetRoomId);
+        }
+        return isCurrentUserFundManager();
+    }
+
+    private boolean isCurrentUserOwnerForRoom(String targetRoomId) {
+        if (targetRoomId == null || targetRoomId.trim().isEmpty()) {
             return true;
         }
-        String myId = UserSessionManager.getInstance(requireContext()).getUserId();
-        if (myId != null && !myId.isEmpty()) {
-            if (myId.equalsIgnoreCase(room.getCreatedBy())) return true;
-            if (room.getTreasurerIds() != null && room.getTreasurerIds().contains(myId)) return true;
+        String myId = getContext() != null ? UserSessionManager.getInstance(requireContext()).getUserId() : "";
+        if (myId == null || myId.trim().isEmpty()) {
+            myId = RoomRepository.getInstance().getCurrentUserId();
         }
-        return RoomRepository.getInstance().isCurrentUserAdmin(roomId);
+        return RoomRepository.getInstance().isUserRoomOwner(targetRoomId.trim(), myId);
+    }
+
+    private Map<String, Long> buildMergedNudgeMap() {
+        Map<String, Long> merged = new HashMap<>(cloudNudgeTimestamps);
+        if (roomId != null && !roomId.trim().isEmpty()) {
+            Room room = RoomRepository.getInstance().getRoomSync(roomId.trim());
+            if (room != null) {
+                mergeRoomNudgeMap(merged, room);
+            }
+        } else {
+            List<Room> rooms = RoomRepository.getInstance().getUserRooms();
+            if (rooms != null) {
+                for (Room room : rooms) {
+                    if (room != null) mergeRoomNudgeMap(merged, room);
+                }
+            }
+        }
+        return merged;
+    }
+
+    private void mergeRoomNudgeMap(Map<String, Long> target, Room room) {
+        Map<String, Long> roomNudges = room.getRecurringNudgeTimestamps();
+        if (roomNudges != null) {
+            for (Map.Entry<String, Long> e : roomNudges.entrySet()) {
+                if (e.getKey() == null || e.getValue() == null) continue;
+                Long cur = target.get(e.getKey());
+                if (cur == null || e.getValue() > cur) {
+                    target.put(e.getKey(), e.getValue());
+                }
+            }
+        }
+    }
+
+    private void refreshCloudNudgeState() {
+        if (adapter != null) {
+            adapter.setNudgeTimestamps(buildMergedNudgeMap());
+        }
+    }
+
+    private void fetchRoomNudgeTimestamps() {
+        if (!isAdded() || getContext() == null) return;
+        Context appCtx = requireContext().getApplicationContext();
+        Set<String> targetRooms = new HashSet<>();
+        if (roomId != null && !roomId.trim().isEmpty()) {
+            targetRooms.add(roomId.trim());
+        } else {
+            for (RecurringRule r : localRules) {
+                if (r != null && r.getRoomId() != null && !r.getRoomId().trim().isEmpty()) {
+                    targetRooms.add(r.getRoomId().trim());
+                }
+            }
+        }
+        for (String rId : targetRooms) {
+            NotificationManager.getInstance(appCtx).fetchRoomRecurringNudgeTimestamps(rId, map -> {
+                if (!isAdded() || map == null) return;
+                for (Map.Entry<String, Long> entry : map.entrySet()) {
+                    if (entry.getKey() == null || entry.getValue() == null) continue;
+                    String scopedKey = rId + "|" + entry.getKey();
+                    Long existing = cloudNudgeTimestamps.get(scopedKey);
+                    if (existing == null || entry.getValue() > existing) {
+                        cloudNudgeTimestamps.put(scopedKey, entry.getValue());
+                    }
+                }
+                refreshCloudNudgeState();
+            });
+        }
+    }
+
+    private void refreshPendingRuleKeys() {
+        pendingRuleKeys.clear();
+        List<Transaction> sourceTxs;
+        if (roomId != null && !roomId.trim().isEmpty()) {
+            sourceTxs = RoomRepository.getInstance().getTransactionsForRoom(roomId.trim());
+        } else {
+            List<Transaction> all = RoomRepository.getInstance().getTransactionsLiveData().getValue();
+            sourceTxs = all != null ? all : new ArrayList<>();
+        }
+        if (sourceTxs != null) {
+            for (Transaction tx : sourceTxs) {
+                if (tx == null || !tx.isPending() || !tx.isExpense()) continue;
+                if (tx.getRecurringRuleId() != null && !tx.getRecurringRuleId().trim().isEmpty()) {
+                    pendingRuleKeys.add(tx.getRecurringRuleId().trim());
+                }
+                if (tx.isRecurring()) {
+                    String rId = tx.getRoomId() != null ? tx.getRoomId().trim() : "";
+                    String noteKey = tx.getNote() != null ? tx.getNote().trim().toLowerCase(Locale.ROOT) : "";
+                    long amtKey = (long) Math.abs(tx.getAmount());
+                    if (!noteKey.isEmpty()) {
+                        pendingRuleKeys.add(rId + "|" + noteKey + "|" + amtKey);
+                    }
+                }
+            }
+        }
+        if (adapter != null) {
+            adapter.setPendingRuleKeys(pendingRuleKeys);
+        }
     }
 
     private void loadRules() {
@@ -233,6 +388,9 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
                         localRules.addAll(rules);
                     }
                     updateUI();
+                    refreshPendingRuleKeys();
+                    refreshCloudNudgeState();
+                    fetchRoomNudgeTimestamps();
                     checkAndDispatchOverdueNotifications(rules);
                 });
             }
@@ -304,7 +462,7 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
 
     @Override
     public void onToggleRule(RecurringRule rule, boolean isActive) {
-        if (!isCurrentUserFundManager()) {
+        if (!isManagerForRule(rule)) {
             if (isAdded()) {
                 AppToaster.info(requireActivity(), "Chỉ Chủ quỹ và Phó quỹ mới có quyền bật/tắt khoản định kỳ");
             }
@@ -323,7 +481,7 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
 
     @Override
     public void onDeleteRule(RecurringRule rule) {
-        if (!isCurrentUserFundManager()) {
+        if (!isManagerForRule(rule)) {
             if (isAdded()) {
                 AppToaster.info(requireActivity(), "Chỉ Chủ quỹ và Phó quỹ mới có quyền xóa khoản định kỳ");
             }
@@ -348,12 +506,24 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
     @Override
     public void onResume() {
         super.onResume();
+        refreshCloudNudgeState();
+        refreshPendingRuleKeys();
+        fetchRoomNudgeTimestamps();
         loadRules();
     }
 
     @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        uiHandler.removeCallbacksAndMessages(null);
+        if (adapter != null) {
+            adapter.stopTimers();
+        }
+    }
+
+    @Override
     public void onEditRule(RecurringRule rule) {
-        if (!isCurrentUserFundManager()) {
+        if (!isManagerForRule(rule)) {
             if (isAdded()) {
                 AppToaster.info(requireActivity(), "Chỉ Chủ quỹ và Phó quỹ mới có quyền chỉnh sửa khoản chi định kỳ");
             }
@@ -372,32 +542,31 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
     @Override
     public void onPayRule(RecurringRule rule) {
         if (rule == null) return;
-        if (!isCurrentUserFundManager()) {
+        if (!isManagerForRule(rule)) {
             if (isAdded()) {
                 AppToaster.info(requireActivity(), "Chỉ Chủ quỹ và Phó quỹ mới có quyền xác nhận chi");
             }
             return;
         }
         Context context = requireContext();
+        final Context appCtx = context.getApplicationContext();
         UserSessionManager session = UserSessionManager.getInstance(context);
+        final String requesterId = session.getUserId();
+        final String requesterName = session.getFullName();
 
-        String targetRoomId = (rule.getRoomId() != null && !rule.getRoomId().trim().isEmpty()) ? rule.getRoomId() : roomId;
-        Room room = targetRoomId != null ? RoomRepository.getInstance().getRoomSync(targetRoomId) : null;
-        double roomBalance = (room != null) ? room.getBalance() : 0.0;
-        double ruleAmount = Math.abs(rule.getAmount());
+        final String targetRoomId = (rule.getRoomId() != null && !rule.getRoomId().trim().isEmpty()) ? rule.getRoomId() : roomId;
+        final Room room = targetRoomId != null ? RoomRepository.getInstance().getRoomSync(targetRoomId) : null;
+        final double roomBalance = (room != null) ? room.getBalance() : 0.0;
+        final double ruleAmount = Math.abs(rule.getAmount());
 
         if (roomBalance < ruleAmount) {
             showInsufficientBalanceDialog(rule, roomBalance, ruleAmount);
             return;
         }
 
+        final boolean isOwner = isCurrentUserOwnerForRoom(targetRoomId);
         java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault());
-        String formattedTime = sdf.format(new java.util.Date());
-
-        java.text.SimpleDateFormat localDateFmt = new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
-        String localToday = localDateFmt.format(new java.util.Date());
-        rule.setLastRunDate(localToday);
-        rule.setNextRunDate(rule.computeNextRunDateIso());
+        final String formattedTime = sdf.format(new java.util.Date());
 
         String category = resolveStandardCategory(rule);
         String note = rule.getTitle();
@@ -407,19 +576,35 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
         if (layoutSuccess != null) layoutSuccess.setVisibility(View.GONE);
 
         transactionRepository.submitWithdrawal(
-                session.getUserId(),
-                session.getFullName(),
+                requesterId,
+                requesterName,
                 targetRoomId,
                 ruleAmount,
                 category,
                 note,
+                null,
+                isOwner,
                 true,
+                rule.getId(),
                 new TransactionRepository.DataCallback<Transaction>() {
                     @Override
                     public void onSuccess(Transaction createdTx) {
-                        double updatedBalance = createdTx.getBalanceAfter() > 0 ? createdTx.getBalanceAfter() : (roomBalance - ruleAmount);
-                        if (room != null) {
-                            room.setBalance(updatedBalance);
+                        final double updatedBalance;
+                        if (isOwner) {
+                            java.text.SimpleDateFormat localDateFmt = new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+                            rule.setLastRunDate(localDateFmt.format(new java.util.Date()));
+                            rule.setNextRunDate(rule.computeNextRunDateIso());
+                            updatedBalance = createdTx.getBalanceAfter() > 0 ? createdTx.getBalanceAfter() : (roomBalance - ruleAmount);
+                            if (room != null) {
+                                room.setBalance(updatedBalance);
+                            }
+                        } else {
+                            updatedBalance = roomBalance;
+                            createdTx.setStatus(Transaction.STATUS_PENDING);
+                            createdTx.setRecurring(true);
+                            if (rule.getId() != null) {
+                                createdTx.setRecurringRuleId(rule.getId());
+                            }
                         }
 
                         RoomRepository.getInstance().addTransaction(createdTx);
@@ -428,20 +613,32 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
                             RoomRepository.getInstance().refreshRoomTransactions(targetRoomId, null);
                         }
 
-                        transactionRepository.updateRecurringRule(rule, new TransactionRepository.DataCallback<RecurringRule>() {
-                            @Override
-                            public void onSuccess(RecurringRule updated) {
-                                RoomRepository.getInstance().notifyRecurringRulesChanged();
-                            }
+                        if (isOwner) {
+                            transactionRepository.updateRecurringRule(rule, new TransactionRepository.DataCallback<RecurringRule>() {
+                                @Override
+                                public void onSuccess(RecurringRule updated) {
+                                    RoomRepository.getInstance().notifyRecurringRulesChanged();
+                                }
 
-                            @Override
-                            public void onError(String error) {}
-                        });
+                                @Override
+                                public void onError(String error) {}
+                            });
+                        } else if (targetRoomId != null && !targetRoomId.trim().isEmpty()) {
+                            RoomRepository.getInstance().dispatchExpenseApprovalNotifications(
+                                    appCtx,
+                                    targetRoomId,
+                                    requesterId,
+                                    requesterName,
+                                    ruleAmount,
+                                    note
+                            );
+                        }
 
                         if (isAdded()) {
                             requireActivity().runOnUiThread(() -> {
+                                refreshPendingRuleKeys();
                                 updateUI();
-                                new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                                uiHandler.postDelayed(() -> {
                                     if (!isAdded()) return;
                                     if (layoutProcessing != null) layoutProcessing.setVisibility(View.GONE);
                                     if (layoutSuccess != null) layoutSuccess.setVisibility(View.VISIBLE);
@@ -450,15 +647,29 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
                                     symbols.setGroupingSeparator('.');
                                     DecimalFormat df = new DecimalFormat("#,###", symbols);
 
+                                    if (tvSuccessTitle != null) {
+                                        tvSuccessTitle.setText(isOwner ? "Xuất quỹ thành công!" : "Yêu cầu xuất quỹ đã gửi!");
+                                    }
+                                    if (tvSuccessSubtitle != null) {
+                                        tvSuccessSubtitle.setText(isOwner ? "Đã thanh toán khoản định kỳ" : "Yêu cầu đã được gửi tới Chủ quỹ để phê duyệt");
+                                    }
                                     if (tvSuccessAmount != null) tvSuccessAmount.setText("- " + df.format(ruleAmount) + " đ");
                                     String rawTxId = createdTx.getId() != null ? createdTx.getId() : UUID.randomUUID().toString();
                                     String shortTxId = "#SF-" + (rawTxId.length() >= 8 ? rawTxId.substring(0, 8).toUpperCase(Locale.ROOT) : rawTxId.toUpperCase(Locale.ROOT));
                                     if (tvSuccessTxId != null) tvSuccessTxId.setText(shortTxId);
                                     if (tvSuccessRuleName != null) tvSuccessRuleName.setText(rule.getTitle());
-                                    String displayRoom = (roomName != null && !roomName.trim().isEmpty()) ? roomName : (rule.getRoomName() != null ? rule.getRoomName() : "Quỹ nhóm");
+                                    String displayRoom = (roomName != null && !roomName.trim().isEmpty())
+                                            ? roomName
+                                            : (room != null && room.getName() != null ? room.getName() : (rule.getRoomName() != null ? rule.getRoomName() : "Quỹ nhóm"));
                                     if (tvSuccessRoomName != null) tvSuccessRoomName.setText(displayRoom);
-                                    if (tvSuccessUserName != null) tvSuccessUserName.setText(session.getFullName());
+                                    if (tvSuccessUserName != null) tvSuccessUserName.setText(requesterName);
                                     if (tvSuccessTime != null) tvSuccessTime.setText(formattedTime);
+                                    if (dividerSuccessBalance != null) {
+                                        dividerSuccessBalance.setVisibility(isOwner ? View.VISIBLE : View.GONE);
+                                    }
+                                    if (layoutSuccessBalanceRow != null) {
+                                        layoutSuccessBalanceRow.setVisibility(isOwner ? View.VISIBLE : View.GONE);
+                                    }
                                     if (tvSuccessBalance != null) tvSuccessBalance.setText(df.format(updatedBalance) + " đ");
 
                                     if (btnSuccessCopyTxId != null) {
@@ -470,20 +681,14 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
                                             com.sharedfund.app.util.CopyToast.show(requireContext(), v, "Đã sao chép mã giao dịch");
                                         });
                                     }
-                                    if (btnSuccessDone != null) {
-                                        btnSuccessDone.setOnClickListener(v -> {
-                                            if (layoutSuccess != null) layoutSuccess.setVisibility(View.GONE);
-                                            if (layoutMainContent != null) layoutMainContent.setVisibility(View.VISIBLE);
-                                            loadRules();
-                                        });
-                                    }
-                                    if (btnSuccessBack != null) {
-                                        btnSuccessBack.setOnClickListener(v -> {
-                                            if (layoutSuccess != null) layoutSuccess.setVisibility(View.GONE);
-                                            if (layoutMainContent != null) layoutMainContent.setVisibility(View.VISIBLE);
-                                            loadRules();
-                                        });
-                                    }
+                                    View.OnClickListener closeSuccessListener = v -> {
+                                        if (layoutSuccess != null) layoutSuccess.setVisibility(View.GONE);
+                                        if (layoutMainContent != null) layoutMainContent.setVisibility(View.VISIBLE);
+                                        refreshPendingRuleKeys();
+                                        loadRules();
+                                    };
+                                    if (btnSuccessDone != null) btnSuccessDone.setOnClickListener(closeSuccessListener);
+                                    if (btnSuccessBack != null) btnSuccessBack.setOnClickListener(closeSuccessListener);
                                 }, 600);
                             });
                         }
@@ -505,33 +710,7 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
 
     private String resolveStandardCategory(RecurringRule rule) {
         if (rule == null) return "Khác";
-        String cat = rule.getCategoryName();
-        if (cat != null && !cat.trim().isEmpty() && !cat.equalsIgnoreCase("Định kỳ") && !cat.equalsIgnoreCase("Dinh ky")) {
-            return cat;
-        }
-        String title = rule.getTitle();
-        if (title != null) {
-            String lower = title.toLowerCase(Locale.ROOT);
-            if (lower.contains("điện") || lower.contains("nước") || lower.contains("dien nuoc") || lower.contains("mạng") || lower.contains("internet") || lower.contains("wifi") || lower.contains("fpt") || lower.contains("viettel")) {
-                return "Điện nước";
-            }
-            if (lower.contains("phòng") || lower.contains("trọ") || lower.contains("nhà") || lower.contains("thuê") || lower.contains("phong tro")) {
-                return "Tiền phòng";
-            }
-            if (lower.contains("ăn") || lower.contains("uống") || lower.contains("cơm") || lower.contains("chợ") || lower.contains("thực phẩm") || lower.contains("food") || lower.contains("an uong")) {
-                return "Ăn uống";
-            }
-            if (lower.contains("mua") || lower.contains("sắm") || lower.contains("đồ dùng") || lower.contains("siêu thị") || lower.contains("mua sam")) {
-                return "Mua sắm";
-            }
-            if (lower.contains("xe") || lower.contains("xăng") || lower.contains("gửi xe") || lower.contains("đi lại") || lower.contains("di chuyen") || lower.contains("grab")) {
-                return "Di chuyển";
-            }
-            if (lower.contains("liên hoan") || lower.contains("tiệc") || lower.contains("sinh nhật") || lower.contains("party") || lower.contains("bóng") || lower.contains("thể thao") || lower.contains("bong da")) {
-                return "Liên hoan";
-            }
-        }
-        return "Khác";
+        return TransactionAdapter.resolveDisplayCategory(rule.getCategoryName(), rule.getTitle());
     }
 
     private void showInsufficientBalanceDialog(RecurringRule rule, double currentBalance, double ruleAmount) {
@@ -564,29 +743,69 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
         dialog.show();
     }
 
+    private long getLatestNudgeTime(RecurringRule rule, String targetRoom) {
+        Map<String, Long> merged = buildMergedNudgeMap();
+        long latest = 0L;
+        if (rule.getId() != null && merged.containsKey(rule.getId().trim())) {
+            Long v = merged.get(rule.getId().trim());
+            if (v != null && v > latest) latest = v;
+        }
+        String titleKey = rule.getTitle() != null ? rule.getTitle().trim().toLowerCase(Locale.ROOT) : "";
+        if (!titleKey.isEmpty()) {
+            if (targetRoom != null && !targetRoom.trim().isEmpty()) {
+                Long v = merged.get(targetRoom.trim() + "|" + titleKey);
+                if (v != null && v > latest) latest = v;
+            }
+            Long vPlain = merged.get(titleKey);
+            if (vPlain != null && vPlain > latest) latest = vPlain;
+        }
+        return latest;
+    }
+
     @Override
     public void onNudgeRule(RecurringRule rule) {
         if (rule == null || !isAdded()) return;
         Context context = requireContext();
-        Long lastNudge = nudgeCooldownMap.get(rule.getId());
-        long lastNudgeTime = (lastNudge != null) ? lastNudge : 0L;
+        final Context appCtx = context.getApplicationContext();
+        String targetRoom = (rule.getRoomId() != null && !rule.getRoomId().trim().isEmpty()) ? rule.getRoomId() : roomId;
+
+        long lastNudgeTime = getLatestNudgeTime(rule, targetRoom);
         long now = System.currentTimeMillis();
         long diff = now - lastNudgeTime;
         long cooldownMs = 60 * 60 * 1000L;
-        if (diff < cooldownMs) {
-            long remainingMinutes = (cooldownMs - diff + 59999) / 60000;
+        if (lastNudgeTime > 0L && diff < cooldownMs && (lastNudgeTime - now) < 300000L) {
+            long remainingMinutes = (cooldownMs - Math.max(0L, diff) + 59999) / 60000;
             AppToaster.info(requireActivity(), "Bạn vừa gửi nhắc nhở rồi. Vui lòng chờ " + remainingMinutes + " phút!");
+            refreshCloudNudgeState();
             return;
         }
 
-        nudgeCooldownMap.put(rule.getId(), now);
+        if (rule.getId() != null && !rule.getId().trim().isEmpty()) {
+            cloudNudgeTimestamps.put(rule.getId().trim(), now);
+        }
+        String titleKey = rule.getTitle() != null ? rule.getTitle().trim().toLowerCase(Locale.ROOT) : "";
+        if (!titleKey.isEmpty()) {
+            if (targetRoom != null && !targetRoom.trim().isEmpty()) {
+                cloudNudgeTimestamps.put(targetRoom.trim() + "|" + titleKey, now);
+            } else {
+                cloudNudgeTimestamps.put(titleKey, now);
+            }
+        }
+        refreshCloudNudgeState();
+
+        if (targetRoom != null && !targetRoom.trim().isEmpty() && rule.getId() != null) {
+            RoomRepository.getInstance().recordRecurringNudge(targetRoom, rule.getId(), now);
+        }
+
         AppToaster.success(requireActivity(), "Đã gửi thông báo nhắc đóng " + rule.getTitle());
 
         DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.GERMANY);
         symbols.setGroupingSeparator('.');
         DecimalFormat df = new DecimalFormat("#,###", symbols);
 
-        String targetRoom = (rule.getRoomId() != null && !rule.getRoomId().trim().isEmpty()) ? rule.getRoomId() : roomId;
+        UserSessionManager session = UserSessionManager.getInstance(context);
+        final String myId = session.getUserId();
+        final String senderName = session.getFullName();
         Room r = targetRoom != null ? RoomRepository.getInstance().getRoomSync(targetRoom) : null;
         String ownerId = (r != null) ? r.getCreatedBy() : null;
         String fundName = (r != null && r.getName() != null) ? r.getName() : (rule.getRoomName() != null ? rule.getRoomName() : "Quỹ phòng");
@@ -599,10 +818,11 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
                     for (com.sharedfund.app.model.RoomMember m : members) {
                         if (m == null || m.getUserId() == null || m.getUserId().trim().isEmpty()) continue;
                         String uId = m.getUserId();
+                        if (myId != null && myId.equalsIgnoreCase(uId)) continue;
                         boolean isOwnerOrTreasurer = "OWNER".equalsIgnoreCase(m.getRole())
-                                || (ownerId != null && ownerId.equals(uId))
-                                || "TREASURER".equalsIgnoreCase(m.getRole())
-                                || (r != null && r.getTreasurerIds() != null && r.getTreasurerIds().contains(uId));
+                                || (ownerId != null && ownerId.equalsIgnoreCase(uId))
+                                || RoomRepository.getInstance().isUserRoomOwner(targetRoom, uId)
+                                || RoomRepository.getInstance().isUserRoomTreasurer(targetRoom, uId);
 
                         if (isOwnerOrTreasurer) {
                             AppNotification tNotif = new AppNotification(
@@ -610,57 +830,77 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
                                     AppNotification.TYPE_RECURRING_DUE,
                                     fundName,
                                     "Nhắc thanh toán: " + rule.getTitle(),
-                                    "Thành viên " + UserSessionManager.getInstance(context).getFullName() + " nhắc xuất quỹ đóng khoản " + rule.getTitle() + " (" + df.format(rule.getAmount()) + " đ).",
+                                    "Thành viên " + senderName + " nhắc xuất quỹ đóng khoản " + rule.getTitle() + " (" + df.format(rule.getAmount()) + " đ).",
                                     "Vừa xong",
                                     false,
                                     targetRoom,
                                     fundName
                             );
-                            NotificationManager.getInstance(context).sendNotificationToUser(tNotif, uId);
+                            NotificationManager.getInstance(appCtx).sendNotificationToUser(tNotif, uId);
                         }
                     }
                 }
 
                 @Override
                 public void onError(String error) {
-                    if (ownerId != null && !ownerId.trim().isEmpty()) {
+                    if (ownerId != null && !ownerId.trim().isEmpty() && (myId == null || !myId.equalsIgnoreCase(ownerId))) {
                         AppNotification notif = new AppNotification(
                                 UUID.randomUUID().toString(),
                                 AppNotification.TYPE_RECURRING_DUE,
                                 fundName,
                                 "Nhắc thanh toán: " + rule.getTitle(),
-                                "Thành viên " + UserSessionManager.getInstance(context).getFullName() + " nhắc xuất quỹ đóng khoản " + rule.getTitle() + " (" + df.format(rule.getAmount()) + " đ).",
+                                "Thành viên " + senderName + " nhắc xuất quỹ đóng khoản " + rule.getTitle() + " (" + df.format(rule.getAmount()) + " đ).",
                                 "Vừa xong",
                                 false,
                                 targetRoom,
                                 fundName
                         );
-                        NotificationManager.getInstance(context).sendNotificationToUser(notif, ownerId);
+                        NotificationManager.getInstance(appCtx).sendNotificationToUser(notif, ownerId);
                     }
                 }
             });
         }
-        updateUI();
+    }
+
+    private String buildOverdueCycleKey(RecurringRule rule) {
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        String freq = rule.getFrequency();
+        if (RecurringRule.FREQUENCY_DAILY.equalsIgnoreCase(freq)) {
+            return String.format(Locale.US, "%04d_%02d_%02d",
+                    cal.get(java.util.Calendar.YEAR),
+                    cal.get(java.util.Calendar.MONTH) + 1,
+                    cal.get(java.util.Calendar.DAY_OF_MONTH));
+        }
+        if (RecurringRule.FREQUENCY_WEEKLY.equalsIgnoreCase(freq)) {
+            return String.format(Locale.US, "%04d_W%02d",
+                    cal.get(java.util.Calendar.YEAR),
+                    cal.get(java.util.Calendar.WEEK_OF_YEAR));
+        }
+        return String.format(Locale.US, "%04d_%02d",
+                cal.get(java.util.Calendar.YEAR),
+                cal.get(java.util.Calendar.MONTH) + 1);
     }
 
     private void checkAndDispatchOverdueNotifications(List<RecurringRule> rules) {
         if (rules == null || rules.isEmpty() || getContext() == null) return;
-        Context context = requireContext();
-        java.text.SimpleDateFormat monthFormat = new java.text.SimpleDateFormat("yyyy_MM", Locale.US);
-        String currentMonth = monthFormat.format(new java.util.Date());
+        final Context appCtx = requireContext().getApplicationContext();
 
         DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.GERMANY);
         symbols.setGroupingSeparator('.');
         DecimalFormat df = new DecimalFormat("#,###", symbols);
 
         for (RecurringRule rule : rules) {
-            if (rule != null && rule.isActive() && !rule.isPaidInCurrentMonth() && rule.getDaysDiffCurrentMonth() >= 0) {
-                String key = "overdue_v2_notified_" + rule.getId() + "_" + currentMonth;
+            if (rule != null && rule.isActive() && !rule.isPaidInCurrentCycle() && rule.getDaysDiffCurrentCycle() >= 0) {
+                String targetRoom = (rule.getRoomId() != null && !rule.getRoomId().trim().isEmpty()) ? rule.getRoomId() : roomId;
+                if (targetRoom == null || targetRoom.trim().isEmpty()) continue;
+
+                String cycleKey = buildOverdueCycleKey(rule);
+                String key = "overdue_v3_notified_" + rule.getId() + "_" + cycleKey;
                 if (!overdueNotifiedSet.contains(key)) {
                     overdueNotifiedSet.add(key);
-
-                    String targetRoom = (rule.getRoomId() != null && !rule.getRoomId().trim().isEmpty()) ? rule.getRoomId() : roomId;
-                    if (targetRoom == null || targetRoom.trim().isEmpty()) continue;
+                    if (NotificationManager.getInstance(appCtx).hasRecentOverdueNotification(targetRoom, rule.getTitle(), 24 * 60 * 60 * 1000L)) {
+                        continue;
+                    }
 
                     Room r = RoomRepository.getInstance().getRoomSync(targetRoom);
                     String ownerId = (r != null) ? r.getCreatedBy() : null;
@@ -674,9 +914,9 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
                                 if (m == null || m.getUserId() == null || m.getUserId().trim().isEmpty()) continue;
                                 String uId = m.getUserId();
                                 boolean isOwnerOrTreasurer = "OWNER".equalsIgnoreCase(m.getRole())
-                                        || (ownerId != null && ownerId.equals(uId))
-                                        || "TREASURER".equalsIgnoreCase(m.getRole())
-                                        || (r != null && r.getTreasurerIds() != null && r.getTreasurerIds().contains(uId));
+                                        || (ownerId != null && ownerId.equalsIgnoreCase(uId))
+                                        || RoomRepository.getInstance().isUserRoomOwner(targetRoom, uId)
+                                        || RoomRepository.getInstance().isUserRoomTreasurer(targetRoom, uId);
 
                                 if (isOwnerOrTreasurer) {
                                     AppNotification ownerNotif = new AppNotification(
@@ -690,7 +930,7 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
                                             targetRoom,
                                             fundName
                                     );
-                                    NotificationManager.getInstance(context).sendNotificationToUser(ownerNotif, uId);
+                                    NotificationManager.getInstance(appCtx).sendNotificationToUser(ownerNotif, uId);
                                 } else {
                                     AppNotification memberNotif = new AppNotification(
                                             UUID.randomUUID().toString(),
@@ -703,7 +943,7 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
                                             targetRoom,
                                             fundName
                                     );
-                                    NotificationManager.getInstance(context).sendNotificationToUser(memberNotif, uId);
+                                    NotificationManager.getInstance(appCtx).sendNotificationToUser(memberNotif, uId);
                                 }
                             }
                         }
@@ -722,7 +962,7 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
                                         targetRoom,
                                         fundName
                                 );
-                                NotificationManager.getInstance(context).sendNotificationToUser(ownerNotif, ownerId);
+                                NotificationManager.getInstance(appCtx).sendNotificationToUser(ownerNotif, ownerId);
                             }
                         }
                     });

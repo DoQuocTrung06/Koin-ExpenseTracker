@@ -18,16 +18,21 @@ import com.sharedfund.app.model.RecurringRule;
 import com.sharedfund.app.model.Room;
 import com.sharedfund.app.model.RoomMember;
 import com.sharedfund.app.model.Transaction;
+import com.sharedfund.app.ui.transaction.TransactionAdapter;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import okhttp3.Call;
 import okhttp3.MediaType;
@@ -751,12 +756,35 @@ public class RoomRepository {
         userWalletLiveData.postValue(balance);
     }
 
-    public boolean isCurrentUserAdmin(String roomId) {
+    private static boolean containsIgnoreCase(Set<String> set, String target) {
+        if (set == null || target == null || target.trim().isEmpty()) return false;
+        for (String item : set) {
+            if (item != null && target.equalsIgnoreCase(item.trim())) return true;
+        }
+        return false;
+    }
+
+    public boolean isUserRoomOwner(String roomId, String userId) {
         Room r = getRoomSync(roomId);
-        if (r == null) return false;
-        if (currentUserId != null && currentUserId.equals(r.getCreatedBy())) return true;
-        String role = r.getCurrentUserRole();
-        return "ADMIN".equalsIgnoreCase(role) || "OWNER".equalsIgnoreCase(role) || "TREASURER".equalsIgnoreCase(role);
+        if (r == null || userId == null || userId.trim().isEmpty()) return false;
+        if (r.getCreatedBy() != null && userId.equalsIgnoreCase(r.getCreatedBy())) return true;
+        return userId.equalsIgnoreCase(currentUserId) && "OWNER".equalsIgnoreCase(r.getCurrentUserRole());
+    }
+
+    public boolean isUserRoomTreasurer(String roomId, String userId) {
+        Room r = getRoomSync(roomId);
+        if (r == null || userId == null || userId.trim().isEmpty()) return false;
+        if (isUserRoomOwner(roomId, userId)) return false;
+        if (containsIgnoreCase(r.getTreasurerIds(), userId)) return true;
+        if (!r.hasServerTreasurers() && userId.equalsIgnoreCase(currentUserId)) {
+            String role = r.getCurrentUserRole();
+            return "TREASURER".equalsIgnoreCase(role) || "ADMIN".equalsIgnoreCase(role);
+        }
+        return false;
+    }
+
+    public boolean isCurrentUserAdmin(String roomId) {
+        return isUserRoomOwner(roomId, currentUserId) || isUserRoomTreasurer(roomId, currentUserId);
     }
 
     public void loadUserProfile() {
@@ -849,7 +877,7 @@ public class RoomRepository {
         if (roomId == null) return map;
         for (Transaction tx : transactionList) {
             if (roomId.equals(tx.getRoomId()) && affectsBalance(tx) && tx.isExpense()) {
-                String cat = tx.getCategory() != null ? tx.getCategory() : "Khác";
+                String cat = TransactionAdapter.resolveDisplayCategory(tx.getCategory(), tx.getNote());
                 Double current = map.get(cat);
                 map.put(cat, (current != null ? current : 0.0) + tx.getAmount());
             }
@@ -883,28 +911,6 @@ public class RoomRepository {
         }
         if (!updated) {
             transactionList.add(0, tx);
-            if (tx.isPending() && SharedFundApp.getInstance() != null) {
-                Room r = getRoomSync(tx.getRoomId());
-                String rName = (r != null && r.getName() != null) ? r.getName() : "Quỹ nhóm";
-                DecimalFormatSymbols sym = new DecimalFormatSymbols(Locale.GERMANY);
-                sym.setGroupingSeparator('.');
-                DecimalFormat df = new DecimalFormat("#,###", sym);
-                String creator = (tx.getUserName() != null && !tx.getUserName().isEmpty()) ? tx.getUserName() : "Thành viên";
-                String title = creator + " yêu cầu rút quỹ " + df.format(Math.abs(tx.getAmount())) + " đ";
-                String note = (tx.getNote() != null && !tx.getNote().isEmpty()) ? tx.getNote() : "Yêu cầu chi tiêu";
-                AppNotification notif = new AppNotification(
-                        "tx_pending_" + tx.getId(),
-                        AppNotification.TYPE_EXPENSE_APPROVAL,
-                        rName,
-                        title,
-                        "Nội dung: " + note + ". Bấm để xem hóa đơn và phê duyệt.",
-                        "Vừa xong",
-                        false,
-                        tx.getRoomId(),
-                        rName
-                );
-                NotificationManager.getInstance(SharedFundApp.getInstance()).addNotification(notif);
-            }
         }
         if (tx.getUserId() != null && !tx.getUserId().trim().isEmpty() && !userAvatarCache.containsKey(tx.getUserId())) {
             loadUserProfile(tx.getUserId(), null);
@@ -1149,7 +1155,7 @@ public class RoomRepository {
     public void updateRoom(String roomId, String name, String description, double targetAmount, DataCallback<Room> callback) {
         Room room = getRoomSync(roomId);
         final String fullDescription = (room != null)
-                ? Room.buildFullDescription(description, room.getTreasurerIds(), room.isPrivateRoom(), room.getPendingJoinRequests())
+                ? Room.buildFullDescription(description, room.getTreasurerIds(), room.isPrivateRoom(), room.getPendingJoinRequests(), room.getRecurringNudgeTimestamps())
                 : description;
         if (room != null) {
             room.setName(name);
@@ -1169,7 +1175,7 @@ public class RoomRepository {
         }
         JsonObject payload = new JsonObject();
         payload.addProperty("name", name);
-        payload.addProperty("description", description);
+        payload.addProperty("description", fullDescription);
         if (targetAmount >= 0) {
             payload.addProperty("target_amount", targetAmount);
         }
@@ -1267,7 +1273,8 @@ public class RoomRepository {
         String cleanDesc = room != null ? room.getDescription() : "";
         boolean isPriv = room != null && room.isPrivateRoom();
         java.util.List<Room.JoinRequestMeta> reqs = room != null ? room.getPendingJoinRequests() : null;
-        String fullDesc = Room.buildFullDescription(cleanDesc, treasurerIds, isPriv, reqs);
+        Map<String, Long> nudges = room != null ? room.getRecurringNudgeTimestamps() : null;
+        String fullDesc = Room.buildFullDescription(cleanDesc, treasurerIds, isPriv, reqs, nudges);
         pushRoomDescription(roomId, fullDesc, true);
     }
 
@@ -1277,7 +1284,8 @@ public class RoomRepository {
         String cleanDesc = room != null ? room.getDescription() : "";
         java.util.Set<String> treas = room != null ? room.getTreasurerIds() : null;
         java.util.List<Room.JoinRequestMeta> reqs = room != null ? room.getPendingJoinRequests() : null;
-        String fullDesc = Room.buildFullDescription(cleanDesc, treas, isPrivate, reqs);
+        Map<String, Long> nudges = room != null ? room.getRecurringNudgeTimestamps() : null;
+        String fullDesc = Room.buildFullDescription(cleanDesc, treas, isPrivate, reqs, nudges);
         pushRoomDescription(roomId, fullDesc, false);
     }
 
@@ -1303,7 +1311,7 @@ public class RoomRepository {
                         }
                         if (!exists) {
                             currentList.add(0, newReq);
-                            String fullDesc = Room.buildFullDescription(latest.getDescription(), latest.getTreasurerIds(), latest.isPrivateRoom(), currentList);
+                            String fullDesc = Room.buildFullDescription(latest.getDescription(), latest.getTreasurerIds(), latest.isPrivateRoom(), currentList, latest.getRecurringNudgeTimestamps());
                             pushRoomDescription(roomId, fullDesc, false);
                         }
                     }
@@ -1328,7 +1336,7 @@ public class RoomRepository {
             }
         }
         if (removed) {
-            String fullDesc = Room.buildFullDescription(room.getDescription(), room.getTreasurerIds(), room.isPrivateRoom(), list);
+            String fullDesc = Room.buildFullDescription(room.getDescription(), room.getTreasurerIds(), room.isPrivateRoom(), list, room.getRecurringNudgeTimestamps());
             pushRoomDescription(roomId, fullDesc, false);
         }
     }
@@ -1408,6 +1416,219 @@ public class RoomRepository {
                 refreshRoomMembers(roomId);
                 callback.onSuccess(true);
             }
+        });
+    }
+
+    public void recordRecurringNudge(String roomId, String ruleId, long timestampMs) {
+        if (roomId == null || ruleId == null || ruleId.trim().isEmpty()) return;
+        Room room = getRoomSync(roomId);
+        if (room == null) return;
+        Map<String, Long> nudges = new HashMap<>(room.getRecurringNudgeTimestamps());
+        nudges.put(ruleId.trim(), timestampMs);
+        String fullDesc = Room.buildFullDescription(
+                room.getDescription(),
+                room.getTreasurerIds(),
+                room.isPrivateRoom(),
+                room.getPendingJoinRequests(),
+                nudges
+        );
+        pushRoomDescription(roomId, fullDesc, false);
+    }
+
+    public void dispatchExpenseApprovalNotifications(android.content.Context context, String roomId,
+                                                     String requesterId, String requesterName,
+                                                     double amount, String note) {
+        android.content.Context appCtx = context != null ? context.getApplicationContext() : SharedFundApp.getInstance();
+        if (appCtx == null || roomId == null || roomId.trim().isEmpty()) return;
+        if (isUserRoomOwner(roomId, requesterId)) return;
+
+        boolean isRequesterTreasurer = isUserRoomTreasurer(roomId, requesterId);
+        Room r = getRoomSync(roomId);
+        String ownerId = r != null ? r.getCreatedBy() : null;
+        String fundName = (r != null && r.getName() != null && !r.getName().trim().isEmpty()) ? r.getName() : "Quỹ nhóm";
+
+        DecimalFormatSymbols sym = new DecimalFormatSymbols(Locale.GERMANY);
+        sym.setGroupingSeparator('.');
+        DecimalFormat df = new DecimalFormat("#,###", sym);
+        String senderDisplay = (requesterName != null && !requesterName.trim().isEmpty()) ? requesterName.trim() : "Thành viên";
+        String safeNote = (note != null && !note.trim().isEmpty()) ? note.trim() : "Yêu cầu chi tiêu";
+        String title = (isRequesterTreasurer ? "Phó quỹ " : "") + senderDisplay + " yêu cầu duyệt chi " + df.format(Math.abs(amount)) + " đ";
+        String desc = "Nội dung: " + safeNote + (isRequesterTreasurer ? ". Cần Chủ quỹ phê duyệt." : ". Vui lòng kiểm tra và phê duyệt.");
+
+        loadRoomMembers(roomId, new DataCallback<List<RoomMember>>() {
+            @Override
+            public void onSuccess(List<RoomMember> members) {
+                Set<String> targetIds = new HashSet<>();
+                if (ownerId != null && !ownerId.trim().isEmpty()) {
+                    targetIds.add(ownerId.trim());
+                }
+                if (!isRequesterTreasurer && r != null && r.getTreasurerIds() != null) {
+                    for (String tid : r.getTreasurerIds()) {
+                        if (tid != null && !tid.trim().isEmpty()) {
+                            targetIds.add(tid.trim());
+                        }
+                    }
+                }
+                if (members != null) {
+                    for (RoomMember m : members) {
+                        if (m == null || m.getUserId() == null || m.getUserId().trim().isEmpty()) continue;
+                        String uId = m.getUserId().trim();
+                        boolean memIsOwner = "OWNER".equalsIgnoreCase(m.getRole())
+                                || (ownerId != null && ownerId.equalsIgnoreCase(uId));
+                        boolean memIsTreasurer = !memIsOwner && ("TREASURER".equalsIgnoreCase(m.getRole())
+                                || (r != null && containsIgnoreCase(r.getTreasurerIds(), uId)));
+                        if (memIsOwner) {
+                            targetIds.add(uId);
+                        } else if (!isRequesterTreasurer && memIsTreasurer) {
+                            targetIds.add(uId);
+                        }
+                    }
+                }
+                for (String targetId : targetIds) {
+                    if (requesterId != null && requesterId.equalsIgnoreCase(targetId)) continue;
+                    AppNotification notif = new AppNotification(
+                            UUID.randomUUID().toString(),
+                            AppNotification.TYPE_EXPENSE_APPROVAL,
+                            fundName,
+                            title,
+                            desc,
+                            "Vừa xong",
+                            false,
+                            roomId,
+                            fundName
+                    );
+                    NotificationManager.getInstance(appCtx).sendNotificationToUser(notif, targetId);
+                }
+            }
+
+            @Override
+            public void onError(String error) {
+                Set<String> fallbackIds = new HashSet<>();
+                if (ownerId != null && !ownerId.trim().isEmpty()) {
+                    fallbackIds.add(ownerId.trim());
+                }
+                if (!isRequesterTreasurer && r != null && r.getTreasurerIds() != null) {
+                    for (String tid : r.getTreasurerIds()) {
+                        if (tid != null && !tid.trim().isEmpty()) {
+                            fallbackIds.add(tid.trim());
+                        }
+                    }
+                }
+                for (String targetId : fallbackIds) {
+                    if (requesterId != null && requesterId.equalsIgnoreCase(targetId)) continue;
+                    AppNotification notif = new AppNotification(
+                            UUID.randomUUID().toString(),
+                            AppNotification.TYPE_EXPENSE_APPROVAL,
+                            fundName,
+                            title,
+                            desc,
+                            "Vừa xong",
+                            false,
+                            roomId,
+                            fundName
+                    );
+                    NotificationManager.getInstance(appCtx).sendNotificationToUser(notif, targetId);
+                }
+            }
+        });
+    }
+
+    public void dispatchExpenseResultNotification(android.content.Context context, String roomId,
+                                                  Transaction tx, boolean approved, String reason,
+                                                  String approverId, String approverRoleLabel) {
+        android.content.Context appCtx = context != null ? context.getApplicationContext() : SharedFundApp.getInstance();
+        if (appCtx == null || tx == null) return;
+        String requesterId = tx.getUserId();
+        if (requesterId == null || requesterId.trim().isEmpty()) return;
+        if (approverId != null && approverId.equalsIgnoreCase(requesterId.trim())) return;
+
+        Room r = roomId != null ? getRoomSync(roomId) : null;
+        String fundName = (r != null && r.getName() != null && !r.getName().trim().isEmpty()) ? r.getName() : "Quỹ nhóm";
+
+        DecimalFormatSymbols sym = new DecimalFormatSymbols(Locale.GERMANY);
+        sym.setGroupingSeparator('.');
+        DecimalFormat df = new DecimalFormat("#,###", sym);
+        String amountStr = df.format(Math.abs(tx.getAmount())) + " đ";
+        String safeNote = (tx.getNote() != null && !tx.getNote().trim().isEmpty()) ? tx.getNote().trim() : "Khoản chi quỹ";
+        String roleDisplay = (approverRoleLabel != null && !approverRoleLabel.trim().isEmpty()) ? approverRoleLabel.trim() : "Quản trị viên";
+
+        String title;
+        String desc;
+        if (approved) {
+            title = "Yêu cầu chi đã được duyệt";
+            desc = roleDisplay + " đã duyệt khoản chi \"" + safeNote + "\" (" + amountStr + ") của bạn tại " + fundName + ".";
+        } else {
+            title = "Yêu cầu chi bị từ chối";
+            String reasonPart = (reason != null && !reason.trim().isEmpty()) ? (" Lý do: " + reason.trim()) : "";
+            desc = roleDisplay + " đã từ chối khoản chi \"" + safeNote + "\" (" + amountStr + ") tại " + fundName + "." + reasonPart;
+        }
+
+        AppNotification notif = new AppNotification(
+                UUID.randomUUID().toString(),
+                AppNotification.TYPE_FUND_ACTIVITY,
+                fundName,
+                title,
+                desc,
+                "Vừa xong",
+                false,
+                roomId,
+                fundName
+        );
+        NotificationManager.getInstance(appCtx).sendNotificationToUser(notif, requesterId.trim());
+    }
+
+    public void markRecurringRulePaidIfMatched(String roomId, Transaction tx) {
+        if (roomId == null || roomId.trim().isEmpty() || tx == null) return;
+        boolean hasRuleRef = tx.getRecurringRuleId() != null && !tx.getRecurringRuleId().trim().isEmpty();
+        if (!tx.isRecurring() && !hasRuleRef) return;
+
+        TransactionRepository txRepo = new TransactionRepository();
+        if (token != null && !token.trim().isEmpty()) {
+            txRepo.setAccessToken(token);
+        }
+        txRepo.getRecurringRules(currentUserId, roomId, new TransactionRepository.DataCallback<List<RecurringRule>>() {
+            @Override
+            public void onSuccess(List<RecurringRule> rules) {
+                if (rules == null || rules.isEmpty()) return;
+                RecurringRule matched = null;
+                if (hasRuleRef) {
+                    for (RecurringRule rule : rules) {
+                        if (rule != null && tx.getRecurringRuleId().equals(rule.getId())) {
+                            matched = rule;
+                            break;
+                        }
+                    }
+                }
+                if (matched == null && tx.isRecurring()) {
+                    String txNote = tx.getNote() != null ? tx.getNote().trim() : "";
+                    for (RecurringRule rule : rules) {
+                        if (rule == null || !rule.isActive() || rule.isPaidInCurrentCycle()) continue;
+                        String title = rule.getTitle() != null ? rule.getTitle().trim() : "";
+                        if (!title.isEmpty() && title.equalsIgnoreCase(txNote)
+                                && Math.abs(Math.abs(rule.getAmount()) - Math.abs(tx.getAmount())) < 1.0) {
+                            matched = rule;
+                            break;
+                        }
+                    }
+                }
+                if (matched != null && !matched.isPaidInCurrentCycle()) {
+                    String localToday = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
+                    matched.setLastRunDate(localToday);
+                    matched.setNextRunDate(matched.computeNextRunDateIso());
+                    txRepo.updateRecurringRule(matched, new TransactionRepository.DataCallback<RecurringRule>() {
+                        @Override
+                        public void onSuccess(RecurringRule updated) {
+                            notifyRecurringRulesChanged();
+                        }
+
+                        @Override
+                        public void onError(String errorMessage) {}
+                    });
+                }
+            }
+
+            @Override
+            public void onError(String errorMessage) {}
         });
     }
 }

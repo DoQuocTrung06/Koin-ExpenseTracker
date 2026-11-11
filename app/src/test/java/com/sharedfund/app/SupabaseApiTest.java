@@ -293,4 +293,70 @@ public class SupabaseApiTest {
 
         repository.setCurrentUser("user-001", "Bạn");
     }
+
+    @Test
+    public void testRoomNudgeTagRoundtripAndExpiry() {
+        long now = System.currentTimeMillis();
+        java.util.Set<String> treasurers = new java.util.HashSet<>();
+        treasurers.add("treasurer-1");
+        java.util.Map<String, Long> nudges = new java.util.HashMap<>();
+        nudges.put("rule-active", now - 60_000L);
+        nudges.put("rule-expired", now - 3_700_000L);
+        nudges.put("rule-skew", now + 10_000L);
+
+        String fullDesc = Room.buildFullDescription("Quỹ trọ", treasurers, true, null, nudges);
+        Room room = new Room();
+        room.setDescription(fullDesc);
+
+        assertEquals("Quỹ trọ", room.getDescription());
+        assertTrue(room.isPrivateRoom());
+        assertTrue(room.getTreasurerIds().contains("treasurer-1"));
+
+        Map<String, Long> parsedNudges = room.getRecurringNudgeTimestamps();
+        assertTrue(parsedNudges.containsKey("rule-active"));
+        assertTrue(parsedNudges.containsKey("rule-skew"));
+        assertFalse(parsedNudges.containsKey("rule-expired"));
+    }
+
+    @Test
+    public void testRoleSsotOwnerVsTreasurer() {
+        RoomRepository repository = RoomRepository.getInstance();
+        repository.setCurrentUser("owner-1", "Chủ quỹ");
+
+        Room room = new Room("room-ssot-role", "Quỹ SSOT", "SSOT01", 100000.0,
+                "Mô tả||TREASURERS:treasurer-1,treasurer-2", 3, null);
+        room.setCreatedBy("owner-1");
+        room.setCurrentUserRole("OWNER");
+        repository.onRemoteRoomReceived(room);
+
+        assertTrue(repository.isUserRoomOwner("room-ssot-role", "owner-1"));
+        assertFalse(repository.isUserRoomTreasurer("room-ssot-role", "owner-1"));
+        assertTrue(repository.isCurrentUserAdmin("room-ssot-role"));
+
+        assertTrue(repository.isUserRoomTreasurer("room-ssot-role", "treasurer-1"));
+        assertFalse(repository.isUserRoomOwner("room-ssot-role", "treasurer-1"));
+        assertFalse(repository.isUserRoomTreasurer("room-ssot-role", "member-1"));
+
+        repository.setCurrentUser("treasurer-1", "Phó quỹ");
+        Room treasurerView = new Room("room-ssot-role", "Quỹ SSOT", "SSOT01", 100000.0,
+                "Mô tả||TREASURERS:treasurer-1,treasurer-2", 3, null);
+        treasurerView.setCreatedBy("owner-1");
+        treasurerView.setCurrentUserRole("TREASURER");
+        repository.onRemoteRoomReceived(treasurerView);
+        assertTrue(repository.isCurrentUserAdmin("room-ssot-role"));
+        assertFalse(repository.isUserRoomOwner("room-ssot-role", "treasurer-1"));
+        assertTrue(repository.isUserRoomTreasurer("room-ssot-role", "treasurer-1"));
+
+        repository.setCurrentUser("demoted-user", "Thành viên cũ");
+        Room demotedView = new Room("room-ssot-role", "Quỹ SSOT", "SSOT01", 100000.0,
+                "Mô tả||TREASURERS:treasurer-1,treasurer-2", 3, null);
+        demotedView.setCreatedBy("owner-1");
+        demotedView.setCurrentUserRole("TREASURER");
+        repository.onRemoteRoomReceived(demotedView);
+        assertFalse(repository.isUserRoomTreasurer("room-ssot-role", "demoted-user"));
+        assertFalse(repository.isCurrentUserAdmin("room-ssot-role"));
+
+        repository.onRemoteRoomDeleted("room-ssot-role");
+        repository.setCurrentUser("user-001", "Bạn");
+    }
 }

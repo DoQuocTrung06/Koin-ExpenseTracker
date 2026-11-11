@@ -727,14 +727,7 @@ public class RoomTransferFragment extends Fragment {
         if (myId == null || myId.isEmpty()) {
             myId = UserSessionManager.getInstance(requireContext()).getUserId();
         }
-        Room room = RoomRepository.getInstance().getRoomSync(roomId);
-        if (room != null) {
-            if ("OWNER".equalsIgnoreCase(room.getCurrentUserRole())) return true;
-            if (room.getCreatedBy() != null && room.getCreatedBy().equalsIgnoreCase(myId)) {
-                return true;
-            }
-        }
-        return false;
+        return RoomRepository.getInstance().isUserRoomOwner(roomId, myId);
     }
 
     private boolean isCurrentUserTreasurer() {
@@ -742,8 +735,7 @@ public class RoomTransferFragment extends Fragment {
         if (myId == null || myId.isEmpty()) {
             myId = UserSessionManager.getInstance(requireContext()).getUserId();
         }
-        Room room = RoomRepository.getInstance().getRoomSync(roomId);
-        return room != null && myId != null && room.getTreasurerIds().contains(myId);
+        return RoomRepository.getInstance().isUserRoomTreasurer(roomId, myId);
     }
 
     private void showVerificationDialog(String type, double amount, String source, String destName, String destAccount, String destBank, String note, Runnable onConfirm) {
@@ -808,13 +800,9 @@ public class RoomTransferFragment extends Fragment {
 
         tvSuccessTitle.setText(title);
         if (tvSuccessAmount != null) {
-            if (title != null && title.contains("yêu cầu")) {
-                tvSuccessAmount.setVisibility(View.GONE);
-            } else {
-                tvSuccessAmount.setVisibility(View.VISIBLE);
-                tvSuccessAmount.setText(amountFormatted);
-                tvSuccessAmount.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary));
-            }
+            tvSuccessAmount.setVisibility(View.VISIBLE);
+            tvSuccessAmount.setText(amountFormatted);
+            tvSuccessAmount.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary));
         }
         tvSuccessSource.setText(source);
         tvSuccessDest.setText(dest);
@@ -883,10 +871,11 @@ public class RoomTransferFragment extends Fragment {
         }
         layoutProcessingNotice.setVisibility(View.VISIBLE);
 
-        boolean isOwner = isCurrentUserOwner();
+        final boolean isOwner = isCurrentUserOwner();
         UserSessionManager session = UserSessionManager.getInstance(requireContext());
-        String userId = session.getUserId();
-        String userName = session.getCurrentUserName();
+        final String userId = session.getUserId();
+        final String userName = session.getCurrentUserName();
+        final android.content.Context appCtx = requireContext().getApplicationContext();
 
         TransactionRepository remote = new TransactionRepository();
         remote.setAccessToken(session.getAccessToken());
@@ -895,6 +884,9 @@ public class RoomTransferFragment extends Fragment {
                 new TransactionRepository.DataCallback<Transaction>() {
                     @Override
                     public void onSuccess(Transaction created) {
+                        if (!isOwner) {
+                            RoomRepository.getInstance().dispatchExpenseApprovalNotifications(appCtx, roomId, userId, userName, amount, note);
+                        }
                         if (!isAdded()) return;
                         requireActivity().runOnUiThread(() -> {
                             if (!isAdded()) return;
@@ -1036,10 +1028,14 @@ public class RoomTransferFragment extends Fragment {
     private void proceedBankWithdrawal(TransactionRepository remote, String userId, String userName,
                                       double amount, String category, String fullNote, String billImageUrl,
                                       boolean isOwner, String bankName, String accNum, String note) {
+        final android.content.Context appCtx = requireContext().getApplicationContext();
         remote.submitWithdrawal(userId, userName != null ? userName : "Member", roomId, amount, category, fullNote, billImageUrl, isOwner,
                 new TransactionRepository.DataCallback<Transaction>() {
                     @Override
                     public void onSuccess(Transaction created) {
+                        if (!isOwner) {
+                            RoomRepository.getInstance().dispatchExpenseApprovalNotifications(appCtx, roomId, userId, userName, amount, note);
+                        }
                         if (!isAdded()) return;
                         requireActivity().runOnUiThread(() -> {
                             if (!isAdded()) return;

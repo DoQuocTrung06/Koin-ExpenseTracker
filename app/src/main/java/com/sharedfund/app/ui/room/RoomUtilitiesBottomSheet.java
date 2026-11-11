@@ -85,7 +85,7 @@ public class RoomUtilitiesBottomSheet extends BottomSheetDialogFragment {
                     int overdueCount = 0;
                     if (rules != null) {
                         for (RecurringRule rule : rules) {
-                            if (rule != null && rule.isActive() && !rule.isPaidInCurrentMonth() && rule.getDaysDiffCurrentMonth() >= 0) {
+                            if (rule != null && rule.isActive() && !rule.isPaidInCurrentCycle() && rule.getDaysDiffCurrentCycle() >= 0) {
                                 overdueCount++;
                             }
                         }

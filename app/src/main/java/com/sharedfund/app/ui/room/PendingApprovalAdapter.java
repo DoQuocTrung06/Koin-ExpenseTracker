@@ -19,8 +19,10 @@ import com.sharedfund.app.ui.profile.AvatarImageLoader;
 import com.sharedfund.app.ui.transaction.TransactionAdapter;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 public class PendingApprovalAdapter extends RecyclerView.Adapter<PendingApprovalAdapter.ViewHolder> {
 
@@ -32,10 +34,21 @@ public class PendingApprovalAdapter extends RecyclerView.Adapter<PendingApproval
     private final List<Transaction> items = new ArrayList<>();
     private final String currentUserId;
     private final OnApprovalActionListener listener;
+    private boolean isViewerOwner = false;
+    private final Set<String> privilegedRequesterIds = new HashSet<>();
 
     public PendingApprovalAdapter(String currentUserId, OnApprovalActionListener listener) {
         this.currentUserId = currentUserId;
         this.listener = listener;
+    }
+
+    public void setApprovalContext(boolean isViewerOwner, Set<String> privilegedRequesterIds) {
+        this.isViewerOwner = isViewerOwner;
+        this.privilegedRequesterIds.clear();
+        if (privilegedRequesterIds != null) {
+            this.privilegedRequesterIds.addAll(privilegedRequesterIds);
+        }
+        notifyDataSetChanged();
     }
 
     public void setItems(List<Transaction> list) {
@@ -72,7 +85,7 @@ public class PendingApprovalAdapter extends RecyclerView.Adapter<PendingApproval
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         Transaction tx = items.get(position);
-        holder.bind(tx, currentUserId, listener);
+        holder.bind(tx, currentUserId, isViewerOwner, privilegedRequesterIds, listener);
     }
 
     public static class ViewHolder extends RecyclerView.ViewHolder {
@@ -103,7 +116,7 @@ public class PendingApprovalAdapter extends RecyclerView.Adapter<PendingApproval
             btnApproveExpense = itemView.findViewById(R.id.btnApproveExpense);
         }
 
-        public void bind(final Transaction tx, String currentUserId, final OnApprovalActionListener listener) {
+        public void bind(final Transaction tx, String currentUserId, boolean isViewerOwner, Set<String> privilegedRequesterIds, final OnApprovalActionListener listener) {
             String creator = tx.getCreatedBy();
             if (creator == null || creator.trim().isEmpty() || "Member".equalsIgnoreCase(creator)) {
                 creator = "Thành viên";
@@ -115,7 +128,7 @@ public class PendingApprovalAdapter extends RecyclerView.Adapter<PendingApproval
             tvPendingAmount.setTextColor(ContextCompat.getColor(itemView.getContext(), R.color.text_primary));
 
             String rawNote = tx.getNote() != null ? tx.getNote().trim() : "";
-            String rawCat = tx.getCategory() != null ? tx.getCategory().trim() : "";
+            String rawCat = TransactionAdapter.resolveDisplayCategory(tx.getCategory(), rawNote);
             String actionText = "";
             String displayNote = "";
 
@@ -194,15 +207,35 @@ public class PendingApprovalAdapter extends RecyclerView.Adapter<PendingApproval
                 }
             }
 
-            boolean isSelfRequest = (currentUserId != null && tx.getUserId() != null && currentUserId.equals(tx.getUserId()));
+            boolean isSelfRequest = (currentUserId != null && tx.getUserId() != null && currentUserId.equalsIgnoreCase(tx.getUserId()));
+            boolean requesterIsPrivileged = false;
+            if (tx.getUserId() != null && privilegedRequesterIds != null) {
+                for (String id : privilegedRequesterIds) {
+                    if (id != null && id.equalsIgnoreCase(tx.getUserId())) {
+                        requesterIsPrivileged = true;
+                        break;
+                    }
+                }
+            }
+            boolean blockedForTreasurer = !isViewerOwner && requesterIsPrivileged;
             if (isSelfRequest) {
                 btnApproveExpense.setEnabled(false);
                 btnApproveExpense.setAlpha(0.45f);
                 btnApproveExpense.setText("Không thể tự duyệt");
+                btnRejectExpense.setEnabled(false);
+                btnRejectExpense.setAlpha(0.45f);
+            } else if (blockedForTreasurer) {
+                btnApproveExpense.setEnabled(false);
+                btnApproveExpense.setAlpha(0.45f);
+                btnApproveExpense.setText("Chờ Chủ quỹ duyệt");
+                btnRejectExpense.setEnabled(false);
+                btnRejectExpense.setAlpha(0.45f);
             } else {
                 btnApproveExpense.setEnabled(true);
                 btnApproveExpense.setAlpha(1.0f);
                 btnApproveExpense.setText("Phê duyệt");
+                btnRejectExpense.setEnabled(true);
+                btnRejectExpense.setAlpha(1.0f);
             }
 
             btnApproveExpense.setOnClickListener(v -> {

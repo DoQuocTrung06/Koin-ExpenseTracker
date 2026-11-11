@@ -2,6 +2,8 @@ package com.sharedfund.app.ui.recurring;
 
 import android.content.Context;
 import android.content.res.ColorStateList;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -21,8 +23,12 @@ import com.sharedfund.app.model.RecurringRule;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 
 public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdapter.RecurringRuleViewHolder> {
 
@@ -34,11 +40,36 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
         void onNudgeRule(RecurringRule rule);
     }
 
+    private static final long NUDGE_COOLDOWN_MS = 60 * 60 * 1000L;
+
     private final List<RecurringRule> rules = new ArrayList<>();
     private final OnRecurringActionListener listener;
     private boolean isManager = true;
     private boolean isRoomScope = false;
+    private String scopeRoomId = "";
     private RecurringRuleViewHolder currentlySwipedHolder = null;
+    private final Map<String, Long> nudgeTimestamps = new HashMap<>();
+    private final Set<String> pendingRuleKeys = new HashSet<>();
+    private final Set<RecurringRuleViewHolder> attachedHolders = new HashSet<>();
+    private final Handler countdownHandler = new Handler(Looper.getMainLooper());
+    private boolean isTickerRunning = false;
+
+    private final Runnable countdownRunnable = new Runnable() {
+        @Override
+        public void run() {
+            boolean anyActive = false;
+            for (RecurringRuleViewHolder holder : new ArrayList<>(attachedHolders)) {
+                if (holder != null && holder.updateNudgeCountdownTick()) {
+                    anyActive = true;
+                }
+            }
+            if (anyActive) {
+                countdownHandler.postDelayed(this, 1000L);
+            } else {
+                isTickerRunning = false;
+            }
+        }
+    };
 
     public RecurringRuleAdapter(OnRecurringActionListener listener) {
         this.listener = listener;
@@ -54,12 +85,106 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
         notifyDataSetChanged();
     }
 
+    public void setScopeRoomId(String scopeRoomId) {
+        this.scopeRoomId = scopeRoomId != null ? scopeRoomId.trim() : "";
+    }
+
+    public void setNudgeTimestamps(Map<String, Long> timestamps) {
+        nudgeTimestamps.clear();
+        if (timestamps != null) {
+            nudgeTimestamps.putAll(timestamps);
+        }
+        notifyDataSetChanged();
+        startTickerIfNeeded();
+    }
+
+    public void setPendingRuleKeys(Set<String> keys) {
+        pendingRuleKeys.clear();
+        if (keys != null) {
+            pendingRuleKeys.addAll(keys);
+        }
+        notifyDataSetChanged();
+    }
+
+    public void stopTimers() {
+        countdownHandler.removeCallbacks(countdownRunnable);
+        isTickerRunning = false;
+        attachedHolders.clear();
+    }
+
+    private void startTickerIfNeeded() {
+        boolean hasActive = false;
+        for (RecurringRuleViewHolder holder : attachedHolders) {
+            if (holder != null && holder.hasActiveNudgeCountdown()) {
+                hasActive = true;
+                break;
+            }
+        }
+        if (!hasActive) {
+            long now = System.currentTimeMillis();
+            for (Long ts : nudgeTimestamps.values()) {
+                if (ts != null && (now - ts) < NUDGE_COOLDOWN_MS && (ts - now) < 300000L) {
+                    hasActive = true;
+                    break;
+                }
+            }
+        }
+        if (hasActive && !isTickerRunning) {
+            isTickerRunning = true;
+            countdownHandler.postDelayed(countdownRunnable, 1000L);
+        } else if (!hasActive && isTickerRunning) {
+            countdownHandler.removeCallbacks(countdownRunnable);
+            isTickerRunning = false;
+        }
+    }
+
+    private long getRemainingCooldownMs(RecurringRule rule) {
+        if (rule == null) return 0L;
+        long latest = 0L;
+        String idKey = rule.getId() != null ? rule.getId().trim() : "";
+        if (!idKey.isEmpty() && nudgeTimestamps.containsKey(idKey)) {
+            Long ts = nudgeTimestamps.get(idKey);
+            if (ts != null && ts > latest) latest = ts;
+        }
+        String titleKey = rule.getTitle() != null ? rule.getTitle().trim().toLowerCase(Locale.ROOT) : "";
+        String rIdKey = (rule.getRoomId() != null && !rule.getRoomId().trim().isEmpty()) ? rule.getRoomId().trim() : scopeRoomId;
+        if (!rIdKey.isEmpty() && !titleKey.isEmpty()) {
+            String scoped = rIdKey + "|" + titleKey;
+            Long ts = nudgeTimestamps.get(scoped);
+            if (ts != null && ts > latest) latest = ts;
+        }
+        if (!titleKey.isEmpty() && nudgeTimestamps.containsKey(titleKey)) {
+            Long ts = nudgeTimestamps.get(titleKey);
+            if (ts != null && ts > latest) latest = ts;
+        }
+        if (latest <= 0L) return 0L;
+        long now = System.currentTimeMillis();
+        if ((latest - now) >= 300000L) return 0L;
+        long remaining = NUDGE_COOLDOWN_MS - Math.max(0L, now - latest);
+        return remaining > 0L ? remaining : 0L;
+    }
+
+    private boolean isRulePendingApproval(RecurringRule rule) {
+        if (rule == null || pendingRuleKeys.isEmpty()) return false;
+        String idKey = rule.getId() != null ? rule.getId().trim() : "";
+        if (!idKey.isEmpty() && pendingRuleKeys.contains(idKey)) return true;
+        String titleKey = rule.getTitle() != null ? rule.getTitle().trim().toLowerCase(Locale.ROOT) : "";
+        if (titleKey.isEmpty()) return false;
+        long amtKey = (long) Math.abs(rule.getAmount());
+        String rIdKey = (rule.getRoomId() != null && !rule.getRoomId().trim().isEmpty()) ? rule.getRoomId().trim() : scopeRoomId;
+        if (!rIdKey.isEmpty() && pendingRuleKeys.contains(rIdKey + "|" + titleKey + "|" + amtKey)) {
+            return true;
+        }
+        return pendingRuleKeys.contains("|" + titleKey + "|" + amtKey);
+    }
+
     public void submitList(List<RecurringRule> newRules) {
         rules.clear();
         if (newRules != null) {
             rules.addAll(newRules);
         }
         notifyDataSetChanged();
+        startTickerIfNeeded();
     }
 
     public void closeAnySwipedCard() {
@@ -79,6 +204,26 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
     @Override
     public void onBindViewHolder(@NonNull RecurringRuleViewHolder holder, int position) {
         holder.bind(rules.get(position));
+    }
+
+    @Override
+    public void onViewAttachedToWindow(@NonNull RecurringRuleViewHolder holder) {
+        super.onViewAttachedToWindow(holder);
+        attachedHolders.add(holder);
+        holder.updateNudgeCountdownTick();
+        startTickerIfNeeded();
+    }
+
+    @Override
+    public void onViewDetachedFromWindow(@NonNull RecurringRuleViewHolder holder) {
+        super.onViewDetachedFromWindow(holder);
+        attachedHolders.remove(holder);
+    }
+
+    @Override
+    public void onDetachedFromRecyclerView(@NonNull RecyclerView recyclerView) {
+        super.onDetachedFromRecyclerView(recyclerView);
+        stopTimers();
     }
 
     @Override
@@ -104,6 +249,7 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
         private boolean isSwiping = false;
         private boolean isOpen = false;
         private final float maxSwipeDistance;
+        private RecurringRule boundRule;
 
         RecurringRuleViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -276,6 +422,7 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
         }
 
         void bind(RecurringRule rule) {
+            this.boundRule = rule;
             closeSwipe(false);
             Context context = itemView.getContext();
 
@@ -348,6 +495,17 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
                 return;
             }
 
+            if (isRulePendingApproval(rule)) {
+                tvStatusBadge.setVisibility(View.GONE);
+                tvRemainingBadge.setVisibility(View.VISIBLE);
+                tvRemainingBadge.setText("Chờ Chủ quỹ duyệt");
+                tvRemainingBadge.setBackgroundResource(R.drawable.bg_pending_badge);
+                tvRemainingBadge.setTextColor(ContextCompat.getColor(context, R.color.accent_amber));
+                btnActionPay.setVisibility(View.GONE);
+                btnActionNudge.setVisibility(View.GONE);
+                return;
+            }
+
             int diff = rule.getDaysDiffCurrentCycle();
 
             if (diff > 0) {
@@ -391,16 +549,44 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
         private void bindNudgeButton(Context context, RecurringRule rule) {
             btnActionPay.setVisibility(View.GONE);
             btnActionNudge.setVisibility(View.VISIBLE);
-            android.content.SharedPreferences prefs = context.getSharedPreferences("recurring_nudge_prefs", Context.MODE_PRIVATE);
-            long lastNudge = prefs.getLong("nudge_cooldown_" + rule.getId(), 0);
-            long now = System.currentTimeMillis();
-            long cooldownMs = 60 * 60 * 1000L;
-            if (now - lastNudge < cooldownMs) {
-                long remainingMinutes = (cooldownMs - (now - lastNudge) + 59999) / 60000;
-                btnActionNudge.setText("Đã nhắc (" + remainingMinutes + "p)");
-                btnActionNudge.setAlpha(0.6f);
+            applyNudgeButtonState(context, getRemainingCooldownMs(rule));
+        }
+
+        boolean hasActiveNudgeCountdown() {
+            return boundRule != null
+                    && btnActionNudge.getVisibility() == View.VISIBLE
+                    && getRemainingCooldownMs(boundRule) > 0L;
+        }
+
+        boolean updateNudgeCountdownTick() {
+            if (boundRule == null || btnActionNudge.getVisibility() != View.VISIBLE) {
+                return false;
+            }
+            long remainingMs = getRemainingCooldownMs(boundRule);
+            applyNudgeButtonState(itemView.getContext(), remainingMs);
+            return remainingMs > 0L;
+        }
+
+        private void applyNudgeButtonState(Context context, long remainingMs) {
+            if (remainingMs > 0L) {
+                long totalSeconds = Math.max(1L, remainingMs / 1000L);
+                if (totalSeconds >= 3600L) totalSeconds = 3599L;
+                long mins = totalSeconds / 60L;
+                long secs = totalSeconds % 60L;
+                btnActionNudge.setEnabled(false);
+                btnActionNudge.setClickable(false);
+                btnActionNudge.setText(String.format(Locale.US, "Đã nhắc (%02d:%02d)", mins, secs));
+                btnActionNudge.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(context, R.color.surface_variant)));
+                btnActionNudge.setStrokeColor(ColorStateList.valueOf(ContextCompat.getColor(context, R.color.border)));
+                btnActionNudge.setTextColor(ContextCompat.getColor(context, R.color.text_tertiary));
+                btnActionNudge.setAlpha(1.0f);
             } else {
+                btnActionNudge.setEnabled(true);
+                btnActionNudge.setClickable(true);
                 btnActionNudge.setText("Nhắc đóng tiền");
+                btnActionNudge.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(context, R.color.accent_amber_light)));
+                btnActionNudge.setStrokeColor(ColorStateList.valueOf(ContextCompat.getColor(context, R.color.accent_amber)));
+                btnActionNudge.setTextColor(ContextCompat.getColor(context, R.color.accent_amber));
                 btnActionNudge.setAlpha(1.0f);
             }
         }

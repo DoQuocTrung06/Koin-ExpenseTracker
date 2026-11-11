@@ -136,7 +136,7 @@
                         android:paddingEnd="14dp"
                         android:textColor="@color/text_primary"
                         android:textColorHint="@color/text_tertiary"
-                        android:textSize="15sp" />
+                        android:textSize="13.5sp" />
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <TextView

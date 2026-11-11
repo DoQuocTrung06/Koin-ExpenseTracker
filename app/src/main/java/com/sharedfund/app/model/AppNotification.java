@@ -149,11 +149,10 @@ public class AppNotification implements Serializable {
         return "Vừa xong";
     }
 
-    private String formatRelativeTime(String isoString) {
+    public static long parseCreatedAtMillis(String isoString) {
+        if (isoString == null || isoString.trim().isEmpty()) return 0L;
         try {
-            java.text.SimpleDateFormat isoFormat = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US);
-            isoFormat.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
-            String cleanIso = isoString;
+            String cleanIso = isoString.trim();
             int dotIdx = cleanIso.indexOf('.');
             if (dotIdx != -1) {
                 int plusIdx = cleanIso.indexOf('+', dotIdx);
@@ -167,28 +166,39 @@ public class AppNotification implements Serializable {
             if (plusIdx != -1) {
                 cleanIso = cleanIso.substring(0, plusIdx);
             }
-            java.util.Date notifDate = isoFormat.parse(cleanIso);
-            if (notifDate != null) {
-                long diffMs = System.currentTimeMillis() - notifDate.getTime();
-                if (diffMs < 60000L) {
-                    return "Vừa xong";
-                }
-                long minutes = diffMs / 60000L;
-                if (minutes < 60) {
-                    return minutes + " phút trước";
-                }
-                long hours = minutes / 60;
-                if (hours < 24) {
-                    return hours + " giờ trước";
-                }
-                long days = hours / 24;
-                if (days < 7) {
-                    return days + " ngày trước";
-                }
-                java.text.SimpleDateFormat outFormat = new java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault());
-                return outFormat.format(notifDate);
+            java.text.SimpleDateFormat isoFormat = new java.text.SimpleDateFormat(
+                    cleanIso.contains("T") ? "yyyy-MM-dd'T'HH:mm:ss" : "yyyy-MM-dd HH:mm:ss",
+                    java.util.Locale.US);
+            isoFormat.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+            java.util.Date parsed = isoFormat.parse(cleanIso);
+            return parsed != null ? parsed.getTime() : 0L;
+        } catch (Exception ignored) {
+            return 0L;
+        }
+    }
+
+    private String formatRelativeTime(String isoString) {
+        long millis = parseCreatedAtMillis(isoString);
+        if (millis > 0L) {
+            long diffMs = System.currentTimeMillis() - millis;
+            if (diffMs < 60000L) {
+                return "Vừa xong";
             }
-        } catch (Exception ignored) {}
+            long minutes = diffMs / 60000L;
+            if (minutes < 60) {
+                return minutes + " phút trước";
+            }
+            long hours = minutes / 60;
+            if (hours < 24) {
+                return hours + " giờ trước";
+            }
+            long days = hours / 24;
+            if (days < 7) {
+                return days + " ngày trước";
+            }
+            java.text.SimpleDateFormat outFormat = new java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault());
+            return outFormat.format(new java.util.Date(millis));
+        }
         return "Vừa xong";
     }
 

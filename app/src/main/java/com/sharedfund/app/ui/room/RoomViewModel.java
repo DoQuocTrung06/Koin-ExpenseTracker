@@ -226,13 +226,7 @@ public class RoomViewModel extends ViewModel {
                     periodIncome += tx.getAmount();
                 } else if (tx.isExpense()) {
                     periodExpense += tx.getAmount();
-                    String cat = tx.getCategory() != null && !tx.getCategory().trim().isEmpty() ? tx.getCategory() : "Khác";
-                    if (cat.equalsIgnoreCase("Dinh ky") || cat.equalsIgnoreCase("Định kỳ") || cat.equalsIgnoreCase("Khác")) {
-                        String inferred = com.sharedfund.app.ui.transaction.TransactionAdapter.inferCategoryFromNote(tx.getNote());
-                        if (!inferred.equalsIgnoreCase("Khác")) {
-                            cat = inferred;
-                        }
-                    }
+                    String cat = TransactionAdapter.resolveDisplayCategory(tx.getCategory(), tx.getNote());
                     periodCategoryStats.put(cat, periodCategoryStats.getOrDefault(cat, 0.0) + tx.getAmount());
                 }
 

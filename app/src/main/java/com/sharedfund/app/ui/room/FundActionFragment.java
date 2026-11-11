@@ -485,9 +485,8 @@ public class FundActionFragment extends Fragment {
             myId = RoomRepository.getInstance().getCurrentUserId();
         }
         if (myId == null) return false;
-        Room room = RoomRepository.getInstance().getRoomSync(roomId);
-        if (room != null && room.getTreasurerIds().contains(myId)) {
-            return true;
+        if (RoomRepository.getInstance().getRoomSync(roomId) != null) {
+            return RoomRepository.getInstance().isUserRoomTreasurer(roomId, myId);
         }
         java.util.Set<String> set = requireContext().getSharedPreferences("room_roles_" + roomId, android.content.Context.MODE_PRIVATE)
                 .getStringSet("treasurer_ids", java.util.Collections.emptySet());
@@ -501,12 +500,8 @@ public class FundActionFragment extends Fragment {
         if (myId == null || myId.isEmpty()) {
             myId = RoomRepository.getInstance().getCurrentUserId();
         }
-        Room room = RoomRepository.getInstance().getRoomSync(roomId);
-        if (room != null) {
-            if ("OWNER".equalsIgnoreCase(room.getCurrentUserRole())) return true;
-            if (room.getCreatedBy() != null && myId != null && room.getCreatedBy().equalsIgnoreCase(myId)) {
-                return true;
-            }
+        if (roomId != null && RoomRepository.getInstance().getRoomSync(roomId) != null) {
+            return RoomRepository.getInstance().isUserRoomOwner(roomId, myId);
         }
         if (roomId != null) {
             String savedOwnerId = requireContext().getSharedPreferences("room_roles_" + roomId, android.content.Context.MODE_PRIVATE)
@@ -755,10 +750,14 @@ public class FundActionFragment extends Fragment {
 
     private void proceedWithdrawTransaction(TransactionRepository remote, String userId, String userName,
                                             double amount, String note, String billImageUrl, boolean isOwner) {
+        final Context appCtx = requireContext().getApplicationContext();
         remote.submitWithdrawal(userId, userName != null ? userName : "Member", roomId, amount, selectedWithdrawCategory, note, billImageUrl, isOwner,
                 new TransactionRepository.DataCallback<Transaction>() {
                     @Override
                     public void onSuccess(Transaction created) {
+                        if (!isOwner) {
+                            RoomRepository.getInstance().dispatchExpenseApprovalNotifications(appCtx, roomId, userId, userName, amount, note);
+                        }
                         if (!isAdded()) return;
                         requireActivity().runOnUiThread(() -> {
                             if (!isAdded()) return;

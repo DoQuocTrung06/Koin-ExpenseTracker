@@ -6,6 +6,10 @@ import android.os.Handler;
 import android.os.Looper;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
 import com.sharedfund.app.model.AppNotification;
 
@@ -14,10 +18,12 @@ import java.lang.reflect.Type;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.UUID;
@@ -408,6 +414,113 @@ public class NotificationManager {
                 if (response.body() != null) response.body().close();
             }
         });
+    }
+
+    public interface NudgeMapCallback {
+        void onResult(Map<String, Long> nudgeTimestamps);
+    }
+
+    public void fetchRoomRecurringNudgeTimestamps(String roomId, NudgeMapCallback callback) {
+        if (callback == null) return;
+        Map<String, Long> localMap = collectCachedNudgeTimestamps(roomId);
+        if (roomId == null || roomId.trim().isEmpty()) {
+            mainHandler.post(() -> callback.onResult(localMap));
+            return;
+        }
+        String url = SupabaseConfig.REST_URL + "/notifications?room_id=eq." + roomId
+                + "&type=eq." + AppNotification.TYPE_RECURRING_DUE
+                + "&select=title,created_at&order=created_at.desc&limit=50";
+        Request request = new Request.Builder()
+                .url(url)
+                .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
+                .addHeader("Authorization", "Bearer " + getEffectiveToken())
+                .get()
+                .build();
+
+        httpClient.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                Map<String, Long> fallback = collectCachedNudgeTimestamps(roomId);
+                mainHandler.post(() -> callback.onResult(fallback));
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                Map<String, Long> result = new HashMap<>(collectCachedNudgeTimestamps(roomId));
+                String json = response.body() != null ? response.body().string() : "";
+                if (response.isSuccessful() && json != null && !json.trim().isEmpty()) {
+                    try {
+                        JsonArray arr = JsonParser.parseString(json).getAsJsonArray();
+                        long now = System.currentTimeMillis();
+                        String prefix = "Nhắc thanh toán:";
+                        for (JsonElement el : arr) {
+                            if (!el.isJsonObject()) continue;
+                            JsonObject obj = el.getAsJsonObject();
+                            String title = obj.has("title") && !obj.get("title").isJsonNull() ? obj.get("title").getAsString() : "";
+                            String createdAt = obj.has("created_at") && !obj.get("created_at").isJsonNull() ? obj.get("created_at").getAsString() : "";
+                            if (title.startsWith(prefix)) {
+                                String ruleTitleKey = title.substring(prefix.length()).trim().toLowerCase(Locale.ROOT);
+                                if (!ruleTitleKey.isEmpty()) {
+                                    long ts = AppNotification.parseCreatedAtMillis(createdAt);
+                                    if (ts > 0L && (now - ts) < 3600000L && (ts - now) < 300000L) {
+                                        Long existing = result.get(ruleTitleKey);
+                                        if (existing == null || ts > existing) {
+                                            result.put(ruleTitleKey, ts);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                }
+                mainHandler.post(() -> callback.onResult(result));
+            }
+        });
+    }
+
+    private synchronized Map<String, Long> collectCachedNudgeTimestamps(String roomId) {
+        Map<String, Long> map = new HashMap<>();
+        long now = System.currentTimeMillis();
+        String prefix = "Nhắc thanh toán:";
+        for (AppNotification item : cachedList) {
+            if (item == null) continue;
+            if (roomId != null && !roomId.trim().isEmpty() && !roomId.equals(item.getTargetRoomId())) continue;
+            if (!AppNotification.TYPE_RECURRING_DUE.equals(item.getType())) continue;
+            String title = item.getTitle();
+            if (title != null && title.startsWith(prefix)) {
+                String ruleTitleKey = title.substring(prefix.length()).trim().toLowerCase(Locale.ROOT);
+                long ts = AppNotification.parseCreatedAtMillis(item.getCreatedAt());
+                if (!ruleTitleKey.isEmpty() && ts > 0L && (now - ts) < 3600000L && (ts - now) < 300000L) {
+                    Long existing = map.get(ruleTitleKey);
+                    if (existing == null || ts > existing) {
+                        map.put(ruleTitleKey, ts);
+                    }
+                }
+            }
+        }
+        return map;
+    }
+
+    public synchronized boolean hasRecentOverdueNotification(String roomId, String ruleTitle, long withinMs) {
+        if (roomId == null || ruleTitle == null || ruleTitle.trim().isEmpty()) return false;
+        long now = System.currentTimeMillis();
+        String targetLower = ruleTitle.trim().toLowerCase(Locale.ROOT);
+        for (AppNotification item : cachedList) {
+            if (item == null) continue;
+            if (!roomId.equals(item.getTargetRoomId())) continue;
+            if (!AppNotification.TYPE_RECURRING_DUE.equals(item.getType())) continue;
+            String title = item.getTitle();
+            if (title == null) continue;
+            String titleLower = title.toLowerCase(Locale.ROOT);
+            boolean isOverdueTitle = title.startsWith("[Quá hạn]") || title.startsWith("[Quỹ phòng]");
+            if (isOverdueTitle && titleLower.contains(targetLower)) {
+                long ts = AppNotification.parseCreatedAtMillis(item.getCreatedAt());
+                if (ts == 0L || (now - ts) < withinMs) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private String getCacheKey() {

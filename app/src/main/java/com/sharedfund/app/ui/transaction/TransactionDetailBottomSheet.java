@@ -156,10 +156,7 @@ public class TransactionDetailBottomSheet extends BottomSheetDialogFragment {
         }
         tvDetailCreator.setText(creator);
 
-        String cat = transaction.getCategory();
-        if (cat == null || cat.trim().isEmpty() || "Dinh ky".equalsIgnoreCase(cat) || "Định kỳ".equalsIgnoreCase(cat)) {
-            cat = resolveCategoryFromNote(transaction.getNote());
-        }
+        String cat = TransactionAdapter.resolveDisplayCategory(transaction.getCategory(), transaction.getNote());
         tvDetailCategory.setText(cat);
         tvDetailNote.setText(transaction.getNote() != null && !transaction.getNote().trim().isEmpty() ? transaction.getNote() : "Không có ghi chú");
         tvDetailDate.setText(TransactionAdapter.formatDateTime(transaction.getCreatedAt()));
@@ -249,7 +246,13 @@ public class TransactionDetailBottomSheet extends BottomSheetDialogFragment {
             tvDetailStatusBadge.setTextColor(ContextCompat.getColor(requireContext(), R.color.accent_income));
         }
 
-        if (isAdmin && transaction.isPending() && transaction.isExpense()) {
+        String viewerId = com.sharedfund.app.data.UserSessionManager.getInstance(requireContext()).getUserId();
+        if (viewerId == null || viewerId.trim().isEmpty()) {
+            viewerId = RoomRepository.getInstance().getCurrentUserId();
+        }
+        boolean isSelfRequest = viewerId != null && !viewerId.trim().isEmpty()
+                && transaction.getUserId() != null && viewerId.equalsIgnoreCase(transaction.getUserId());
+        if (isAdmin && !isSelfRequest && transaction.isPending() && transaction.isExpense()) {
             layoutAdminActions.setVisibility(View.VISIBLE);
 
             btnApproveExpense.setOnClickListener(v -> {
@@ -265,30 +268,6 @@ public class TransactionDetailBottomSheet extends BottomSheetDialogFragment {
         }
 
         btnCloseDetail.setOnClickListener(v -> dismiss());
-    }
-
-        private String resolveCategoryFromNote(String note) {
-        if (note == null) return "Khác";
-        String lower = note.toLowerCase(java.util.Locale.ROOT);
-        if (lower.contains("điện") || lower.contains("nước") || lower.contains("dien nuoc") || lower.contains("mạng") || lower.contains("internet") || lower.contains("wifi") || lower.contains("fpt") || lower.contains("viettel")) {
-            return "Điện nước";
-        }
-        if (lower.contains("phòng") || lower.contains("trọ") || lower.contains("nhà") || lower.contains("thuê") || lower.contains("phong tro")) {
-            return "Tiền phòng";
-        }
-        if (lower.contains("ăn") || lower.contains("uống") || lower.contains("cơm") || lower.contains("chợ") || lower.contains("thực phẩm") || lower.contains("food") || lower.contains("an uong")) {
-            return "Ăn uống";
-        }
-        if (lower.contains("mua") || lower.contains("sắm") || lower.contains("đồ dùng") || lower.contains("siêu thị") || lower.contains("mua sam")) {
-            return "Mua sắm";
-        }
-        if (lower.contains("xe") || lower.contains("xăng") || lower.contains("gửi xe") || lower.contains("đi lại") || lower.contains("di chuyen") || lower.contains("grab")) {
-            return "Di chuyển";
-        }
-        if (lower.contains("liên hoan") || lower.contains("tiệc") || lower.contains("sinh nhật") || lower.contains("party")) {
-            return "Liên hoan";
-        }
-        return "Khác";
     }
 
 private void showReceiptImageDialog(String imageUrl) {
