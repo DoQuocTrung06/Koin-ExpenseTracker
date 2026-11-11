@@ -565,6 +565,8 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
         }
 
         final boolean isOwner = isCurrentUserOwnerForRoom(targetRoomId);
+        final boolean isTreasurer = RoomRepository.getInstance().isUserRoomTreasurer(targetRoomId, requesterId);
+        final boolean canDirectApprove = isOwner || (isTreasurer && ruleAmount <= 5000000.0);
         java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault());
         final String formattedTime = sdf.format(new java.util.Date());
 
@@ -583,14 +585,14 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
                 category,
                 note,
                 null,
-                isOwner,
+                canDirectApprove,
                 true,
                 rule.getId(),
                 new TransactionRepository.DataCallback<Transaction>() {
                     @Override
                     public void onSuccess(Transaction createdTx) {
                         final double updatedBalance;
-                        if (isOwner) {
+                        if (canDirectApprove) {
                             java.text.SimpleDateFormat localDateFmt = new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
                             rule.setLastRunDate(localDateFmt.format(new java.util.Date()));
                             rule.setNextRunDate(rule.computeNextRunDateIso());
@@ -613,7 +615,7 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
                             RoomRepository.getInstance().refreshRoomTransactions(targetRoomId, null);
                         }
 
-                        if (isOwner) {
+                        if (canDirectApprove) {
                             transactionRepository.updateRecurringRule(rule, new TransactionRepository.DataCallback<RecurringRule>() {
                                 @Override
                                 public void onSuccess(RecurringRule updated) {
@@ -648,10 +650,10 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
                                     DecimalFormat df = new DecimalFormat("#,###", symbols);
 
                                     if (tvSuccessTitle != null) {
-                                        tvSuccessTitle.setText(isOwner ? "Xuất quỹ thành công!" : "Yêu cầu xuất quỹ đã gửi!");
+                                        tvSuccessTitle.setText(canDirectApprove ? "Xuất quỹ thành công!" : "Yêu cầu xuất quỹ đã gửi!");
                                     }
                                     if (tvSuccessSubtitle != null) {
-                                        tvSuccessSubtitle.setText(isOwner ? "Đã thanh toán khoản định kỳ" : "Yêu cầu đã được gửi tới Chủ quỹ để phê duyệt");
+                                        tvSuccessSubtitle.setText(canDirectApprove ? "Đã thanh toán khoản định kỳ" : "Yêu cầu đã được gửi tới Chủ quỹ để phê duyệt");
                                     }
                                     if (tvSuccessAmount != null) tvSuccessAmount.setText("- " + df.format(ruleAmount) + " đ");
                                     String rawTxId = createdTx.getId() != null ? createdTx.getId() : UUID.randomUUID().toString();
@@ -665,10 +667,10 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
                                     if (tvSuccessUserName != null) tvSuccessUserName.setText(requesterName);
                                     if (tvSuccessTime != null) tvSuccessTime.setText(formattedTime);
                                     if (dividerSuccessBalance != null) {
-                                        dividerSuccessBalance.setVisibility(isOwner ? View.VISIBLE : View.GONE);
+                                        dividerSuccessBalance.setVisibility(canDirectApprove ? View.VISIBLE : View.GONE);
                                     }
                                     if (layoutSuccessBalanceRow != null) {
-                                        layoutSuccessBalanceRow.setVisibility(isOwner ? View.VISIBLE : View.GONE);
+                                        layoutSuccessBalanceRow.setVisibility(canDirectApprove ? View.VISIBLE : View.GONE);
                                     }
                                     if (tvSuccessBalance != null) tvSuccessBalance.setText(df.format(updatedBalance) + " đ");
 

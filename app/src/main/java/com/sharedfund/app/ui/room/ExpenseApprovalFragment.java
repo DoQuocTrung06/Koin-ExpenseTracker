@@ -260,13 +260,9 @@ public class ExpenseApprovalFragment extends Fragment {
         if (adminId == null || adminId.isEmpty()) {
             adminId = RoomRepository.getInstance().getCurrentUserId();
         }
-        if (adminId != null && tx.getUserId() != null && adminId.equalsIgnoreCase(tx.getUserId())) {
-            AppToaster.error(requireActivity(), "Không thể tự phê duyệt khoản chi của chính mình!");
-            return;
-        }
         boolean isOwnerViewer = RoomRepository.getInstance().isUserRoomOwner(roomId, adminId);
-        if (!isOwnerViewer && isRequesterPrivileged(tx.getUserId())) {
-            AppToaster.error(requireActivity(), "Yêu cầu của Phó quỹ cần Chủ quỹ phê duyệt!");
+        if (!isOwnerViewer && tx.getAmount() > 5000000.0) {
+            AppToaster.error(requireActivity(), requireContext().getString(R.string.expense_over_5m_requires_owner));
             return;
         }
 
@@ -358,13 +354,9 @@ public class ExpenseApprovalFragment extends Fragment {
         if (adminId == null || adminId.isEmpty()) {
             adminId = RoomRepository.getInstance().getCurrentUserId();
         }
-        if (adminId != null && tx.getUserId() != null && adminId.equalsIgnoreCase(tx.getUserId())) {
-            AppToaster.error(requireActivity(), "Không thể tự từ chối khoản chi của chính mình!");
-            return;
-        }
         boolean isOwnerViewer = RoomRepository.getInstance().isUserRoomOwner(roomId, adminId);
-        if (!isOwnerViewer && isRequesterPrivileged(tx.getUserId())) {
-            AppToaster.error(requireActivity(), "Yêu cầu của Phó quỹ cần Chủ quỹ xử lý!");
+        if (!isOwnerViewer && tx.getAmount() > 5000000.0) {
+            AppToaster.error(requireActivity(), requireContext().getString(R.string.expense_over_5m_requires_owner));
             return;
         }
 

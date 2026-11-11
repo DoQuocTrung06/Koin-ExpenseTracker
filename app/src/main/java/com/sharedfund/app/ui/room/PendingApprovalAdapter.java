@@ -217,23 +217,18 @@ public class PendingApprovalAdapter extends RecyclerView.Adapter<PendingApproval
                     }
                 }
             }
-            boolean blockedForTreasurer = !isViewerOwner && requesterIsPrivileged;
-            if (isSelfRequest) {
+            boolean amountExceedsTreasurerLimit = tx.getAmount() > 5000000.0;
+            boolean requiresOwnerApproval = !isViewerOwner && amountExceedsTreasurerLimit;
+            if (requiresOwnerApproval) {
                 btnApproveExpense.setEnabled(false);
                 btnApproveExpense.setAlpha(0.45f);
-                btnApproveExpense.setText("Không thể tự duyệt");
-                btnRejectExpense.setEnabled(false);
-                btnRejectExpense.setAlpha(0.45f);
-            } else if (blockedForTreasurer) {
-                btnApproveExpense.setEnabled(false);
-                btnApproveExpense.setAlpha(0.45f);
-                btnApproveExpense.setText("Chờ Chủ quỹ duyệt");
+                btnApproveExpense.setText(btnApproveExpense.getContext().getString(R.string.waiting_owner_approval));
                 btnRejectExpense.setEnabled(false);
                 btnRejectExpense.setAlpha(0.45f);
             } else {
                 btnApproveExpense.setEnabled(true);
                 btnApproveExpense.setAlpha(1.0f);
-                btnApproveExpense.setText("Phê duyệt");
+                btnApproveExpense.setText(btnApproveExpense.getContext().getString(R.string.approve));
                 btnRejectExpense.setEnabled(true);
                 btnRejectExpense.setAlpha(1.0f);
             }

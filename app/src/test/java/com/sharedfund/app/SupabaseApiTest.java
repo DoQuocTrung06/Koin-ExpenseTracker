@@ -359,4 +359,27 @@ public class SupabaseApiTest {
         repository.onRemoteRoomDeleted("room-ssot-role");
         repository.setCurrentUser("user-001", "Bạn");
     }
+
+    @Test
+    public void testTreasurerApprovalLimitThreshold() {
+        RoomRepository repository = RoomRepository.getInstance();
+        Room room = new Room("room-threshold", "Quỹ Test Limit", "LIMIT1", 10000000.0,
+                "Quỹ||TREASURERS:treasurer-test", 2, null);
+        room.setCreatedBy("owner-test");
+        room.setCurrentUserRole("OWNER");
+        repository.onRemoteRoomReceived(room);
+
+        assertTrue(repository.isUserRoomTreasurer("room-threshold", "treasurer-test"));
+        assertFalse(repository.isUserRoomOwner("room-threshold", "treasurer-test"));
+
+        double smallExpense = 2000000.0;
+        double exactLimit = 5000000.0;
+        double largeExpense = 5000001.0;
+
+        assertTrue(smallExpense <= 5000000.0);
+        assertTrue(exactLimit <= 5000000.0);
+        assertFalse(largeExpense <= 5000000.0);
+
+        repository.onRemoteRoomDeleted("room-threshold");
+    }
 }

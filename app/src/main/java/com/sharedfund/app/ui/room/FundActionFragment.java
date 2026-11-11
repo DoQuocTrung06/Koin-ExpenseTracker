@@ -717,6 +717,8 @@ public class FundActionFragment extends Fragment {
         layoutProcessingNotice.setVisibility(View.VISIBLE);
 
         final boolean isOwner = isCurrentUserOwner();
+        final boolean isTreasurer = isCurrentUserTreasurer();
+        final boolean canDirectApprove = isOwner || (isTreasurer && amount <= 5000000.0);
         UserSessionManager session = UserSessionManager.getInstance(requireContext());
         String rawUserId = session.getUserId();
         final String finalUserId = (rawUserId != null && !rawUserId.isEmpty())
@@ -733,29 +735,29 @@ public class FundActionFragment extends Fragment {
                 remote.uploadReceiptImage(imageBytes, "image/jpeg", new TransactionRepository.DataCallback<String>() {
                     @Override
                     public void onSuccess(String publicUrl) {
-                        proceedWithdrawTransaction(remote, finalUserId, finalUserName, amount, note, publicUrl, isOwner);
+                        proceedWithdrawTransaction(remote, finalUserId, finalUserName, amount, note, publicUrl, canDirectApprove);
                     }
 
                     @Override
                     public void onError(String error) {
-                        proceedWithdrawTransaction(remote, finalUserId, finalUserName, amount, note, null, isOwner);
+                        proceedWithdrawTransaction(remote, finalUserId, finalUserName, amount, note, null, canDirectApprove);
                     }
                 });
                 return;
             }
         }
 
-        proceedWithdrawTransaction(remote, finalUserId, finalUserName, amount, note, null, isOwner);
+        proceedWithdrawTransaction(remote, finalUserId, finalUserName, amount, note, null, canDirectApprove);
     }
 
     private void proceedWithdrawTransaction(TransactionRepository remote, String userId, String userName,
-                                            double amount, String note, String billImageUrl, boolean isOwner) {
+                                            double amount, String note, String billImageUrl, boolean canDirectApprove) {
         final Context appCtx = requireContext().getApplicationContext();
-        remote.submitWithdrawal(userId, userName != null ? userName : "Member", roomId, amount, selectedWithdrawCategory, note, billImageUrl, isOwner,
+        remote.submitWithdrawal(userId, userName != null ? userName : "Member", roomId, amount, selectedWithdrawCategory, note, billImageUrl, canDirectApprove,
                 new TransactionRepository.DataCallback<Transaction>() {
                     @Override
                     public void onSuccess(Transaction created) {
-                        if (!isOwner) {
+                        if (!canDirectApprove) {
                             RoomRepository.getInstance().dispatchExpenseApprovalNotifications(appCtx, roomId, userId, userName, amount, note);
                         }
                         if (!isAdded()) return;
@@ -764,7 +766,7 @@ public class FundActionFragment extends Fragment {
                             if (created != null) {
                                 RoomRepository.getInstance().onRemoteTransactionReceived(created);
                             }
-                            if (isOwner) {
+                            if (canDirectApprove) {
                                 RoomRepository.getInstance().loadUserProfile();
                             }
                             RoomRepository.getInstance().refreshRoomTransactions(roomId, null);
@@ -774,7 +776,7 @@ public class FundActionFragment extends Fragment {
                                 txId = "#SF-" + created.getId().substring(0, 8).toUpperCase(Locale.US);
                             }
 
-                            showSuccessNotice(isOwner ? "Rút quỹ thành công!" : "Yêu cầu rút quỹ đã gửi!",
+                            showSuccessNotice(canDirectApprove ? "Rút quỹ thành công!" : "Yêu cầu rút quỹ đã gửi!",
                                     "-" + df.format(amount) + " ₫", txId, "Rút quỹ về Ví Koin", roomName, "Ví cá nhân Koin", note);
                         });
                     }

@@ -872,6 +872,8 @@ public class RoomTransferFragment extends Fragment {
         layoutProcessingNotice.setVisibility(View.VISIBLE);
 
         final boolean isOwner = isCurrentUserOwner();
+        final boolean isTreasurer = isCurrentUserTreasurer();
+        final boolean canDirectApprove = isOwner || (isTreasurer && amount <= 5000000.0);
         UserSessionManager session = UserSessionManager.getInstance(requireContext());
         final String userId = session.getUserId();
         final String userName = session.getCurrentUserName();
@@ -880,11 +882,11 @@ public class RoomTransferFragment extends Fragment {
         TransactionRepository remote = new TransactionRepository();
         remote.setAccessToken(session.getAccessToken());
         String category = selectedCategory != null ? selectedCategory : (note.isEmpty() || note.equals("Rút tiền về Ví Koin") ? "Khác" : note);
-        remote.submitWithdrawal(userId, userName != null ? userName : "Member", roomId, amount, category, note, isOwner,
+        remote.submitWithdrawal(userId, userName != null ? userName : "Member", roomId, amount, category, note, canDirectApprove,
                 new TransactionRepository.DataCallback<Transaction>() {
                     @Override
                     public void onSuccess(Transaction created) {
-                        if (!isOwner) {
+                        if (!canDirectApprove) {
                             RoomRepository.getInstance().dispatchExpenseApprovalNotifications(appCtx, roomId, userId, userName, amount, note);
                         }
                         if (!isAdded()) return;
@@ -893,12 +895,12 @@ public class RoomTransferFragment extends Fragment {
                             if (created != null) {
                                 RoomRepository.getInstance().onRemoteTransactionReceived(created);
                             }
-                            if (isOwner) {
+                            if (canDirectApprove) {
                                 RoomRepository.getInstance().loadUserProfile();
                             }
                             RoomRepository.getInstance().refreshRoomTransactions(roomId, null);
 
-                            showSuccess(isOwner ? "Chuyển tiền thành công!" : "Đã gửi yêu cầu chuyển tiền!",
+                            showSuccess(canDirectApprove ? "Chuyển tiền thành công!" : "Đã gửi yêu cầu chuyển tiền!",
                                     "-" + df.format(amount) + " ₫", roomName, "Ví cá nhân Koin", note,
                                     created != null ? created.getId() : null);
                         });
@@ -991,6 +993,8 @@ public class RoomTransferFragment extends Fragment {
         layoutProcessingNotice.setVisibility(View.VISIBLE);
 
         final boolean isOwner = isCurrentUserOwner();
+        final boolean isTreasurer = isCurrentUserTreasurer();
+        final boolean canDirectApprove = isOwner || (isTreasurer && amount <= 5000000.0);
         UserSessionManager session = UserSessionManager.getInstance(requireContext());
         final String finalUserId = session.getUserId();
         final String finalUserName = session.getCurrentUserName();
@@ -1010,30 +1014,30 @@ public class RoomTransferFragment extends Fragment {
                 remote.uploadReceiptImage(imageBytes, "image/jpeg", new TransactionRepository.DataCallback<String>() {
                     @Override
                     public void onSuccess(String publicUrl) {
-                        proceedBankWithdrawal(remote, finalUserId, finalUserName, amount, category, fullNote, publicUrl, isOwner, bankName, accNum, note);
+                        proceedBankWithdrawal(remote, finalUserId, finalUserName, amount, category, fullNote, publicUrl, canDirectApprove, bankName, accNum, note);
                     }
 
                     @Override
                     public void onError(String error) {
-                        proceedBankWithdrawal(remote, finalUserId, finalUserName, amount, category, fullNote, null, isOwner, bankName, accNum, note);
+                        proceedBankWithdrawal(remote, finalUserId, finalUserName, amount, category, fullNote, null, canDirectApprove, bankName, accNum, note);
                     }
                 });
                 return;
             }
         }
 
-        proceedBankWithdrawal(remote, finalUserId, finalUserName, amount, category, fullNote, null, isOwner, bankName, accNum, note);
+        proceedBankWithdrawal(remote, finalUserId, finalUserName, amount, category, fullNote, null, canDirectApprove, bankName, accNum, note);
     }
 
     private void proceedBankWithdrawal(TransactionRepository remote, String userId, String userName,
                                       double amount, String category, String fullNote, String billImageUrl,
-                                      boolean isOwner, String bankName, String accNum, String note) {
+                                      boolean canDirectApprove, String bankName, String accNum, String note) {
         final android.content.Context appCtx = requireContext().getApplicationContext();
-        remote.submitWithdrawal(userId, userName != null ? userName : "Member", roomId, amount, category, fullNote, billImageUrl, isOwner,
+        remote.submitWithdrawal(userId, userName != null ? userName : "Member", roomId, amount, category, fullNote, billImageUrl, canDirectApprove,
                 new TransactionRepository.DataCallback<Transaction>() {
                     @Override
                     public void onSuccess(Transaction created) {
-                        if (!isOwner) {
+                        if (!canDirectApprove) {
                             RoomRepository.getInstance().dispatchExpenseApprovalNotifications(appCtx, roomId, userId, userName, amount, note);
                         }
                         if (!isAdded()) return;
@@ -1044,7 +1048,7 @@ public class RoomTransferFragment extends Fragment {
                             }
                             RoomRepository.getInstance().refreshRoomTransactions(roomId, null);
 
-                            showSuccess(isOwner ? "Chuyển khoản thành công!" : "Đã gửi yêu cầu chuyển khoản!",
+                            showSuccess(canDirectApprove ? "Chuyển khoản thành công!" : "Đã gửi yêu cầu chuyển khoản!",
                                     "-" + df.format(amount) + " ₫", roomName, bankName + " (" + accNum + ")", note,
                                     created != null ? created.getId() : null);
                         });

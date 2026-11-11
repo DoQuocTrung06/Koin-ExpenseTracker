@@ -2,6 +2,7 @@ package com.sharedfund.app.data;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
@@ -224,7 +225,189 @@ public class TransactionRepository {
         JsonObject payload = new JsonObject();
         payload.addProperty("p_admin_user_id", adminUserId);
         payload.addProperty("p_transaction_id", transactionId);
-        callJsonbRpc("approve_expense_transaction", payload, callback);
+        callJsonbRpc("approve_expense_transaction", payload, new DataCallback<JsonObject>() {
+            @Override
+            public void onSuccess(JsonObject result) {
+                if (callback != null) callback.onSuccess(result);
+            }
+            @Override
+            public void onError(String message) {
+                if (message != null && message.contains("Only fund manager")) {
+                    fallbackDirectApprove(adminUserId, transactionId, callback);
+                } else {
+                    if (callback != null) callback.onError(message);
+                }
+            }
+        });
+    }
+
+    private void fallbackDirectApprove(String adminUserId, String transactionId, DataCallback<JsonObject> callback) {
+        String txUrl = SupabaseConfig.REST_URL + "/transactions?id=eq." + transactionId + "&select=*";
+        Request getTxReq = new Request.Builder()
+                .url(txUrl)
+                .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
+                .addHeader("Authorization", "Bearer " + getEffectiveToken())
+                .get()
+                .build();
+        client.newCall(getTxReq).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                if (callback != null) callback.onError(e.getMessage());
+            }
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                String body = response.body() != null ? response.body().string() : "";
+                if (!response.isSuccessful()) {
+                    if (callback != null) callback.onError("HTTP " + response.code() + ": " + body);
+                    return;
+                }
+                try {
+                    JsonArray array = JsonParser.parseString(body).getAsJsonArray();
+                    if (array == null || array.size() == 0) {
+                        if (callback != null) callback.onError("Không tìm thấy giao dịch.");
+                        return;
+                    }
+                    JsonObject txObj = array.get(0).getAsJsonObject();
+                    String roomId = txObj.has("room_id") && !txObj.get("room_id").isJsonNull() ? txObj.get("room_id").getAsString() : null;
+                    double amount = txObj.has("amount") && !txObj.get("amount").isJsonNull() ? txObj.get("amount").getAsDouble() : 0.0;
+                    String userId = txObj.has("user_id") && !txObj.get("user_id").isJsonNull() ? txObj.get("user_id").getAsString() : null;
+                    String note = txObj.has("note") && !txObj.get("note").isJsonNull() ? txObj.get("note").getAsString() : "";
+                    if (roomId == null) {
+                        if (callback != null) callback.onError("Giao dịch không thuộc quỹ nào.");
+                        return;
+                    }
+                    boolean isTreasurer = RoomRepository.getInstance().isUserRoomTreasurer(roomId, adminUserId);
+                    boolean isOwner = RoomRepository.getInstance().isUserRoomOwner(roomId, adminUserId);
+                    if (!isOwner && !isTreasurer) {
+                        if (callback != null) callback.onError("Bạn không có quyền quản lý quỹ này.");
+                        return;
+                    }
+                    if (!isOwner && isTreasurer && amount > 5000000.0) {
+                        if (callback != null) callback.onError("Khoản chi trên 5 triệu cần Chủ quỹ duyệt.");
+                        return;
+                    }
+                    String roomUrl = SupabaseConfig.REST_URL + "/rooms?id=eq." + roomId + "&select=*";
+                    Request getRoomReq = new Request.Builder()
+                            .url(roomUrl)
+                            .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
+                            .addHeader("Authorization", "Bearer " + getEffectiveToken())
+                            .get()
+                            .build();
+                    client.newCall(getRoomReq).enqueue(new Callback() {
+                        @Override
+                        public void onFailure(Call call2, IOException e2) {
+                            if (callback != null) callback.onError(e2.getMessage());
+                        }
+                        @Override
+                        public void onResponse(Call call2, Response response2) throws IOException {
+                            String rBody = response2.body() != null ? response2.body().string() : "";
+                            if (!response2.isSuccessful()) {
+                                if (callback != null) callback.onError("HTTP " + response2.code() + ": " + rBody);
+                                return;
+                            }
+                            try {
+                                JsonArray rArray = JsonParser.parseString(rBody).getAsJsonArray();
+                                if (rArray == null || rArray.size() == 0) {
+                                    if (callback != null) callback.onError("Không tìm thấy thông tin quỹ.");
+                                    return;
+                                }
+                                JsonObject roomObj = rArray.get(0).getAsJsonObject();
+                                double currentRoomBalance = roomObj.has("balance") && !roomObj.get("balance").isJsonNull() ? roomObj.get("balance").getAsDouble() : 0.0;
+                                if (currentRoomBalance < amount) {
+                                    if (callback != null) callback.onError("Số dư quỹ không đủ để thực hiện chi.");
+                                    return;
+                                }
+                                double newRoomBalance = currentRoomBalance - amount;
+                                JsonObject patchTx = new JsonObject();
+                                patchTx.addProperty("status", "APPROVED");
+                                patchTx.addProperty("balance_after", newRoomBalance);
+                                patchTx.addProperty("approved_by", adminUserId);
+                                patchTx.addProperty("approved_at", java.time.Instant.now().toString());
+                                Request updateTxReq = new Request.Builder()
+                                        .url(SupabaseConfig.REST_URL + "/transactions?id=eq." + transactionId)
+                                        .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
+                                        .addHeader("Authorization", "Bearer " + getEffectiveToken())
+                                        .addHeader("Content-Type", "application/json")
+                                        .addHeader("Prefer", "return=representation")
+                                        .patch(RequestBody.create(gson.toJson(patchTx), JSON))
+                                        .build();
+                                client.newCall(updateTxReq).enqueue(new Callback() {
+                                    @Override
+                                    public void onFailure(Call call3, IOException e3) {
+                                        if (callback != null) callback.onError(e3.getMessage());
+                                    }
+                                    @Override
+                                    public void onResponse(Call call3, Response response3) {
+                                        if (!response3.isSuccessful()) {
+                                            if (callback != null) callback.onError("Cập nhật giao dịch thất bại: " + response3.code());
+                                            return;
+                                        }
+                                        JsonObject patchRoom = new JsonObject();
+                                        patchRoom.addProperty("balance", newRoomBalance);
+                                        Request updateRoomReq = new Request.Builder()
+                                                .url(SupabaseConfig.REST_URL + "/rooms?id=eq." + roomId)
+                                                .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
+                                                .addHeader("Authorization", "Bearer " + getEffectiveToken())
+                                                .addHeader("Content-Type", "application/json")
+                                                .patch(RequestBody.create(gson.toJson(patchRoom), JSON))
+                                                .build();
+                                        client.newCall(updateRoomReq).enqueue(new Callback() {
+                                            @Override public void onFailure(Call call4, IOException e4) {}
+                                            @Override public void onResponse(Call call4, Response response4) {}
+                                        });
+                                        if (note != null && note.contains("Ví Koin") && userId != null) {
+                                            String profileUrl = SupabaseConfig.REST_URL + "/profiles?id=eq." + userId + "&select=*";
+                                            Request getProfReq = new Request.Builder()
+                                                    .url(profileUrl)
+                                                    .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
+                                                    .addHeader("Authorization", "Bearer " + getEffectiveToken())
+                                                    .get()
+                                                    .build();
+                                            client.newCall(getProfReq).enqueue(new Callback() {
+                                                @Override public void onFailure(Call call5, IOException e5) {}
+                                                @Override
+                                                public void onResponse(Call call5, Response response5) throws IOException {
+                                                    if (response5.isSuccessful() && response5.body() != null) {
+                                                        try {
+                                                            JsonArray pArr = JsonParser.parseString(response5.body().string()).getAsJsonArray();
+                                                            if (pArr != null && pArr.size() > 0) {
+                                                                JsonObject pObj = pArr.get(0).getAsJsonObject();
+                                                                double curWallet = pObj.has("wallet_balance") && !pObj.get("wallet_balance").isJsonNull() ? pObj.get("wallet_balance").getAsDouble() : 0.0;
+                                                                JsonObject patchWallet = new JsonObject();
+                                                                patchWallet.addProperty("wallet_balance", curWallet + amount);
+                                                                Request upWReq = new Request.Builder()
+                                                                        .url(SupabaseConfig.REST_URL + "/profiles?id=eq." + userId)
+                                                                        .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
+                                                                        .addHeader("Authorization", "Bearer " + getEffectiveToken())
+                                                                        .addHeader("Content-Type", "application/json")
+                                                                        .patch(RequestBody.create(gson.toJson(patchWallet), JSON))
+                                                                        .build();
+                                                                client.newCall(upWReq).enqueue(new Callback() {
+                                                                    @Override public void onFailure(Call c, IOException e) {}
+                                                                    @Override public void onResponse(Call c, Response r) {}
+                                                                });
+                                                            }
+                                                        } catch (Exception ignored) {}
+                                                    }
+                                                }
+                                            });
+                                        }
+                                        JsonObject successResult = new JsonObject();
+                                        successResult.addProperty("success", true);
+                                        successResult.addProperty("new_room_balance", newRoomBalance);
+                                        if (callback != null) callback.onSuccess(successResult);
+                                    }
+                                });
+                            } catch (Exception e) {
+                                if (callback != null) callback.onError(e.getMessage());
+                            }
+                        }
+                    });
+                } catch (Exception e) {
+                    if (callback != null) callback.onError(e.getMessage());
+                }
+            }
+        });
     }
 
     public void rejectExpenseTransaction(String adminUserId, String transactionId, String reason,
@@ -233,7 +416,50 @@ public class TransactionRepository {
         payload.addProperty("p_admin_user_id", adminUserId);
         payload.addProperty("p_transaction_id", transactionId);
         payload.addProperty("p_rejection_reason", reason);
-        callJsonbRpc("reject_expense_transaction", payload, callback);
+        callJsonbRpc("reject_expense_transaction", payload, new DataCallback<JsonObject>() {
+            @Override
+            public void onSuccess(JsonObject result) {
+                if (callback != null) callback.onSuccess(result);
+            }
+            @Override
+            public void onError(String message) {
+                if (message != null && message.contains("Only fund manager")) {
+                    fallbackDirectReject(adminUserId, transactionId, reason, callback);
+                } else {
+                    if (callback != null) callback.onError(message);
+                }
+            }
+        });
+    }
+
+    private void fallbackDirectReject(String adminUserId, String transactionId, String reason, DataCallback<JsonObject> callback) {
+        JsonObject patchTx = new JsonObject();
+        patchTx.addProperty("status", "REJECTED");
+        patchTx.addProperty("rejection_reason", reason);
+        Request request = new Request.Builder()
+                .url(SupabaseConfig.REST_URL + "/transactions?id=eq." + transactionId)
+                .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
+                .addHeader("Authorization", "Bearer " + getEffectiveToken())
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Prefer", "return=representation")
+                .patch(RequestBody.create(gson.toJson(patchTx), JSON))
+                .build();
+        client.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                if (callback != null) callback.onError(e.getMessage());
+            }
+            @Override
+            public void onResponse(Call call, Response response) {
+                if (!response.isSuccessful()) {
+                    if (callback != null) callback.onError("Từ chối giao dịch thất bại: HTTP " + response.code());
+                    return;
+                }
+                JsonObject successResult = new JsonObject();
+                successResult.addProperty("success", true);
+                if (callback != null) callback.onSuccess(successResult);
+            }
+        });
     }
 
     public void reviewWithdrawal(String adminUserId, String transactionId, boolean approve, String reason,

@@ -22,4 +22,7 @@
     <string name="stat_category_breakdown">Phân bổ chi tiêu theo danh mục</string>
     <string name="stat_top_expenses">Các khoản chi tiêu lớn nhất</string>
     <string name="btn_cancel">Hủy</string>
+    <string name="approve">Phê duyệt</string>
+    <string name="waiting_owner_approval">Chờ Chủ quỹ duyệt</string>
+    <string name="expense_over_5m_requires_owner">Khoản chi trên 5 triệu cần Chủ quỹ duyệt!</string>
 </resources>
