@@ -433,8 +433,6 @@ public class SupabaseRealtimeClient {
                 listener.onNotificationChanged(eventType, notification);
             }
         }
-            }
-        }
     }
 
     private void notifyProfileUpdated(String userId, JsonObject record) {
