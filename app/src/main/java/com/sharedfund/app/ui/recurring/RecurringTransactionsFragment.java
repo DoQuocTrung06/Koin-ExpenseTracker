@@ -1,10 +1,16 @@
 package com.sharedfund.app.ui.recurring;
 
+import android.app.Dialog;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
 import android.widget.ImageButton;
 import android.widget.TextView;
 
@@ -361,19 +367,37 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
         Context context = requireContext();
         UserSessionManager session = UserSessionManager.getInstance(context);
 
+        String targetRoomId = (rule.getRoomId() != null && !rule.getRoomId().trim().isEmpty()) ? rule.getRoomId() : roomId;
+        Room room = targetRoomId != null ? RoomRepository.getInstance().getRoomSync(targetRoomId) : null;
+        double roomBalance = (room != null) ? room.getBalance() : 0.0;
+        double ruleAmount = Math.abs(rule.getAmount());
+
+        if (roomBalance < ruleAmount) {
+            showInsufficientBalanceDialog(rule, roomBalance, ruleAmount);
+            return;
+        }
+
+        double newBalance = roomBalance - ruleAmount;
+        if (room != null) {
+            room.setBalance(newBalance);
+        }
+
         Transaction tx = new Transaction();
-        tx.setId(UUID.randomUUID().toString());
-        tx.setRoomId(rule.getRoomId());
+        String txId = UUID.randomUUID().toString();
+        tx.setId(txId);
+        tx.setRoomId(targetRoomId);
         tx.setUserId(session.getUserId());
         tx.setUserName(session.getFullName());
-        tx.setAmount(Math.abs(rule.getAmount()));
+        tx.setAmount(ruleAmount);
         tx.setType(Transaction.TYPE_EXPENSE);
         tx.setCategory(rule.getCategoryName() != null ? rule.getCategoryName() : "Định kỳ");
         tx.setNote(rule.getTitle());
         tx.setStatus("APPROVED");
+        tx.setBalanceAfter(newBalance);
 
         java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault());
-        tx.setCreatedAt(sdf.format(new java.util.Date()));
+        String formattedTime = sdf.format(new java.util.Date());
+        tx.setCreatedAt(formattedTime);
 
         java.text.SimpleDateFormat isoFormat = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US);
         isoFormat.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
@@ -381,21 +405,14 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
 
         updateUI();
 
-        DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.GERMANY);
-        symbols.setGroupingSeparator('.');
-        DecimalFormat df = new DecimalFormat("#,###", symbols);
-        String amountStr = df.format(Math.abs(rule.getAmount())) + " đ";
-
-        if (isAdded()) {
-            AppToaster.success(requireActivity(), "Đã xuất quỹ " + amountStr + " cho " + rule.getTitle());
-        }
+        showPaymentSuccessDialog(rule, tx, newBalance, formattedTime);
 
         transactionRepository.createTransaction(tx, new TransactionRepository.DataCallback<Transaction>() {
             @Override
             public void onSuccess(Transaction createdTx) {
-                if (roomId != null && isAdded()) {
+                if (targetRoomId != null && isAdded()) {
                     requireActivity().runOnUiThread(() -> {
-                        RoomRepository.getInstance().refreshRoomTransactions(roomId, null);
+                        RoomRepository.getInstance().refreshRoomTransactions(targetRoomId, null);
                     });
                 }
             }
@@ -411,6 +428,93 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
             @Override
             public void onError(String error) {}
         });
+    }
+
+    private void showPaymentSuccessDialog(RecurringRule rule, Transaction tx, double newBalance, String formattedTime) {
+        if (!isAdded()) return;
+        Dialog dialog = new Dialog(requireContext());
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dialog.setContentView(R.layout.dialog_recurring_payment_success);
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            dialog.getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        }
+
+        DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.GERMANY);
+        symbols.setGroupingSeparator('.');
+        DecimalFormat df = new DecimalFormat("#,###", symbols);
+
+        TextView tvAmount = dialog.findViewById(R.id.tvPaymentSuccessAmount);
+        TextView tvTxId = dialog.findViewById(R.id.tvPaymentSuccessTxId);
+        TextView tvRuleName = dialog.findViewById(R.id.tvPaymentSuccessRuleName);
+        TextView tvRoomName = dialog.findViewById(R.id.tvPaymentSuccessRoomName);
+        TextView tvUserName = dialog.findViewById(R.id.tvPaymentSuccessUserName);
+        TextView tvTime = dialog.findViewById(R.id.tvPaymentSuccessTime);
+        TextView tvBalanceAfter = dialog.findViewById(R.id.tvPaymentSuccessBalanceAfter);
+        View btnCopy = dialog.findViewById(R.id.btnPaymentSuccessCopy);
+        View btnDone = dialog.findViewById(R.id.btnPaymentSuccessDone);
+
+        String displayAmount = "- " + df.format(Math.abs(rule.getAmount())) + " đ";
+        if (tvAmount != null) tvAmount.setText(displayAmount);
+
+        String shortTxId = "#RC-" + (tx.getId().length() >= 8 ? tx.getId().substring(0, 8).toUpperCase() : tx.getId().toUpperCase());
+        if (tvTxId != null) tvTxId.setText(shortTxId);
+
+        if (tvRuleName != null) tvRuleName.setText(rule.getTitle());
+
+        String displayRoomName = (roomName != null && !roomName.trim().isEmpty()) ? roomName : (rule.getRoomName() != null ? rule.getRoomName() : "Quỹ nhóm");
+        if (tvRoomName != null) tvRoomName.setText(displayRoomName);
+
+        if (tvUserName != null) tvUserName.setText(tx.getUserName());
+        if (tvTime != null) tvTime.setText(formattedTime);
+        if (tvBalanceAfter != null) tvBalanceAfter.setText(df.format(newBalance) + " đ");
+
+        if (btnCopy != null) {
+            btnCopy.setOnClickListener(v -> {
+                ClipboardManager clipboard = (ClipboardManager) requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
+                if (clipboard != null) {
+                    ClipData clip = ClipData.newPlainText("Transaction ID", shortTxId);
+                    clipboard.setPrimaryClip(clip);
+                    AppToaster.success(requireActivity(), "Đã sao chép mã giao dịch");
+                }
+            });
+        }
+
+        if (btnDone != null) {
+            btnDone.setOnClickListener(v -> dialog.dismiss());
+        }
+
+        dialog.show();
+    }
+
+    private void showInsufficientBalanceDialog(RecurringRule rule, double currentBalance, double ruleAmount) {
+        if (!isAdded()) return;
+        DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.GERMANY);
+        symbols.setGroupingSeparator('.');
+        DecimalFormat df = new DecimalFormat("#,###", symbols);
+
+        double missing = ruleAmount - currentBalance;
+
+        Dialog dialog = new Dialog(requireContext());
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dialog.setContentView(R.layout.dialog_koin_notice);
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            dialog.getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        }
+
+        TextView tvTitle = dialog.findViewById(R.id.tvNoticeDialogTitle);
+        TextView tvMsg = dialog.findViewById(R.id.tvNoticeDialogMessage);
+        View btnClose = dialog.findViewById(R.id.btnNoticeDialogClose);
+
+        if (tvTitle != null) tvTitle.setText("Số dư quỹ không đủ");
+        if (tvMsg != null) {
+            tvMsg.setText("Số dư hiện tại của quỹ là " + df.format(currentBalance) + " đ, không đủ để chi " + df.format(ruleAmount) + " đ cho khoản [" + rule.getTitle() + "].\n\nQuỹ còn thiếu: " + df.format(missing) + " đ. Vui lòng yêu cầu thành viên nạp thêm vào quỹ trước khi thanh toán.");
+        }
+        if (btnClose != null) {
+            btnClose.setOnClickListener(v -> dialog.dismiss());
+        }
+        dialog.show();
     }
 
     @Override
