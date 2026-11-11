@@ -99,16 +99,6 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
         rvRules.setLayoutManager(new LinearLayoutManager(requireContext()));
         rvRules.setAdapter(adapter);
 
-        androidx.recyclerview.widget.ItemTouchHelper itemTouchHelper = new androidx.recyclerview.widget.ItemTouchHelper(
-                new SwipeToDeleteCallback(position -> {
-                    if (position >= 0 && position < localRules.size()) {
-                        RecurringRule rule = localRules.get(position);
-                        onDeleteRule(rule);
-                    }
-                })
-        );
-        itemTouchHelper.attachToRecyclerView(rvRules);
-
         loadRules();
     }
 
