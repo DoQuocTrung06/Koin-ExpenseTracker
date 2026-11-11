@@ -7,6 +7,8 @@ import android.app.Activity;
 import android.app.Dialog;
 import android.content.Context;
 import android.content.ContextWrapper;
+import android.content.res.ColorStateList;
+import android.graphics.Color;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.TypedValue;
@@ -148,91 +150,63 @@ public class AppToaster {
         Context context = root.getContext();
         View toastView = LayoutInflater.from(context).inflate(R.layout.layout_app_toast, root, false);
 
-        MaterialCardView cardView = toastView.findViewById(R.id.toastCardView);
         ImageView ivIcon = toastView.findViewById(R.id.ivToastIcon);
-        TextView tvTitle = toastView.findViewById(R.id.tvToastTitle);
         TextView tvMessage = toastView.findViewById(R.id.tvToastMessage);
-        ImageView btnClose = toastView.findViewById(R.id.btnToastClose);
-        FrameLayout flTrack = toastView.findViewById(R.id.flToastProgressTrack);
-        View viewFill = toastView.findViewById(R.id.viewToastProgressFill);
-
-        if (cardView != null) {
-            cardView.setClipToOutline(true);
-        }
-        if (flTrack != null) {
-            flTrack.setClipToOutline(true);
-        }
 
         int iconRes;
-        int trackColor;
-        int fillColor;
-        String defaultTitle;
+        int bgColor;
 
         if (type == ToastType.INFO) {
             iconRes = R.drawable.ic_toast_info;
-            trackColor = ContextCompat.getColor(context, R.color.accent_blue_light);
-            fillColor = ContextCompat.getColor(context, R.color.accent_blue);
-            defaultTitle = "Thông báo";
+            bgColor = ContextCompat.getColor(context, R.color.primary);
         } else if (type == ToastType.ERROR) {
             iconRes = R.drawable.ic_toast_error;
-            trackColor = ContextCompat.getColor(context, R.color.accent_expense_light);
-            fillColor = ContextCompat.getColor(context, R.color.accent_expense);
-            defaultTitle = "Thông báo lỗi";
+            bgColor = ContextCompat.getColor(context, R.color.accent_expense);
         } else {
-            iconRes = R.drawable.ic_toast_success;
-            trackColor = ContextCompat.getColor(context, R.color.accent_income_light);
-            fillColor = ContextCompat.getColor(context, R.color.accent_income);
-            defaultTitle = "Thành công";
+            iconRes = R.drawable.ic_check;
+            bgColor = ContextCompat.getColor(context, R.color.accent_income);
         }
 
-        ivIcon.setImageResource(iconRes);
-        flTrack.setBackgroundColor(trackColor);
-        viewFill.setBackgroundColor(fillColor);
+        if (ivIcon != null) {
+            ivIcon.setImageResource(iconRes);
+            ivIcon.setImageTintList(ColorStateList.valueOf(Color.WHITE));
+        }
 
-        boolean hasTitle = title != null && !title.trim().isEmpty();
-        if (hasTitle) {
-            tvTitle.setText(title);
-            tvTitle.setVisibility(View.VISIBLE);
-            tvMessage.setText(message != null ? message : "");
-            tvMessage.setTextColor(ContextCompat.getColor(context, R.color.text_secondary));
-            tvMessage.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13.5f);
-        } else {
-            tvTitle.setVisibility(View.GONE);
-            tvMessage.setText(message != null ? message : defaultTitle);
-            tvMessage.setTextColor(ContextCompat.getColor(context, R.color.text_primary));
-            tvMessage.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14.5f);
+        toastView.setBackgroundTintList(ColorStateList.valueOf(bgColor));
+
+        if (tvMessage != null) {
+            String displayMsg = (message != null && !message.trim().isEmpty()) ? message : (title != null ? title : "");
+            tvMessage.setText(displayMsg);
+            tvMessage.setTextColor(Color.WHITE);
         }
 
         ViewGroup.MarginLayoutParams lp;
         if (root instanceof FrameLayout) {
             FrameLayout.LayoutParams flp = new FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
             );
             flp.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
             lp = flp;
         } else if (root instanceof CoordinatorLayout) {
             CoordinatorLayout.LayoutParams clp = new CoordinatorLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
             );
             clp.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
             lp = clp;
         } else {
             lp = new ViewGroup.MarginLayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
             );
         }
 
-        int sideMargin = dpToPx(context, 16);
-        lp.leftMargin = sideMargin;
-        lp.rightMargin = sideMargin;
         lp.topMargin = getCalculatedTopMargin(context, root);
         toastView.setLayoutParams(lp);
 
         toastView.setAlpha(0f);
-        toastView.setTranslationY(-dpToPx(context, 48));
+        toastView.setTranslationY(-dpToPx(context, 32));
         toastView.setElevation(dpToPx(context, 12));
         toastView.setTranslationZ(dpToPx(context, 12));
 
@@ -241,41 +215,19 @@ public class AppToaster {
         toastView.animate()
                 .alpha(1f)
                 .translationY(0f)
-                .setDuration(260)
+                .setDuration(220)
                 .setInterpolator(new DecelerateInterpolator())
                 .start();
 
         currentToastView = new WeakReference<>(toastView);
 
-        viewFill.setPivotX(0f);
-        viewFill.setScaleX(1f);
-
-        ValueAnimator progressAnimator = ValueAnimator.ofFloat(1f, 0f);
-        progressAnimator.setDuration(durationMs > 0 ? durationMs : 3200);
-        progressAnimator.setInterpolator(new LinearInterpolator());
-        progressAnimator.addUpdateListener(animation -> {
-            float scale = (float) animation.getAnimatedValue();
-            viewFill.setScaleX(scale);
-        });
-        progressAnimator.addListener(new AnimatorListenerAdapter() {
-            private boolean isCanceled = false;
-
-            @Override
-            public void onAnimationCancel(Animator animation) {
-                isCanceled = true;
+        int dismissTime = (durationMs > 0 && durationMs < 2500) ? durationMs : 1800;
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            if (currentToastView != null && currentToastView.get() == toastView) {
+                dismissToast(toastView, root);
             }
+        }, dismissTime);
 
-            @Override
-            public void onAnimationEnd(Animator animation) {
-                if (!isCanceled) {
-                    dismissToast(toastView, root);
-                }
-            }
-        });
-        currentProgressAnimator = new WeakReference<>(progressAnimator);
-        progressAnimator.start();
-
-        btnClose.setOnClickListener(v -> dismissToast(toastView, root));
         toastView.setOnClickListener(v -> dismissToast(toastView, root));
     }
 
@@ -284,20 +236,21 @@ public class AppToaster {
         if (view.getTag(R.id.toastCardView) != null) return;
         view.setTag(R.id.toastCardView, Boolean.TRUE);
 
-        if (currentProgressAnimator != null && currentProgressAnimator.get() != null) {
-            ValueAnimator anim = currentProgressAnimator.get();
-            anim.removeAllListeners();
-            anim.cancel();
-            currentProgressAnimator = null;
-        }
-
         view.animate()
                 .alpha(0f)
-                .translationY(-dpToPx(view.getContext(), 48))
-                .setDuration(220)
+                .translationY(-dpToPx(view.getContext(), 32))
+                .setDuration(200)
                 .setInterpolator(new AccelerateInterpolator())
                 .withEndAction(() -> {
                     try {
+                        parent.removeView(view);
+                    } catch (Exception ignored) {}
+                    if (currentToastView != null && currentToastView.get() == view) {
+                        currentToastView = null;
+                    }
+                })
+                .start();
+    }
                         parent.removeView(view);
                     } catch (Exception ignored) {
                     }
