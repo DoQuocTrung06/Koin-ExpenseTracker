@@ -1,6 +1,8 @@
 package com.sharedfund.app.ui.recurring;
 
+import android.content.res.ColorStateList;
 import android.os.Bundle;
+import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -9,15 +11,16 @@ import android.widget.LinearLayout;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.google.android.material.button.MaterialButton;
-import com.google.android.material.chip.Chip;
-import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.textfield.TextInputEditText;
 import com.sharedfund.app.R;
 import com.sharedfund.app.model.RecurringRule;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -34,6 +37,16 @@ public class CreateRecurringRuleBottomSheet extends BottomSheetDialogFragment {
 
     private String selectedFrequency = RecurringRule.FREQUENCY_MONTHLY;
     private int selectedExecutionDay = 15;
+    private int selectedWeekDay = 2;
+
+    private MaterialButton btnFreqMonthly;
+    private MaterialButton btnFreqWeekly;
+    private MaterialButton btnFreqDaily;
+
+    private LinearLayout layoutMonthly;
+    private LinearLayout layoutWeekly;
+
+    private final List<MaterialButton> weekDayButtons = new ArrayList<>();
 
     public static CreateRecurringRuleBottomSheet newInstance(String roomId) {
         CreateRecurringRuleBottomSheet sheet = new CreateRecurringRuleBottomSheet();
@@ -85,43 +98,15 @@ public class CreateRecurringRuleBottomSheet extends BottomSheetDialogFragment {
         TextInputEditText etDay = view.findViewById(R.id.etRecurringDay);
         MaterialButton btnSubmit = view.findViewById(R.id.btnSubmitRecurringRule);
 
-        ChipGroup chipGroupFrequency = view.findViewById(R.id.chipGroupFrequency);
-        ChipGroup chipGroupWeekDays = view.findViewById(R.id.chipGroupWeekDays);
-        LinearLayout layoutMonthly = view.findViewById(R.id.layoutMonthlyDayPicker);
-        LinearLayout layoutWeekly = view.findViewById(R.id.layoutWeeklyDayPicker);
+        btnFreqMonthly = view.findViewById(R.id.btnFreqMonthly);
+        btnFreqWeekly = view.findViewById(R.id.btnFreqWeekly);
+        btnFreqDaily = view.findViewById(R.id.btnFreqDaily);
 
-        if (chipGroupFrequency != null) {
-            chipGroupFrequency.setOnCheckedStateChangeListener((group, checkedIds) -> {
-                if (checkedIds.isEmpty()) return;
-                int id = checkedIds.get(0);
-                if (id == R.id.chipMonthly) {
-                    selectedFrequency = RecurringRule.FREQUENCY_MONTHLY;
-                    if (layoutMonthly != null) layoutMonthly.setVisibility(View.VISIBLE);
-                    if (layoutWeekly != null) layoutWeekly.setVisibility(View.GONE);
-                } else if (id == R.id.chipWeekly) {
-                    selectedFrequency = RecurringRule.FREQUENCY_WEEKLY;
-                    if (layoutMonthly != null) layoutMonthly.setVisibility(View.GONE);
-                    if (layoutWeekly != null) layoutWeekly.setVisibility(View.VISIBLE);
-                } else if (id == R.id.chipDaily) {
-                    selectedFrequency = RecurringRule.FREQUENCY_DAILY;
-                    if (layoutMonthly != null) layoutMonthly.setVisibility(View.GONE);
-                    if (layoutWeekly != null) layoutWeekly.setVisibility(View.GONE);
-                }
-            });
-        }
+        layoutMonthly = view.findViewById(R.id.layoutMonthlyDayPicker);
+        layoutWeekly = view.findViewById(R.id.layoutWeeklyDayPicker);
 
-        if (chipGroupWeekDays != null) {
-            chipGroupWeekDays.setOnCheckedStateChangeListener((group, checkedIds) -> {
-                if (checkedIds.isEmpty()) return;
-                int id = checkedIds.get(0);
-                Chip chip = view.findViewById(id);
-                if (chip != null && chip.getTag() != null) {
-                    try {
-                        selectedExecutionDay = Integer.parseInt(chip.getTag().toString());
-                    } catch (NumberFormatException ignored) {}
-                }
-            });
-        }
+        setupFrequencySegments();
+        setupWeekDayPills(view);
 
         if (btnSubmit != null) {
             btnSubmit.setOnClickListener(v -> {
@@ -160,7 +145,7 @@ public class CreateRecurringRuleBottomSheet extends BottomSheetDialogFragment {
                         execDay = 15;
                     }
                 } else if (RecurringRule.FREQUENCY_WEEKLY.equalsIgnoreCase(selectedFrequency)) {
-                    execDay = selectedExecutionDay > 0 ? selectedExecutionDay : 2;
+                    execDay = selectedWeekDay > 0 ? selectedWeekDay : 2;
                 } else {
                     execDay = 1;
                 }
@@ -190,6 +175,108 @@ public class CreateRecurringRuleBottomSheet extends BottomSheetDialogFragment {
                 dismiss();
             });
         }
+    }
+
+    private void setupFrequencySegments() {
+        if (btnFreqMonthly != null) {
+            btnFreqMonthly.setOnClickListener(v -> selectFrequency(RecurringRule.FREQUENCY_MONTHLY));
+        }
+        if (btnFreqWeekly != null) {
+            btnFreqWeekly.setOnClickListener(v -> selectFrequency(RecurringRule.FREQUENCY_WEEKLY));
+        }
+        if (btnFreqDaily != null) {
+            btnFreqDaily.setOnClickListener(v -> selectFrequency(RecurringRule.FREQUENCY_DAILY));
+        }
+        selectFrequency(RecurringRule.FREQUENCY_MONTHLY);
+    }
+
+    private void selectFrequency(String frequency) {
+        selectedFrequency = frequency;
+        int primaryColor = ContextCompat.getColor(requireContext(), R.color.primary);
+        int textPrimary = ContextCompat.getColor(requireContext(), R.color.text_primary);
+
+        boolean isMonthly = RecurringRule.FREQUENCY_MONTHLY.equalsIgnoreCase(frequency);
+        boolean isWeekly = RecurringRule.FREQUENCY_WEEKLY.equalsIgnoreCase(frequency);
+        boolean isDaily = RecurringRule.FREQUENCY_DAILY.equalsIgnoreCase(frequency);
+
+        applySegmentTab(btnFreqMonthly, isMonthly, primaryColor, textPrimary);
+        applySegmentTab(btnFreqWeekly, isWeekly, primaryColor, textPrimary);
+        applySegmentTab(btnFreqDaily, isDaily, primaryColor, textPrimary);
+
+        if (layoutMonthly != null) {
+            layoutMonthly.setVisibility(isMonthly ? View.VISIBLE : View.GONE);
+        }
+        if (layoutWeekly != null) {
+            layoutWeekly.setVisibility(isWeekly ? View.VISIBLE : View.GONE);
+        }
+    }
+
+    private void applySegmentTab(MaterialButton btn, boolean selected, int primaryColor, int textPrimary) {
+        if (btn == null) return;
+        if (selected) {
+            btn.setBackgroundResource(R.drawable.bg_segment_tab_glass);
+            btn.setBackgroundTintList(null);
+            btn.setTextColor(primaryColor);
+            btn.setElevation(dpToPx(2));
+        } else {
+            btn.setBackgroundResource(0);
+            btn.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+            btn.setBackgroundTintList(ColorStateList.valueOf(android.graphics.Color.TRANSPARENT));
+            btn.setTextColor(textPrimary);
+            btn.setElevation(0);
+        }
+    }
+
+    private void setupWeekDayPills(View root) {
+        weekDayButtons.clear();
+        int[] buttonIds = {
+                R.id.btnDayMon, R.id.btnDayTue, R.id.btnDayWed,
+                R.id.btnDayThu, R.id.btnDayFri, R.id.btnDaySat, R.id.btnDaySun
+        };
+
+        for (int id : buttonIds) {
+            MaterialButton btn = root.findViewById(id);
+            if (btn != null) {
+                weekDayButtons.add(btn);
+                btn.setOnClickListener(v -> {
+                    if (btn.getTag() != null) {
+                        try {
+                            selectedWeekDay = Integer.parseInt(btn.getTag().toString());
+                        } catch (NumberFormatException ignored) {}
+                    }
+                    updateWeekDayPillsState();
+                });
+            }
+        }
+        updateWeekDayPillsState();
+    }
+
+    private void updateWeekDayPillsState() {
+        if (!isAdded() || getContext() == null) return;
+        int primaryColor = ContextCompat.getColor(requireContext(), R.color.primary);
+        int surfaceColor = ContextCompat.getColor(requireContext(), R.color.surface);
+        int borderColor = ContextCompat.getColor(requireContext(), R.color.border);
+        int textPrimary = ContextCompat.getColor(requireContext(), R.color.text_primary);
+        int accentBlueLight = ContextCompat.getColor(requireContext(), R.color.accent_blue_light);
+
+        for (MaterialButton btn : weekDayButtons) {
+            if (btn == null) continue;
+            int tagVal = 2;
+            if (btn.getTag() != null) {
+                try {
+                    tagVal = Integer.parseInt(btn.getTag().toString());
+                } catch (NumberFormatException ignored) {}
+            }
+            boolean selected = (tagVal == selectedWeekDay);
+            btn.setBackgroundTintList(ColorStateList.valueOf(selected ? accentBlueLight : surfaceColor));
+            btn.setStrokeColor(ColorStateList.valueOf(selected ? primaryColor : borderColor));
+            btn.setStrokeWidth(dpToPx(1));
+            btn.setTextColor(selected ? primaryColor : textPrimary);
+        }
+    }
+
+    private int dpToPx(float dp) {
+        return Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, getResources().getDisplayMetrics()));
     }
 
     private String inferCategory(String title) {

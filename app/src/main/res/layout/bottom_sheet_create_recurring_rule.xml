@@ -68,7 +68,7 @@
             android:id="@+id/etRecurringTitle"
             android:layout_width="match_parent"
             android:layout_height="48dp"
-            android:hint="Ví dụ: Tiền phòng, Internet, Tiền điện..."
+            android:hint="Tiền trọ, điện nước, internet, học phí..."
             android:inputType="textCapSentences"
             android:maxLines="1"
             android:paddingStart="14dp"
@@ -103,7 +103,7 @@
             android:id="@+id/etRecurringAmount"
             android:layout_width="match_parent"
             android:layout_height="48dp"
-            android:hint="Ví dụ: 250.000"
+            android:hint="0 ₫"
             android:inputType="number"
             android:maxLines="1"
             android:paddingStart="14dp"
@@ -124,43 +124,76 @@
         android:textSize="13sp"
         android:textStyle="bold" />
 
-    <com.google.android.material.chip.ChipGroup
-        android:id="@+id/chipGroupFrequency"
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardSegmentFrequency"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        app:singleSelection="true">
+        android:layout_height="42dp"
+        app:cardBackgroundColor="@color/segment_track"
+        app:cardCornerRadius="11dp"
+        app:cardElevation="0dp"
+        app:strokeColor="@color/segment_track_border"
+        app:strokeWidth="1dp">
 
-        <com.google.android.material.chip.Chip
-            android:id="@+id/chipMonthly"
-            style="@style/Widget.Material3.Chip.Filter"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:checked="true"
-            android:text="Hàng tháng"
-            android:textSize="12.5sp" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="horizontal"
+            android:padding="3dp">
 
-        <com.google.android.material.chip.Chip
-            android:id="@+id/chipWeekly"
-            style="@style/Widget.Material3.Chip.Filter"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Hàng tuần"
-            android:textSize="12.5sp" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnFreqMonthly"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minWidth="0dp"
+                android:padding="0dp"
+                android:text="Hàng tháng"
+                android:textSize="12.5sp"
+                android:textStyle="bold"
+                app:cornerRadius="9dp" />
 
-        <com.google.android.material.chip.Chip
-            android:id="@+id/chipDaily"
-            style="@style/Widget.Material3.Chip.Filter"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Hàng ngày"
-            android:textSize="12.5sp" />
-    </com.google.android.material.chip.ChipGroup>
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnFreqWeekly"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginStart="2dp"
+                android:layout_weight="1"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minWidth="0dp"
+                android:padding="0dp"
+                android:text="Hàng tuần"
+                android:textSize="12.5sp"
+                android:textStyle="bold"
+                app:cornerRadius="9dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnFreqDaily"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginStart="2dp"
+                android:layout_weight="1"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minWidth="0dp"
+                android:padding="0dp"
+                android:text="Hàng ngày"
+                android:textSize="12.5sp"
+                android:textStyle="bold"
+                app:cornerRadius="9dp" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
 
     <LinearLayout
         android:id="@+id/layoutMonthlyDayPicker"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="12dp"
         android:orientation="vertical">
 
         <TextView
@@ -187,13 +220,14 @@
                 android:id="@+id/etRecurringDay"
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
-                android:hint="Ví dụ: 15"
+                android:hint="Nhập ngày trong tháng (1 - 31)"
                 android:inputType="number"
                 android:maxLines="1"
                 android:paddingStart="14dp"
                 android:paddingEnd="14dp"
                 android:text="15"
                 android:textColor="@color/text_primary"
+                android:textColorHint="@color/text_tertiary"
                 android:textSize="13.5sp"
                 android:textStyle="bold" />
         </com.google.android.material.textfield.TextInputLayout>
@@ -203,7 +237,7 @@
         android:id="@+id/layoutWeeklyDayPicker"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="12dp"
         android:orientation="vertical"
         android:visibility="gone">
 
@@ -219,71 +253,134 @@
         <HorizontalScrollView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:clipToPadding="false"
+            android:overScrollMode="never"
             android:scrollbars="none">
 
-            <com.google.android.material.chip.ChipGroup
-                android:id="@+id/chipGroupWeekDays"
+            <LinearLayout
+                android:id="@+id/layoutWeekDays"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                app:singleSelection="true">
+                android:orientation="horizontal">
 
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chipDayMon"
-                    style="@style/Widget.Material3.Chip.Filter"
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnDayMon"
+                    style="@style/Widget.Material3.Button.TonalButton"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:checked="true"
+                    android:layout_height="36dp"
+                    android:layout_marginEnd="6dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:minWidth="0dp"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp"
                     android:tag="2"
-                    android:text="Thứ 2" />
+                    android:text="Thứ 2"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    app:cornerRadius="10dp" />
 
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chipDayTue"
-                    style="@style/Widget.Material3.Chip.Filter"
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnDayTue"
+                    style="@style/Widget.Material3.Button.TonalButton"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginEnd="6dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:minWidth="0dp"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp"
                     android:tag="3"
-                    android:text="Thứ 3" />
+                    android:text="Thứ 3"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    app:cornerRadius="10dp" />
 
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chipDayWed"
-                    style="@style/Widget.Material3.Chip.Filter"
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnDayWed"
+                    style="@style/Widget.Material3.Button.TonalButton"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginEnd="6dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:minWidth="0dp"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp"
                     android:tag="4"
-                    android:text="Thứ 4" />
+                    android:text="Thứ 4"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    app:cornerRadius="10dp" />
 
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chipDayThu"
-                    style="@style/Widget.Material3.Chip.Filter"
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnDayThu"
+                    style="@style/Widget.Material3.Button.TonalButton"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginEnd="6dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:minWidth="0dp"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp"
                     android:tag="5"
-                    android:text="Thứ 5" />
+                    android:text="Thứ 5"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    app:cornerRadius="10dp" />
 
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chipDayFri"
-                    style="@style/Widget.Material3.Chip.Filter"
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnDayFri"
+                    style="@style/Widget.Material3.Button.TonalButton"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginEnd="6dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:minWidth="0dp"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp"
                     android:tag="6"
-                    android:text="Thứ 6" />
+                    android:text="Thứ 6"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    app:cornerRadius="10dp" />
 
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chipDaySat"
-                    style="@style/Widget.Material3.Chip.Filter"
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnDaySat"
+                    style="@style/Widget.Material3.Button.TonalButton"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginEnd="6dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:minWidth="0dp"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp"
                     android:tag="7"
-                    android:text="Thứ 7" />
+                    android:text="Thứ 7"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    app:cornerRadius="10dp" />
 
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chipDaySun"
-                    style="@style/Widget.Material3.Chip.Filter"
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnDaySun"
+                    style="@style/Widget.Material3.Button.TonalButton"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_height="36dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:minWidth="0dp"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp"
                     android:tag="1"
-                    android:text="Chủ nhật" />
-            </com.google.android.material.chip.ChipGroup>
+                    android:text="Chủ nhật"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    app:cornerRadius="10dp" />
+            </LinearLayout>
         </HorizontalScrollView>
     </LinearLayout>
 
