@@ -549,7 +549,7 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
         Context context = requireContext();
         android.content.SharedPreferences prefs = context.getSharedPreferences("recurring_overdue_notif_prefs", Context.MODE_PRIVATE);
         java.text.SimpleDateFormat monthFormat = new java.text.SimpleDateFormat("yyyy_MM", Locale.US);
-        String currentMonth = monthFormat.format(new Date());
+        String currentMonth = monthFormat.format(new java.util.Date());
 
         DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.GERMANY);
         symbols.setGroupingSeparator('.');
@@ -601,9 +601,8 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
                     }
 
                     if (r != null && r.getMembers() != null) {
-                        for (com.sharedfund.app.model.RoomMember m : r.getMembers()) {
-                            if (m != null && m.getUserId() != null) {
-                                String mId = m.getUserId();
+                        for (String mId : r.getMembers()) {
+                            if (mId != null && !mId.trim().isEmpty()) {
                                 if (!mId.equals(ownerId) && (r.getTreasurerIds() == null || !r.getTreasurerIds().contains(mId))) {
                                     AppNotification memberNotif = new AppNotification(
                                             UUID.randomUUID().toString(),

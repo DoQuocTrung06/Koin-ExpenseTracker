@@ -78,7 +78,7 @@ public class RoomUtilitiesBottomSheet extends BottomSheetDialogFragment {
         TextView tvRecurringBadge = view.findViewById(R.id.tvRecurringOverdueBadge);
 
         if (tvRecurringBadge != null && roomId != null && !roomId.trim().isEmpty()) {
-            TransactionRepository.getInstance().getRecurringRules(null, roomId, new TransactionRepository.DataCallback<List<RecurringRule>>() {
+            new TransactionRepository().getRecurringRules(null, roomId, new TransactionRepository.DataCallback<List<RecurringRule>>() {
                 @Override
                 public void onSuccess(List<RecurringRule> rules) {
                     if (!isAdded() || getContext() == null) return;

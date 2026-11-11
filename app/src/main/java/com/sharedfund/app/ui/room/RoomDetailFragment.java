@@ -5511,7 +5511,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
     private void checkAndUpdateUtilityOverdueBadge() {
         String rId = getEffectiveRoomId();
         if (rId == null || rId.trim().isEmpty() || tvUtilityOverdueBadge == null) return;
-        com.sharedfund.app.data.TransactionRepository.getInstance().getRecurringRules(null, rId, new com.sharedfund.app.data.TransactionRepository.DataCallback<java.util.List<com.sharedfund.app.model.RecurringRule>>() {
+        new com.sharedfund.app.data.TransactionRepository().getRecurringRules(null, rId, new com.sharedfund.app.data.TransactionRepository.DataCallback<java.util.List<com.sharedfund.app.model.RecurringRule>>() {
             @Override
             public void onSuccess(java.util.List<com.sharedfund.app.model.RecurringRule> rules) {
                 if (!isAdded() || getContext() == null) return;
