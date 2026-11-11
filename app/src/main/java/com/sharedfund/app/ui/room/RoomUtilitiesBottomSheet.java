@@ -5,14 +5,21 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.sharedfund.app.R;
+import com.sharedfund.app.data.TransactionRepository;
+import com.sharedfund.app.model.RecurringRule;
+
+import java.util.List;
 
 public class RoomUtilitiesBottomSheet extends BottomSheetDialogFragment {
+
+    private static final String ARG_ROOM_ID = "arg_room_id";
 
     public interface OnUtilityActionListener {
         void onSplitBillSelected();
@@ -20,9 +27,26 @@ public class RoomUtilitiesBottomSheet extends BottomSheetDialogFragment {
     }
 
     private OnUtilityActionListener listener;
+    private String roomId;
 
     public static RoomUtilitiesBottomSheet newInstance() {
         return new RoomUtilitiesBottomSheet();
+    }
+
+    public static RoomUtilitiesBottomSheet newInstance(String roomId) {
+        RoomUtilitiesBottomSheet fragment = new RoomUtilitiesBottomSheet();
+        Bundle args = new Bundle();
+        args.putString(ARG_ROOM_ID, roomId);
+        fragment.setArguments(args);
+        return fragment;
+    }
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        if (getArguments() != null) {
+            roomId = getArguments().getString(ARG_ROOM_ID);
+        }
     }
 
     public void setListener(OnUtilityActionListener listener) {
@@ -51,6 +75,39 @@ public class RoomUtilitiesBottomSheet extends BottomSheetDialogFragment {
 
         View cardSplitBill = view.findViewById(R.id.cardOptionSplitBill);
         View cardRecurring = view.findViewById(R.id.cardOptionRecurring);
+        TextView tvRecurringBadge = view.findViewById(R.id.tvRecurringOverdueBadge);
+
+        if (tvRecurringBadge != null && roomId != null && !roomId.trim().isEmpty()) {
+            TransactionRepository.getInstance().getRecurringRules(null, roomId, new TransactionRepository.DataCallback<List<RecurringRule>>() {
+                @Override
+                public void onSuccess(List<RecurringRule> rules) {
+                    if (!isAdded() || getContext() == null) return;
+                    int overdueCount = 0;
+                    if (rules != null) {
+                        for (RecurringRule rule : rules) {
+                            if (rule != null && rule.isActive() && !rule.isPaidInCurrentMonth() && rule.getDaysDiffCurrentMonth() >= 0) {
+                                overdueCount++;
+                            }
+                        }
+                    }
+                    int finalCount = overdueCount;
+                    requireActivity().runOnUiThread(() -> {
+                        if (tvRecurringBadge != null) {
+                            if (finalCount > 0) {
+                                tvRecurringBadge.setVisibility(View.VISIBLE);
+                                tvRecurringBadge.setText(String.valueOf(finalCount));
+                            } else {
+                                tvRecurringBadge.setVisibility(View.GONE);
+                            }
+                        }
+                    });
+                }
+
+                @Override
+                public void onError(String error) {
+                }
+            });
+        }
 
         if (cardSplitBill != null) {
             cardSplitBill.setOnClickListener(v -> {

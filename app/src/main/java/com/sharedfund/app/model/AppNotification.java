@@ -24,14 +24,12 @@ public class AppNotification implements Serializable {
     private String content;
     @SerializedName("description")
     private String description;
-    @SerializedName("time_ago")
-    private String timeAgo;
+    private transient String timeAgo;
     @SerializedName("is_read")
     private boolean isRead;
     @SerializedName("room_id")
     private String targetRoomId;
-    @SerializedName("target_room_name")
-    private String targetRoomName;
+    private transient String targetRoomName;
     @SerializedName("created_at")
     private String createdAt;
 

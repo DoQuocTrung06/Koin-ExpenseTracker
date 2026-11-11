@@ -526,6 +526,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
     private MaterialButton btnRoomUtilities;
+    private TextView tvUtilityOverdueBadge;
 
 
 
@@ -1154,6 +1155,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
         }
+        checkAndUpdateUtilityOverdueBadge();
 
 
 
@@ -1358,6 +1360,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
         btnRoomUtilities = view.findViewById(R.id.btnRoomUtilities);
+        tvUtilityOverdueBadge = view.findViewById(R.id.tvUtilityOverdueBadge);
 
 
 
@@ -2366,6 +2369,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
                     renderRoomData(room);
+                    checkAndUpdateUtilityOverdueBadge();
 
 
 
@@ -5453,7 +5457,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
 
-        RoomUtilitiesBottomSheet sheet = RoomUtilitiesBottomSheet.newInstance();
+        RoomUtilitiesBottomSheet sheet = RoomUtilitiesBottomSheet.newInstance(getEffectiveRoomId());
 
 
 
@@ -5502,6 +5506,40 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
 
+    }
+
+    private void checkAndUpdateUtilityOverdueBadge() {
+        String rId = getEffectiveRoomId();
+        if (rId == null || rId.trim().isEmpty() || tvUtilityOverdueBadge == null) return;
+        com.sharedfund.app.data.TransactionRepository.getInstance().getRecurringRules(null, rId, new com.sharedfund.app.data.TransactionRepository.DataCallback<java.util.List<com.sharedfund.app.model.RecurringRule>>() {
+            @Override
+            public void onSuccess(java.util.List<com.sharedfund.app.model.RecurringRule> rules) {
+                if (!isAdded() || getContext() == null) return;
+                int overdueCount = 0;
+                if (rules != null) {
+                    for (com.sharedfund.app.model.RecurringRule rule : rules) {
+                        if (rule != null && rule.isActive() && !rule.isPaidInCurrentMonth() && rule.getDaysDiffCurrentMonth() >= 0) {
+                            overdueCount++;
+                        }
+                    }
+                }
+                int finalCount = overdueCount;
+                requireActivity().runOnUiThread(() -> {
+                    if (tvUtilityOverdueBadge != null) {
+                        if (finalCount > 0) {
+                            tvUtilityOverdueBadge.setVisibility(View.VISIBLE);
+                            tvUtilityOverdueBadge.setText(String.valueOf(finalCount));
+                        } else {
+                            tvUtilityOverdueBadge.setVisibility(View.GONE);
+                        }
+                    }
+                });
+            }
+
+            @Override
+            public void onError(String error) {
+            }
+        });
     }
 
 
