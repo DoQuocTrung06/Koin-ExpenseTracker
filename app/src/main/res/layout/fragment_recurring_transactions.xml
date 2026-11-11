@@ -42,7 +42,7 @@
             android:id="@+id/btnAddRecurringTop"
             android:layout_width="wrap_content"
             android:layout_height="36dp"
-            android:backgroundTint="@color/primary_light"
+            android:backgroundTint="@color/surface_variant"
             android:insetTop="0dp"
             android:insetBottom="0dp"
             android:paddingStart="14dp"

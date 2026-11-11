@@ -45,9 +45,9 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnMarkAllRead"
-                style="@style/Widget.Material3.Button.TonalButton"
                 android:layout_width="wrap_content"
                 android:layout_height="36dp"
+                android:backgroundTint="@color/surface_variant"
                 android:insetTop="0dp"
                 android:insetBottom="0dp"
                 android:paddingStart="10dp"
@@ -57,6 +57,7 @@
                 android:textSize="12sp"
                 android:textStyle="bold"
                 app:cornerRadius="18dp"
+                app:elevation="0dp"
                 app:icon="@drawable/ic_check"
                 app:iconPadding="4dp"
                 app:iconSize="14dp"
