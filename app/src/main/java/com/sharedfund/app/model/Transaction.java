@@ -122,6 +122,14 @@ public class Transaction implements Serializable {
         this.createdBy = createdBy;
     }
 
+    public String getUserName() {
+        return createdBy;
+    }
+
+    public void setUserName(String userName) {
+        this.createdBy = userName;
+    }
+
     public String getUserId() { return userId; }
     public void setUserId(String userId) { this.userId = userId; }
     public String getTransactionDate() { return transactionDate; }
