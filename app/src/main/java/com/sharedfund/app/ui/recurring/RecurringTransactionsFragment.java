@@ -462,7 +462,13 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
                                     if (tvSuccessBalance != null) tvSuccessBalance.setText(df.format(updatedBalance) + " đ");
 
                                     if (btnSuccessCopyTxId != null) {
-                                        btnSuccessCopyTxId.setOnClickListener(v -> com.sharedfund.app.util.CopyToast.show(requireContext(), shortTxId));
+                                        btnSuccessCopyTxId.setOnClickListener(v -> {
+                                            android.content.ClipboardManager cm = (android.content.ClipboardManager) requireContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+                                            if (cm != null) {
+                                                cm.setPrimaryClip(android.content.ClipData.newPlainText("Transaction ID", shortTxId));
+                                            }
+                                            com.sharedfund.app.util.CopyToast.show(requireContext(), v, "Đã sao chép mã giao dịch");
+                                        });
                                     }
                                     if (btnSuccessDone != null) {
                                         btnSuccessDone.setOnClickListener(v -> {
