@@ -150,26 +150,35 @@ public class AppToaster {
         Context context = root.getContext();
         View toastView = LayoutInflater.from(context).inflate(R.layout.layout_app_toast, root, false);
 
+        View flBadge = toastView.findViewById(R.id.flToastBadge);
         ImageView ivIcon = toastView.findViewById(R.id.ivToastIcon);
         TextView tvMessage = toastView.findViewById(R.id.tvToastMessage);
 
         int iconRes;
         int bgColor;
+        int iconColor;
 
         if (type == ToastType.INFO) {
             iconRes = R.drawable.ic_toast_info;
             bgColor = ContextCompat.getColor(context, R.color.primary);
+            iconColor = ContextCompat.getColor(context, R.color.primary);
         } else if (type == ToastType.ERROR) {
             iconRes = R.drawable.ic_toast_error;
             bgColor = ContextCompat.getColor(context, R.color.accent_expense);
+            iconColor = ContextCompat.getColor(context, R.color.accent_expense);
         } else {
             iconRes = R.drawable.ic_check;
             bgColor = ContextCompat.getColor(context, R.color.accent_income);
+            iconColor = ContextCompat.getColor(context, R.color.accent_income);
+        }
+
+        if (flBadge != null) {
+            flBadge.setBackgroundResource(R.drawable.bg_circle_badge_white);
         }
 
         if (ivIcon != null) {
             ivIcon.setImageResource(iconRes);
-            ivIcon.setImageTintList(ColorStateList.valueOf(Color.WHITE));
+            ivIcon.setImageTintList(ColorStateList.valueOf(iconColor));
         }
 
         toastView.setBackgroundTintList(ColorStateList.valueOf(bgColor));

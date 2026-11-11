@@ -9,25 +9,33 @@
     android:elevation="12dp"
     android:gravity="center_vertical"
     android:orientation="horizontal"
-    android:paddingStart="18dp"
-    android:paddingTop="11dp"
+    android:paddingStart="14dp"
+    android:paddingTop="9dp"
     android:paddingEnd="18dp"
-    android:paddingBottom="11dp">
+    android:paddingBottom="9dp">
 
-    <ImageView
-        android:id="@+id/ivToastIcon"
-        android:layout_width="16dp"
-        android:layout_height="16dp"
+    <FrameLayout
+        android:id="@+id/flToastBadge"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
         android:layout_gravity="center_vertical"
-        android:contentDescription="@null"
-        android:src="@drawable/ic_check"
-        app:tint="@color/white" />
+        android:background="@drawable/bg_circle_badge_white">
+
+        <ImageView
+            android:id="@+id/ivToastIcon"
+            android:layout_width="12dp"
+            android:layout_height="12dp"
+            android:layout_gravity="center"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_check"
+            app:tint="@color/accent_income" />
+    </FrameLayout>
 
     <TextView
         android:id="@+id/tvToastMessage"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
+        android:layout_marginStart="9dp"
         android:layout_gravity="center_vertical"
         android:textColor="@color/white"
         android:textSize="13sp"
