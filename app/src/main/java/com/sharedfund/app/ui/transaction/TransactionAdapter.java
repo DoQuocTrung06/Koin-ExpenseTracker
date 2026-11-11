@@ -182,6 +182,30 @@ public class TransactionAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
         return displayItems.size();
     }
 
+    public static String inferCategoryFromNote(String note) {
+        if (note == null || note.trim().isEmpty()) return "Khác";
+        String lower = note.toLowerCase(Locale.ROOT);
+        if (lower.contains("điện") || lower.contains("nước") || lower.contains("dien nuoc") || lower.contains("mạng") || lower.contains("internet") || lower.contains("wifi") || lower.contains("fpt") || lower.contains("viettel")) {
+            return "Điện nước";
+        }
+        if (lower.contains("phòng") || lower.contains("trọ") || lower.contains("nhà") || lower.contains("thuê") || lower.contains("phong tro")) {
+            return "Tiền phòng";
+        }
+        if (lower.contains("ăn") || lower.contains("uống") || lower.contains("cơm") || lower.contains("chợ") || lower.contains("thực phẩm") || lower.contains("food") || lower.contains("an uong")) {
+            return "Ăn uống";
+        }
+        if (lower.contains("mua") || lower.contains("sắm") || lower.contains("đồ dùng") || lower.contains("siêu thị") || lower.contains("mua sam")) {
+            return "Mua sắm";
+        }
+        if (lower.contains("xe") || lower.contains("xăng") || lower.contains("gửi xe") || lower.contains("đi lại") || lower.contains("di chuyen") || lower.contains("grab")) {
+            return "Di chuyển";
+        }
+        if (lower.contains("liên hoan") || lower.contains("tiệc") || lower.contains("sinh nhật") || lower.contains("party") || lower.contains("bóng") || lower.contains("thể thao") || lower.contains("bong da")) {
+            return "Liên hoan";
+        }
+        return "Khác";
+    }
+
     public static Date parseDate(String raw) {
         if (raw == null || raw.trim().isEmpty()) return null;
         try {
@@ -574,11 +598,16 @@ public class TransactionAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
                     } else {
                         displayNote = rawNote;
                     }
-                } else if (!rawCat.isEmpty() && !rawCat.equalsIgnoreCase("Giao dịch") && !rawCat.equalsIgnoreCase("Khác")) {
+                } else if (!rawCat.isEmpty() && !rawCat.equalsIgnoreCase("Giao dịch") && !rawCat.equalsIgnoreCase("Khác") && !rawCat.equalsIgnoreCase("Dinh ky") && !rawCat.equalsIgnoreCase("Định kỳ")) {
                     actionText = "Chi tiêu " + rawCat;
                     displayNote = rawNote;
                 } else {
-                    actionText = "Chi tiêu quỹ";
+                    String inferred = inferCategoryFromNote(rawNote);
+                    if (!inferred.equalsIgnoreCase("Khác")) {
+                        actionText = "Chi tiêu " + inferred;
+                    } else {
+                        actionText = "Chi tiêu quỹ";
+                    }
                     displayNote = rawNote;
                 }
             }

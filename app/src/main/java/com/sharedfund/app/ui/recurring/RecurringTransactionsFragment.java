@@ -58,6 +58,25 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
     private RecurringRuleAdapter adapter;
     private final List<RecurringRule> localRules = new ArrayList<>();
     private final TransactionRepository transactionRepository = new TransactionRepository();
+    private static final java.util.Map<String, Long> nudgeCooldownMap = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final java.util.Set<String> overdueNotifiedSet = java.util.Collections.synchronizedSet(new java.util.HashSet<>());
+
+    private View layoutMainContent;
+    private View layoutProcessing;
+    private View layoutSuccess;
+    private ImageButton btnProcessingBack;
+    private ImageButton btnSuccessBack;
+    private TextView tvSuccessTitle;
+    private TextView tvSuccessAmount;
+    private TextView tvSuccessSubtitle;
+    private TextView tvSuccessTxId;
+    private View btnSuccessCopyTxId;
+    private TextView tvSuccessRuleName;
+    private TextView tvSuccessRoomName;
+    private TextView tvSuccessUserName;
+    private TextView tvSuccessTime;
+    private TextView tvSuccessBalance;
+    private MaterialButton btnSuccessDone;
 
     public static RecurringTransactionsFragment newInstance(String roomId, String roomName) {
         RecurringTransactionsFragment fragment = new RecurringTransactionsFragment();
@@ -96,9 +115,43 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
         rvRules = view.findViewById(R.id.rvRecurringRules);
         layoutEmpty = view.findViewById(R.id.layoutEmptyRecurring);
 
+        layoutMainContent = view.findViewById(R.id.layoutRecurringMainContent);
+        layoutProcessing = view.findViewById(R.id.layoutRecurringProcessing);
+        layoutSuccess = view.findViewById(R.id.layoutRecurringSuccess);
+        btnProcessingBack = view.findViewById(R.id.btnRecurringProcessingBack);
+        btnSuccessBack = view.findViewById(R.id.btnRecurringSuccessBack);
+        tvSuccessTitle = view.findViewById(R.id.tvRecurringSuccessTitle);
+        tvSuccessAmount = view.findViewById(R.id.tvRecurringSuccessAmount);
+        tvSuccessSubtitle = view.findViewById(R.id.tvRecurringSuccessSubtitle);
+        tvSuccessTxId = view.findViewById(R.id.tvRecurringSuccessTxId);
+        btnSuccessCopyTxId = view.findViewById(R.id.btnRecurringSuccessCopyTxId);
+        tvSuccessRuleName = view.findViewById(R.id.tvRecurringSuccessRuleName);
+        tvSuccessRoomName = view.findViewById(R.id.tvRecurringSuccessRoomName);
+        tvSuccessUserName = view.findViewById(R.id.tvRecurringSuccessUserName);
+        tvSuccessTime = view.findViewById(R.id.tvRecurringSuccessTime);
+        tvSuccessBalance = view.findViewById(R.id.tvRecurringSuccessBalance);
+        btnSuccessDone = view.findViewById(R.id.btnRecurringSuccessDone);
+
         if (btnBack != null) {
             btnBack.setOnClickListener(v -> requireActivity().getOnBackPressedDispatcher().onBackPressed());
         }
+
+        requireActivity().getOnBackPressedDispatcher().addCallback(getViewLifecycleOwner(), new androidx.activity.OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (layoutSuccess != null && layoutSuccess.getVisibility() == View.VISIBLE) {
+                    layoutSuccess.setVisibility(View.GONE);
+                    if (layoutMainContent != null) layoutMainContent.setVisibility(View.VISIBLE);
+                    loadRules();
+                    return;
+                }
+                if (layoutProcessing != null && layoutProcessing.getVisibility() == View.VISIBLE) {
+                    return;
+                }
+                setEnabled(false);
+                requireActivity().getOnBackPressedDispatcher().onBackPressed();
+            }
+        });
 
         tvHeaderTitle.setText("Chi tiêu định kỳ");
 
@@ -338,15 +391,20 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
             return;
         }
 
-        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault());
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault());
         String formattedTime = sdf.format(new java.util.Date());
 
-        java.text.SimpleDateFormat isoFormat = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US);
-        isoFormat.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
-        rule.setLastRunDate(isoFormat.format(new java.util.Date()));
+        java.text.SimpleDateFormat localDateFmt = new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        String localToday = localDateFmt.format(new java.util.Date());
+        rule.setLastRunDate(localToday);
+        rule.setNextRunDate(rule.computeNextRunDateIso());
 
         String category = resolveStandardCategory(rule);
         String note = rule.getTitle();
+
+        if (layoutMainContent != null) layoutMainContent.setVisibility(View.GONE);
+        if (layoutProcessing != null) layoutProcessing.setVisibility(View.VISIBLE);
+        if (layoutSuccess != null) layoutSuccess.setVisibility(View.GONE);
 
         transactionRepository.submitWithdrawal(
                 session.getUserId(),
@@ -364,36 +422,73 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
                             room.setBalance(updatedBalance);
                         }
 
-                        if (isAdded()) {
-                            requireActivity().runOnUiThread(() -> {
-                                updateUI();
-                                showPaymentSuccessDialog(rule, createdTx, updatedBalance, formattedTime);
-                                if (targetRoomId != null) {
-                                    RoomRepository.getInstance().refreshRoomTransactions(targetRoomId, null);
-                                    String curUid = UserSessionManager.getInstance(requireContext()).getUserId();
-                                    if (curUid != null && !curUid.trim().isEmpty()) {
-                                        RoomRepository.getInstance().loadUserData(curUid, new RoomRepository.DataCallback<List<Room>>() {
-                                            @Override public void onSuccess(List<Room> data) {}
-                                            @Override public void onError(String error) {}
-                                        });
-                                    }
-                                }
-                            });
+                        RoomRepository.getInstance().addTransaction(createdTx);
+                        RoomRepository.getInstance().notifyDataChanged();
+                        if (targetRoomId != null) {
+                            RoomRepository.getInstance().refreshRoomTransactions(targetRoomId, null);
                         }
 
                         transactionRepository.updateRecurringRule(rule, new TransactionRepository.DataCallback<RecurringRule>() {
                             @Override
-                            public void onSuccess(RecurringRule updated) {}
+                            public void onSuccess(RecurringRule updated) {
+                                RoomRepository.getInstance().notifyRecurringRulesChanged();
+                            }
 
                             @Override
                             public void onError(String error) {}
                         });
+
+                        if (isAdded()) {
+                            requireActivity().runOnUiThread(() -> {
+                                updateUI();
+                                new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                                    if (!isAdded()) return;
+                                    if (layoutProcessing != null) layoutProcessing.setVisibility(View.GONE);
+                                    if (layoutSuccess != null) layoutSuccess.setVisibility(View.VISIBLE);
+
+                                    DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.GERMANY);
+                                    symbols.setGroupingSeparator('.');
+                                    DecimalFormat df = new DecimalFormat("#,###", symbols);
+
+                                    if (tvSuccessAmount != null) tvSuccessAmount.setText("- " + df.format(ruleAmount) + " đ");
+                                    String rawTxId = createdTx.getId() != null ? createdTx.getId() : UUID.randomUUID().toString();
+                                    String shortTxId = "#SF-" + (rawTxId.length() >= 8 ? rawTxId.substring(0, 8).toUpperCase(Locale.ROOT) : rawTxId.toUpperCase(Locale.ROOT));
+                                    if (tvSuccessTxId != null) tvSuccessTxId.setText(shortTxId);
+                                    if (tvSuccessRuleName != null) tvSuccessRuleName.setText(rule.getTitle());
+                                    String displayRoom = (roomName != null && !roomName.trim().isEmpty()) ? roomName : (rule.getRoomName() != null ? rule.getRoomName() : "Quỹ nhóm");
+                                    if (tvSuccessRoomName != null) tvSuccessRoomName.setText(displayRoom);
+                                    if (tvSuccessUserName != null) tvSuccessUserName.setText(session.getFullName());
+                                    if (tvSuccessTime != null) tvSuccessTime.setText(formattedTime);
+                                    if (tvSuccessBalance != null) tvSuccessBalance.setText(df.format(updatedBalance) + " đ");
+
+                                    if (btnSuccessCopyTxId != null) {
+                                        btnSuccessCopyTxId.setOnClickListener(v -> com.sharedfund.app.util.CopyToast.show(requireContext(), shortTxId));
+                                    }
+                                    if (btnSuccessDone != null) {
+                                        btnSuccessDone.setOnClickListener(v -> {
+                                            if (layoutSuccess != null) layoutSuccess.setVisibility(View.GONE);
+                                            if (layoutMainContent != null) layoutMainContent.setVisibility(View.VISIBLE);
+                                            loadRules();
+                                        });
+                                    }
+                                    if (btnSuccessBack != null) {
+                                        btnSuccessBack.setOnClickListener(v -> {
+                                            if (layoutSuccess != null) layoutSuccess.setVisibility(View.GONE);
+                                            if (layoutMainContent != null) layoutMainContent.setVisibility(View.VISIBLE);
+                                            loadRules();
+                                        });
+                                    }
+                                }, 600);
+                            });
+                        }
                     }
 
                     @Override
                     public void onError(String error) {
                         if (isAdded()) {
                             requireActivity().runOnUiThread(() -> {
+                                if (layoutProcessing != null) layoutProcessing.setVisibility(View.GONE);
+                                if (layoutMainContent != null) layoutMainContent.setVisibility(View.VISIBLE);
                                 AppToaster.error(requireActivity(), "Không thể hoàn tất xuất quỹ: " + error);
                             });
                         }
@@ -402,7 +497,7 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
         );
     }
 
-        private String resolveStandardCategory(RecurringRule rule) {
+    private String resolveStandardCategory(RecurringRule rule) {
         if (rule == null) return "Khác";
         String cat = rule.getCategoryName();
         if (cat != null && !cat.trim().isEmpty() && !cat.equalsIgnoreCase("Định kỳ") && !cat.equalsIgnoreCase("Dinh ky")) {
@@ -426,67 +521,11 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
             if (lower.contains("xe") || lower.contains("xăng") || lower.contains("gửi xe") || lower.contains("đi lại") || lower.contains("di chuyen") || lower.contains("grab")) {
                 return "Di chuyển";
             }
-            if (lower.contains("liên hoan") || lower.contains("tiệc") || lower.contains("sinh nhật") || lower.contains("party")) {
+            if (lower.contains("liên hoan") || lower.contains("tiệc") || lower.contains("sinh nhật") || lower.contains("party") || lower.contains("bóng") || lower.contains("thể thao") || lower.contains("bong da")) {
                 return "Liên hoan";
             }
         }
         return "Khác";
-    }
-
-private void showPaymentSuccessDialog(RecurringRule rule, Transaction tx, double newBalance, String formattedTime) {
-        if (!isAdded()) return;
-        Dialog dialog = new Dialog(requireContext(), android.R.style.Theme_NoTitleBar_Fullscreen);
-        dialog.setContentView(R.layout.dialog_recurring_payment_success);
-        if (dialog.getWindow() != null) {
-            dialog.getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
-        }
-
-        DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.GERMANY);
-        symbols.setGroupingSeparator('.');
-        DecimalFormat df = new DecimalFormat("#,###", symbols);
-
-        TextView tvAmount = dialog.findViewById(R.id.tvPaymentSuccessAmount);
-        TextView tvTxId = dialog.findViewById(R.id.tvPaymentSuccessTxId);
-        TextView tvRuleName = dialog.findViewById(R.id.tvPaymentSuccessRuleName);
-        TextView tvRoomName = dialog.findViewById(R.id.tvPaymentSuccessRoomName);
-        TextView tvUserName = dialog.findViewById(R.id.tvPaymentSuccessUserName);
-        TextView tvTime = dialog.findViewById(R.id.tvPaymentSuccessTime);
-        TextView tvBalanceAfter = dialog.findViewById(R.id.tvPaymentSuccessBalanceAfter);
-        View btnCopy = dialog.findViewById(R.id.btnPaymentSuccessCopy);
-        View btnDone = dialog.findViewById(R.id.btnPaymentSuccessDone);
-
-        String displayAmount = "- " + df.format(Math.abs(rule.getAmount())) + " đ";
-        if (tvAmount != null) tvAmount.setText(displayAmount);
-
-        String rawTxId = tx.getId() != null ? tx.getId() : UUID.randomUUID().toString();
-        String shortTxId = "#RC-" + (rawTxId.length() >= 8 ? rawTxId.substring(0, 8).toUpperCase() : rawTxId.toUpperCase());
-        if (tvTxId != null) tvTxId.setText(shortTxId);
-
-        if (tvRuleName != null) tvRuleName.setText(rule.getTitle());
-
-        String displayRoomName = (roomName != null && !roomName.trim().isEmpty()) ? roomName : (rule.getRoomName() != null ? rule.getRoomName() : "Quỹ nhóm");
-        if (tvRoomName != null) tvRoomName.setText(displayRoomName);
-
-        if (tvUserName != null) tvUserName.setText(tx.getUserName() != null ? tx.getUserName() : UserSessionManager.getInstance(requireContext()).getFullName());
-        if (tvTime != null) tvTime.setText(formattedTime);
-        if (tvBalanceAfter != null) tvBalanceAfter.setText(df.format(newBalance) + " đ");
-
-        if (btnCopy != null) {
-            btnCopy.setOnClickListener(v -> {
-                ClipboardManager clipboard = (ClipboardManager) requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
-                if (clipboard != null) {
-                    ClipData clip = ClipData.newPlainText("Transaction ID", shortTxId);
-                    clipboard.setPrimaryClip(clip);
-                    AppToaster.success(requireActivity(), "Đã sao chép mã giao dịch");
-                }
-            });
-        }
-
-        if (btnDone != null) {
-            btnDone.setOnClickListener(v -> dialog.dismiss());
-        }
-
-        dialog.show();
     }
 
     private void showInsufficientBalanceDialog(RecurringRule rule, double currentBalance, double ruleAmount) {
@@ -523,10 +562,10 @@ private void showPaymentSuccessDialog(RecurringRule rule, Transaction tx, double
     public void onNudgeRule(RecurringRule rule) {
         if (rule == null || !isAdded()) return;
         Context context = requireContext();
-        android.content.SharedPreferences prefs = context.getSharedPreferences("recurring_nudge_prefs", Context.MODE_PRIVATE);
-        long lastNudge = prefs.getLong("nudge_cooldown_" + rule.getId(), 0);
+        Long lastNudge = nudgeCooldownMap.get(rule.getId());
+        long lastNudgeTime = (lastNudge != null) ? lastNudge : 0L;
         long now = System.currentTimeMillis();
-        long diff = now - lastNudge;
+        long diff = now - lastNudgeTime;
         long cooldownMs = 60 * 60 * 1000L;
         if (diff < cooldownMs) {
             long remainingMinutes = (cooldownMs - diff + 59999) / 60000;
@@ -534,7 +573,7 @@ private void showPaymentSuccessDialog(RecurringRule rule, Transaction tx, double
             return;
         }
 
-        prefs.edit().putLong("nudge_cooldown_" + rule.getId(), now).apply();
+        nudgeCooldownMap.put(rule.getId(), now);
         AppToaster.success(requireActivity(), "Đã gửi thông báo nhắc đóng " + rule.getTitle());
 
         DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.GERMANY);
@@ -601,7 +640,6 @@ private void showPaymentSuccessDialog(RecurringRule rule, Transaction tx, double
     private void checkAndDispatchOverdueNotifications(List<RecurringRule> rules) {
         if (rules == null || rules.isEmpty() || getContext() == null) return;
         Context context = requireContext();
-        android.content.SharedPreferences prefs = context.getSharedPreferences("recurring_overdue_notif_prefs", Context.MODE_PRIVATE);
         java.text.SimpleDateFormat monthFormat = new java.text.SimpleDateFormat("yyyy_MM", Locale.US);
         String currentMonth = monthFormat.format(new java.util.Date());
 
@@ -612,8 +650,8 @@ private void showPaymentSuccessDialog(RecurringRule rule, Transaction tx, double
         for (RecurringRule rule : rules) {
             if (rule != null && rule.isActive() && !rule.isPaidInCurrentMonth() && rule.getDaysDiffCurrentMonth() >= 0) {
                 String key = "overdue_v2_notified_" + rule.getId() + "_" + currentMonth;
-                if (!prefs.getBoolean(key, false)) {
-                    prefs.edit().putBoolean(key, true).apply();
+                if (!overdueNotifiedSet.contains(key)) {
+                    overdueNotifiedSet.add(key);
 
                     String targetRoom = (rule.getRoomId() != null && !rule.getRoomId().trim().isEmpty()) ? rule.getRoomId() : roomId;
                     if (targetRoom == null || targetRoom.trim().isEmpty()) continue;

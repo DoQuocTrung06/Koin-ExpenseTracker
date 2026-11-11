@@ -509,7 +509,7 @@ public class CreateRecurringRuleFragment extends Fragment {
         if (lower.contains("sắm") || lower.contains("đồ") || lower.contains("mua") || lower.contains("siêu thị") || lower.contains("mua sam")) {
             return "Mua sắm";
         }
-        if (lower.contains("liên hoan") || lower.contains("tiệc") || lower.contains("sinh nhật") || lower.contains("party")) {
+        if (lower.contains("liên hoan") || lower.contains("tiệc") || lower.contains("sinh nhật") || lower.contains("party") || lower.contains("bóng") || lower.contains("thể thao") || lower.contains("bong da")) {
             return "Liên hoan";
         }
         return "Khác";

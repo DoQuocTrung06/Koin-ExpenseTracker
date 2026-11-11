@@ -305,41 +305,57 @@ public class RecurringRule implements Serializable {
     }
 
     public boolean isPaidInCurrentCycle() {
-        if (lastRunDate == null || lastRunDate.trim().isEmpty()) return false;
-        try {
-            java.util.Date runDate = null;
-            if (lastRunDate.contains("T")) {
-                java.text.SimpleDateFormat iso = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US);
-                iso.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
-                runDate = iso.parse(lastRunDate);
-            } else if (lastRunDate.contains("/")) {
-                java.text.SimpleDateFormat slash = new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault());
-                runDate = slash.parse(lastRunDate);
-            } else if (lastRunDate.contains("-")) {
-                java.text.SimpleDateFormat dash = new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
-                runDate = dash.parse(lastRunDate);
-            }
-            if (runDate == null) return false;
+        if (lastRunDate != null && !lastRunDate.trim().isEmpty()) {
+            try {
+                java.util.Calendar nowCal = java.util.Calendar.getInstance();
+                int curYear = nowCal.get(java.util.Calendar.YEAR);
+                int curMonth = nowCal.get(java.util.Calendar.MONTH) + 1;
+                int curDay = nowCal.get(java.util.Calendar.DAY_OF_MONTH);
+                int curWoy = nowCal.get(java.util.Calendar.WEEK_OF_YEAR);
 
-            java.util.Calendar runCal = java.util.Calendar.getInstance();
-            runCal.setTime(runDate);
-            java.util.Calendar nowCal = java.util.Calendar.getInstance();
+                String clean = lastRunDate.trim();
+                if (clean.length() >= 10 && clean.charAt(4) == '-' && clean.charAt(7) == '-') {
+                    int y = Integer.parseInt(clean.substring(0, 4));
+                    int m = Integer.parseInt(clean.substring(5, 7));
+                    int d = Integer.parseInt(clean.substring(8, 10));
 
-            if (FREQUENCY_DAILY.equalsIgnoreCase(frequency)) {
-                return runCal.get(java.util.Calendar.YEAR) == nowCal.get(java.util.Calendar.YEAR)
-                        && runCal.get(java.util.Calendar.DAY_OF_YEAR) == nowCal.get(java.util.Calendar.DAY_OF_YEAR);
-            }
-
-            if (FREQUENCY_WEEKLY.equalsIgnoreCase(frequency)) {
-                return runCal.get(java.util.Calendar.YEAR) == nowCal.get(java.util.Calendar.YEAR)
-                        && runCal.get(java.util.Calendar.WEEK_OF_YEAR) == nowCal.get(java.util.Calendar.WEEK_OF_YEAR);
-            }
-
-            return runCal.get(java.util.Calendar.YEAR) == nowCal.get(java.util.Calendar.YEAR)
-                    && runCal.get(java.util.Calendar.MONTH) == nowCal.get(java.util.Calendar.MONTH);
-        } catch (Exception e) {
-            return isPaidInCurrentMonth();
+                    if (FREQUENCY_DAILY.equalsIgnoreCase(frequency)) {
+                        if (y == curYear && m == curMonth && d == curDay) return true;
+                    } else if (FREQUENCY_WEEKLY.equalsIgnoreCase(frequency)) {
+                        java.util.Calendar runCal = java.util.Calendar.getInstance();
+                        runCal.set(y, m - 1, d, 12, 0, 0);
+                        if (y == curYear && runCal.get(java.util.Calendar.WEEK_OF_YEAR) == curWoy) return true;
+                    } else {
+                        if (y == curYear && m == curMonth) return true;
+                    }
+                }
+            } catch (Exception ignored) {}
         }
+
+        if (nextRunDate != null && !nextRunDate.trim().isEmpty()) {
+            try {
+                String clean = nextRunDate.trim();
+                if (clean.length() >= 10 && clean.charAt(4) == '-' && clean.charAt(7) == '-') {
+                    int y = Integer.parseInt(clean.substring(0, 4));
+                    int m = Integer.parseInt(clean.substring(5, 7));
+                    int d = Integer.parseInt(clean.substring(8, 10));
+                    java.util.Calendar nextCal = java.util.Calendar.getInstance();
+                    nextCal.set(y, m - 1, d, 0, 0, 0);
+                    nextCal.set(java.util.Calendar.MILLISECOND, 0);
+
+                    java.util.Calendar nowCal = java.util.Calendar.getInstance();
+                    nowCal.set(java.util.Calendar.HOUR_OF_DAY, 0);
+                    nowCal.set(java.util.Calendar.MINUTE, 0);
+                    nowCal.set(java.util.Calendar.SECOND, 0);
+                    nowCal.set(java.util.Calendar.MILLISECOND, 0);
+
+                    if (FREQUENCY_DAILY.equalsIgnoreCase(frequency)) {
+                        if (nextCal.after(nowCal)) return true;
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+        return false;
     }
 
     public String getPaidStatusBadgeText() {

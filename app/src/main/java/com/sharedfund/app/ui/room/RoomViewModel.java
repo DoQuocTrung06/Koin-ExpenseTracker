@@ -227,6 +227,12 @@ public class RoomViewModel extends ViewModel {
                 } else if (tx.isExpense()) {
                     periodExpense += tx.getAmount();
                     String cat = tx.getCategory() != null && !tx.getCategory().trim().isEmpty() ? tx.getCategory() : "Khác";
+                    if (cat.equalsIgnoreCase("Dinh ky") || cat.equalsIgnoreCase("Định kỳ") || cat.equalsIgnoreCase("Khác")) {
+                        String inferred = com.sharedfund.app.ui.transaction.TransactionAdapter.inferCategoryFromNote(tx.getNote());
+                        if (!inferred.equalsIgnoreCase("Khác")) {
+                            cat = inferred;
+                        }
+                    }
                     periodCategoryStats.put(cat, periodCategoryStats.getOrDefault(cat, 0.0) + tx.getAmount());
                 }
 

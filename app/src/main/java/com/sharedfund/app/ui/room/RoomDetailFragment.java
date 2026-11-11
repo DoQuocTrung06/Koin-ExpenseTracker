@@ -1147,13 +1147,10 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
         if (viewModel != null) {
-
-
-
             viewModel.refresh();
-
-
-
+        }
+        if (getEffectiveRoomId() != null) {
+            RoomRepository.getInstance().refreshRoomTransactions(getEffectiveRoomId(), null);
         }
         checkAndUpdateUtilityOverdueBadge();
 
