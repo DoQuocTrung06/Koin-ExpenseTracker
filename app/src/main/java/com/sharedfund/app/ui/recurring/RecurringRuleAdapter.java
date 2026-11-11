@@ -71,6 +71,7 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
 
     class RecurringRuleViewHolder extends RecyclerView.ViewHolder {
         private final MaterialCardView cardForeground;
+        private final View layoutDeleteBackground;
         private final View btnDelete;
         private final TextView tvTitle;
         private final TextView tvFrequency;
@@ -86,11 +87,16 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
         RecurringRuleViewHolder(@NonNull View itemView) {
             super(itemView);
             cardForeground = itemView.findViewById(R.id.cardRecurringRuleRoot);
+            layoutDeleteBackground = itemView.findViewById(R.id.layoutDeleteActionBackground);
             btnDelete = itemView.findViewById(R.id.btnSwipeDeleteRule);
             tvTitle = itemView.findViewById(R.id.tvRuleTitle);
             tvFrequency = itemView.findViewById(R.id.tvRuleFrequency);
             tvAmount = itemView.findViewById(R.id.tvRuleAmount);
             switchActive = itemView.findViewById(R.id.switchRuleActive);
+
+            if (layoutDeleteBackground != null) {
+                layoutDeleteBackground.setVisibility(View.GONE);
+            }
 
             maxSwipeDistance = 76f * itemView.getResources().getDisplayMetrics().density;
             setupTouchGestures();
@@ -116,6 +122,9 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
                         if (!isSwiping) {
                             if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 15) {
                                 isSwiping = true;
+                                if (layoutDeleteBackground != null) {
+                                    layoutDeleteBackground.setVisibility(View.VISIBLE);
+                                }
                                 v.getParent().requestDisallowInterceptTouchEvent(true);
                             }
                         }
@@ -176,6 +185,9 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
         void openSwipe(boolean animated) {
             isOpen = true;
             currentlySwipedHolder = this;
+            if (layoutDeleteBackground != null) {
+                layoutDeleteBackground.setVisibility(View.VISIBLE);
+            }
             if (animated) {
                 cardForeground.animate().translationX(-maxSwipeDistance).setDuration(220).start();
                 switchActive.animate().alpha(0f).scaleX(0.6f).scaleY(0.6f).setDuration(200).withEndAction(() -> switchActive.setVisibility(View.GONE)).start();
@@ -193,10 +205,17 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
             }
             switchActive.setVisibility(View.VISIBLE);
             if (animated) {
-                cardForeground.animate().translationX(0f).setDuration(220).start();
+                cardForeground.animate().translationX(0f).setDuration(220).withEndAction(() -> {
+                    if (!isOpen && layoutDeleteBackground != null) {
+                        layoutDeleteBackground.setVisibility(View.GONE);
+                    }
+                }).start();
                 switchActive.animate().alpha(1.0f).scaleX(1.0f).scaleY(1.0f).setDuration(200).start();
             } else {
                 cardForeground.setTranslationX(0f);
+                if (layoutDeleteBackground != null) {
+                    layoutDeleteBackground.setVisibility(View.GONE);
+                }
                 switchActive.setAlpha(1.0f);
                 switchActive.setScaleX(1.0f);
                 switchActive.setScaleY(1.0f);
@@ -243,7 +262,7 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
                 tvAmount.setTextColor(colorPrimary);
             } else {
                 cardForeground.setCardBackgroundColor(ColorStateList.valueOf(contextColorSurfaceVariant));
-                cardForeground.setAlpha(0.65f);
+                cardForeground.setAlpha(1.0f);
                 tvTitle.setTextColor(colorDisabled);
                 tvFrequency.setTextColor(colorDisabled);
                 tvAmount.setTextColor(colorDisabled);

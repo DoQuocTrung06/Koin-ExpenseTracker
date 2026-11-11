@@ -195,30 +195,22 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
     private void handleCreateRule(RecurringRule rule) {
         localRules.add(0, rule);
         updateUI();
+        if (isAdded()) {
+            AppToaster.success(requireActivity(), "Đã lưu khoản định kỳ thành công");
+        }
 
         transactionRepository.createRecurringRule(rule, new TransactionRepository.DataCallback<RecurringRule>() {
             @Override
-            public void onSuccess(RecurringRule created) {
-                if (isAdded()) {
-                    requireActivity().runOnUiThread(() -> AppToaster.success(requireActivity(), "Thành công", "Đã lưu khoản chi định kỳ"));
-                }
-            }
+            public void onSuccess(RecurringRule created) {}
 
             @Override
-            public void onError(String error) {
-                if (isAdded()) {
-                    requireActivity().runOnUiThread(() -> AppToaster.info(requireActivity(), "Thông báo", "Đã lưu nội bộ khoản định kỳ"));
-                }
-            }
+            public void onError(String error) {}
         });
     }
 
     @Override
     public void onToggleRule(RecurringRule rule, boolean isActive) {
         updateUI();
-        if (isAdded()) {
-            AppToaster.info(requireActivity(), isActive ? "Đã bật theo dõi khoản chi" : "Đã tạm dừng khoản chi");
-        }
         transactionRepository.toggleRecurringRule(rule.getId(), isActive, new TransactionRepository.DataCallback<Boolean>() {
             @Override
             public void onSuccess(Boolean result) {}
@@ -237,7 +229,7 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
             @Override
             public void onSuccess(Boolean result) {
                 if (isAdded()) {
-                    requireActivity().runOnUiThread(() -> AppToaster.success(requireActivity(), "Thành công", "Đã xóa khoản chi định kỳ"));
+                    requireActivity().runOnUiThread(() -> AppToaster.success(requireActivity(), "Đã xóa khoản định kỳ"));
                 }
             }
 
