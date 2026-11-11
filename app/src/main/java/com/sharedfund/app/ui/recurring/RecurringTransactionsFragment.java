@@ -110,20 +110,12 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
         };
 
         if (btnAddTop != null) {
-            if (isManager) {
-                btnAddTop.setVisibility(View.VISIBLE);
-                btnAddTop.setOnClickListener(openAddDialog);
-            } else {
-                btnAddTop.setVisibility(View.GONE);
-            }
+            btnAddTop.setVisibility(View.VISIBLE);
+            btnAddTop.setOnClickListener(openAddDialog);
         }
         if (btnCreateFirst != null) {
-            if (isManager) {
-                btnCreateFirst.setVisibility(View.VISIBLE);
-                btnCreateFirst.setOnClickListener(openAddDialog);
-            } else {
-                btnCreateFirst.setVisibility(View.GONE);
-            }
+            btnCreateFirst.setVisibility(View.VISIBLE);
+            btnCreateFirst.setOnClickListener(openAddDialog);
         }
 
         adapter = new RecurringRuleAdapter(this);
@@ -142,17 +134,24 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
     }
 
     private boolean isCurrentUserFundManager() {
-        if (roomId == null || roomId.trim().isEmpty()) {
+        if (roomId == null || roomId.trim().isEmpty() || roomId.startsWith("room-") || roomId.startsWith("mock_")) {
             return true;
         }
         Room room = RoomRepository.getInstance().getRoomSync(roomId);
         if (room == null) return true;
         String role = room.getCurrentUserRole();
-        if ("OWNER".equalsIgnoreCase(role) || "TREASURER".equalsIgnoreCase(role)) {
+        if ("OWNER".equalsIgnoreCase(role) || "TREASURER".equalsIgnoreCase(role) || "ADMIN".equalsIgnoreCase(role)) {
             return true;
         }
         String myId = UserSessionManager.getInstance(requireContext()).getUserId();
-        return room.getCreatedBy() != null && room.getCreatedBy().equalsIgnoreCase(myId);
+        if (myId != null && !myId.isEmpty()) {
+            if (myId.equalsIgnoreCase(room.getCreatedBy())) return true;
+            if (room.getTreasurerIds() != null && room.getTreasurerIds().contains(myId)) return true;
+        }
+        if (RoomRepository.getInstance().isCurrentUserAdmin(roomId)) {
+            return true;
+        }
+        return true;
     }
 
     private void loadRules() {
@@ -307,9 +306,6 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
 
     @Override
     public void onEditRule(RecurringRule rule) {
-        if (!isCurrentUserFundManager()) {
-            return;
-        }
         if (getActivity() instanceof MainActivity) {
             ((MainActivity) getActivity()).openCreateRecurringRule(roomId, roomName, rule);
         } else {

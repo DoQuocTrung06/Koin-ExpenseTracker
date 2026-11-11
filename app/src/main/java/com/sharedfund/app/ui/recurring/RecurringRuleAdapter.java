@@ -128,96 +128,21 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
         }
 
         private void setupTouchGestures() {
-            cardForeground.setOnTouchListener((v, event) -> {
-                if (!isManager) {
-                    if (event.getActionMasked() == MotionEvent.ACTION_UP) {
-                        float deltaX = Math.abs(event.getRawX() - downX);
-                        float deltaY = Math.abs(event.getRawY() - downY);
-                        if (deltaX < 12 && deltaY < 12) {
-                            int pos = getAdapterPosition();
-                            if (pos != RecyclerView.NO_POSITION && listener != null) {
-                                listener.onEditRule(rules.get(pos));
-                            }
-                        }
-                    }
-                    return false;
-                }
-
-                switch (event.getActionMasked()) {
-                    case MotionEvent.ACTION_DOWN:
-                        downX = event.getRawX();
-                        downY = event.getRawY();
-                        isSwiping = false;
-                        if (currentlySwipedHolder != null && currentlySwipedHolder != this) {
-                            currentlySwipedHolder.closeSwipe(true);
-                            currentlySwipedHolder = null;
-                        }
-                        return true;
-
-                    case MotionEvent.ACTION_MOVE:
-                        float deltaX = event.getRawX() - downX;
-                        float deltaY = event.getRawY() - downY;
-
-                        if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 10) {
-                            isSwiping = true;
-                            v.getParent().requestDisallowInterceptTouchEvent(true);
-
-                            float newTranslateX = isOpen ? -maxSwipeDistance + deltaX : deltaX;
-                            if (newTranslateX > 0) newTranslateX = 0;
-                            if (newTranslateX < -maxSwipeDistance) newTranslateX = -maxSwipeDistance;
-
-                            cardForeground.setTranslationX(newTranslateX);
-
-                            if (layoutDeleteBackground != null) {
-                                layoutDeleteBackground.setVisibility(newTranslateX < 0 ? View.VISIBLE : View.GONE);
-                            }
-
-                            float progress = Math.abs(newTranslateX) / maxSwipeDistance;
-                            switchActive.setAlpha(1.0f - progress);
-                            switchActive.setScaleX(1.0f - progress * 0.4f);
-                            switchActive.setScaleY(1.0f - progress * 0.4f);
-                            return true;
-                        }
-                        break;
-
-                    case MotionEvent.ACTION_UP:
-                    case MotionEvent.ACTION_CANCEL:
-                        v.getParent().requestDisallowInterceptTouchEvent(false);
-                        float finalDeltaX = event.getRawX() - downX;
-                        float finalDeltaY = Math.abs(event.getRawY() - downY);
-
-                        if (!isSwiping && Math.abs(finalDeltaX) < 12 && finalDeltaY < 12) {
-                            if (isOpen) {
-                                closeSwipe(true);
-                            } else {
-                                int pos = getAdapterPosition();
-                                if (pos != RecyclerView.NO_POSITION && listener != null) {
-                                    listener.onEditRule(rules.get(pos));
-                                }
-                            }
-                            return true;
-                        }
-
-                        if (isSwiping) {
-                            float currentTranslation = cardForeground.getTranslationX();
-                            if (currentTranslation < -maxSwipeDistance * 0.45f) {
-                                openSwipe();
-                            } else {
-                                closeSwipe(true);
-                            }
-                            return true;
-                        }
-                        break;
-                }
-                return false;
-            });
-
-            btnDelete.setOnClickListener(v -> {
+            cardForeground.setOnClickListener(v -> {
                 int pos = getAdapterPosition();
                 if (pos != RecyclerView.NO_POSITION && listener != null) {
-                    listener.onDeleteRule(rules.get(pos));
+                    listener.onEditRule(rules.get(pos));
                 }
             });
+
+            if (btnDelete != null) {
+                btnDelete.setOnClickListener(v -> {
+                    int pos = getAdapterPosition();
+                    if (pos != RecyclerView.NO_POSITION && listener != null) {
+                        listener.onDeleteRule(rules.get(pos));
+                    }
+                });
+            }
         }
 
         void openSwipe() {
