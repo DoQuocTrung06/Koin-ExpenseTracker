@@ -361,10 +361,29 @@ public class CreateRecurringRuleFragment extends Fragment {
         }
     }
 
+    private boolean isCurrentUserFundManager() {
+        if (roomId == null || roomId.trim().isEmpty()) {
+            return true;
+        }
+        com.sharedfund.app.model.Room room = RoomRepository.getInstance().getRoomSync(roomId);
+        if (room == null) return true;
+        String role = room.getCurrentUserRole();
+        if ("OWNER".equalsIgnoreCase(role) || "TREASURER".equalsIgnoreCase(role) || "ADMIN".equalsIgnoreCase(role)) {
+            return true;
+        }
+        if (getContext() != null) {
+            String myId = com.sharedfund.app.data.UserSessionManager.getInstance(getContext()).getUserId();
+            if (myId != null && !myId.isEmpty()) {
+                if (myId.equalsIgnoreCase(room.getCreatedBy())) return true;
+                if (room.getTreasurerIds() != null && room.getTreasurerIds().contains(myId)) return true;
+            }
+        }
+        return RoomRepository.getInstance().isCurrentUserAdmin(roomId);
+    }
+
     private void handleSubmit() {
         if (roomId != null && !roomId.trim().isEmpty()) {
-            com.sharedfund.app.model.Room room = RoomRepository.getInstance().getRoomSync(roomId);
-            if (room != null && !RoomRepository.getInstance().isCurrentUserAdmin(roomId)) {
+            if (!isCurrentUserFundManager()) {
                 if (getActivity() != null) {
                     AppToaster.error(getActivity(), "Bạn không có quyền quản lý khoản định kỳ này");
                 }
