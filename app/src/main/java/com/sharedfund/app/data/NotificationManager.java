@@ -97,17 +97,36 @@ public class NotificationManager {
     }
 
     public synchronized List<AppNotification> getNotifications() {
-        return new ArrayList<>(cachedList);
+        String myId = getCurrentUserId();
+        List<AppNotification> list = new ArrayList<>();
+        for (AppNotification item : cachedList) {
+            if (myId == null || item.getUserId() == null || myId.equals(item.getUserId())) {
+                list.add(item);
+            }
+        }
+        return list;
     }
 
     public synchronized int getUnreadCount() {
+        String myId = getCurrentUserId();
         int count = 0;
         for (AppNotification item : cachedList) {
-            if (!item.isRead()) {
-                count++;
+            if (myId == null || item.getUserId() == null || myId.equals(item.getUserId())) {
+                if (!item.isRead()) {
+                    count++;
+                }
             }
         }
         return count;
+    }
+
+    public synchronized void onUserSessionChanged(String newUserId) {
+        cachedList.clear();
+        loadNotifications();
+        notifyListeners();
+        if (newUserId != null && !newUserId.trim().isEmpty()) {
+            fetchNotificationsFromCloud(newUserId, null);
+        }
     }
 
     public synchronized void markAsRead(String id) {
@@ -268,16 +287,19 @@ public class NotificationManager {
                     Type listType = new TypeToken<List<AppNotification>>() {}.getType();
                     List<AppNotification> remoteList = gson.fromJson(json, listType);
                     if (remoteList != null) {
-                        synchronized (NotificationManager.this) {
-                            cachedList.clear();
-                            for (AppNotification item : remoteList) {
-                                if (!isDeleted(item.getId())) {
-                                    cachedList.add(item);
+                        String currentMyId = getCurrentUserId();
+                        if (targetUserId.equals(currentMyId)) {
+                            synchronized (NotificationManager.this) {
+                                cachedList.clear();
+                                for (AppNotification item : remoteList) {
+                                    if (!isDeleted(item.getId())) {
+                                        cachedList.add(item);
+                                    }
                                 }
+                                saveNotifications();
                             }
-                            saveNotifications();
+                            notifyListeners();
                         }
-                        notifyListeners();
                     }
                 }
                 if (onComplete != null) mainHandler.post(onComplete);
@@ -362,24 +384,31 @@ public class NotificationManager {
         });
     }
 
-    private void loadNotifications() {
+    private String getCacheKey() {
+        String uid = getCurrentUserId();
+        return KEY_NOTIFS + "_" + (uid != null && !uid.trim().isEmpty() ? uid : "guest");
+    }
+
+    private synchronized void loadNotifications() {
         cachedList.clear();
-        String json = prefs.getString(KEY_NOTIFS, null);
+        String uid = getCurrentUserId();
+        String json = prefs.getString(getCacheKey(), null);
         if (json != null && !json.trim().isEmpty()) {
             Type listType = new TypeToken<List<AppNotification>>() {}.getType();
             List<AppNotification> saved = gson.fromJson(json, listType);
             if (saved != null) {
-                cachedList.addAll(saved);
+                for (AppNotification item : saved) {
+                    if (uid == null || item.getUserId() == null || uid.equals(item.getUserId())) {
+                        cachedList.add(item);
+                    }
+                }
             }
-        } else if (!prefs.getBoolean(KEY_INITIALIZED, false)) {
-            prefs.edit().putBoolean(KEY_INITIALIZED, true).apply();
-            saveNotifications();
         }
     }
 
-    private void saveNotifications() {
+    private synchronized void saveNotifications() {
         String json = gson.toJson(cachedList);
-        prefs.edit().putString(KEY_NOTIFS, json).apply();
+        prefs.edit().putString(getCacheKey(), json).apply();
     }
 
     private void recordDeletedId(String id) {

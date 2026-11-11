@@ -503,43 +503,56 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
         String targetRoom = (rule.getRoomId() != null && !rule.getRoomId().trim().isEmpty()) ? rule.getRoomId() : roomId;
         Room r = targetRoom != null ? RoomRepository.getInstance().getRoomSync(targetRoom) : null;
         String ownerId = (r != null) ? r.getCreatedBy() : null;
-        String fundName = (r != null && r.getName() != null) ? r.getName() : "Quỹ phòng";
+        String fundName = (r != null && r.getName() != null) ? r.getName() : (rule.getRoomName() != null ? rule.getRoomName() : "Quỹ phòng");
 
-        AppNotification notif = new AppNotification(
-                UUID.randomUUID().toString(),
-                AppNotification.TYPE_RECURRING_DUE,
-                fundName,
-                "Nhắc thanh toán: " + rule.getTitle(),
-                "Thành viên " + UserSessionManager.getInstance(context).getFullName() + " nhắc xuất quỹ đóng khoản " + rule.getTitle() + " (" + df.format(rule.getAmount()) + " đ).",
-                "Vừa xong",
-                false,
-                targetRoom,
-                fundName
-        );
+        if (targetRoom != null && !targetRoom.trim().isEmpty()) {
+            RoomRepository.getInstance().loadRoomMembers(targetRoom, new RoomRepository.DataCallback<List<com.sharedfund.app.model.RoomMember>>() {
+                @Override
+                public void onSuccess(List<com.sharedfund.app.model.RoomMember> members) {
+                    if (members == null) return;
+                    for (com.sharedfund.app.model.RoomMember m : members) {
+                        if (m == null || m.getUserId() == null || m.getUserId().trim().isEmpty()) continue;
+                        String uId = m.getUserId();
+                        boolean isOwnerOrTreasurer = "OWNER".equalsIgnoreCase(m.getRole())
+                                || (ownerId != null && ownerId.equals(uId))
+                                || "TREASURER".equalsIgnoreCase(m.getRole())
+                                || (r != null && r.getTreasurerIds() != null && r.getTreasurerIds().contains(uId));
 
-        if (ownerId != null && !ownerId.trim().isEmpty()) {
-            NotificationManager.getInstance(context).sendNotificationToUser(notif, ownerId);
-        } else {
-            NotificationManager.getInstance(context).addNotification(notif);
-        }
-
-        if (r != null && r.getTreasurerIds() != null) {
-            for (String tId : r.getTreasurerIds()) {
-                if (tId != null && !tId.trim().isEmpty() && !tId.equals(ownerId)) {
-                    AppNotification tNotif = new AppNotification(
-                            UUID.randomUUID().toString(),
-                            AppNotification.TYPE_RECURRING_DUE,
-                            fundName,
-                            "Nhắc thanh toán: " + rule.getTitle(),
-                            "Thành viên " + UserSessionManager.getInstance(context).getFullName() + " nhắc xuất quỹ đóng khoản " + rule.getTitle() + " (" + df.format(rule.getAmount()) + " đ).",
-                            "Vừa xong",
-                            false,
-                            targetRoom,
-                            fundName
-                    );
-                    NotificationManager.getInstance(context).sendNotificationToUser(tNotif, tId);
+                        if (isOwnerOrTreasurer) {
+                            AppNotification tNotif = new AppNotification(
+                                    UUID.randomUUID().toString(),
+                                    AppNotification.TYPE_RECURRING_DUE,
+                                    fundName,
+                                    "Nhắc thanh toán: " + rule.getTitle(),
+                                    "Thành viên " + UserSessionManager.getInstance(context).getFullName() + " nhắc xuất quỹ đóng khoản " + rule.getTitle() + " (" + df.format(rule.getAmount()) + " đ).",
+                                    "Vừa xong",
+                                    false,
+                                    targetRoom,
+                                    fundName
+                            );
+                            NotificationManager.getInstance(context).sendNotificationToUser(tNotif, uId);
+                        }
+                    }
                 }
-            }
+
+                @Override
+                public void onError(String error) {
+                    if (ownerId != null && !ownerId.trim().isEmpty()) {
+                        AppNotification notif = new AppNotification(
+                                UUID.randomUUID().toString(),
+                                AppNotification.TYPE_RECURRING_DUE,
+                                fundName,
+                                "Nhắc thanh toán: " + rule.getTitle(),
+                                "Thành viên " + UserSessionManager.getInstance(context).getFullName() + " nhắc xuất quỹ đóng khoản " + rule.getTitle() + " (" + df.format(rule.getAmount()) + " đ).",
+                                "Vừa xong",
+                                false,
+                                targetRoom,
+                                fundName
+                        );
+                        NotificationManager.getInstance(context).sendNotificationToUser(notif, ownerId);
+                    }
+                }
+            });
         }
         updateUI();
     }
@@ -557,53 +570,43 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
 
         for (RecurringRule rule : rules) {
             if (rule != null && rule.isActive() && !rule.isPaidInCurrentMonth() && rule.getDaysDiffCurrentMonth() >= 0) {
-                String key = "overdue_notified_" + rule.getId() + "_" + currentMonth;
+                String key = "overdue_v2_notified_" + rule.getId() + "_" + currentMonth;
                 if (!prefs.getBoolean(key, false)) {
                     prefs.edit().putBoolean(key, true).apply();
 
                     String targetRoom = (rule.getRoomId() != null && !rule.getRoomId().trim().isEmpty()) ? rule.getRoomId() : roomId;
-                    Room r = targetRoom != null ? RoomRepository.getInstance().getRoomSync(targetRoom) : null;
+                    if (targetRoom == null || targetRoom.trim().isEmpty()) continue;
+
+                    Room r = RoomRepository.getInstance().getRoomSync(targetRoom);
                     String ownerId = (r != null) ? r.getCreatedBy() : null;
-                    String fundName = (r != null && r.getName() != null) ? r.getName() : "Quỹ phòng";
+                    String fundName = (r != null && r.getName() != null) ? r.getName() : (rule.getRoomName() != null ? rule.getRoomName() : "Quỹ phòng");
 
-                    if (ownerId != null && !ownerId.trim().isEmpty()) {
-                        AppNotification ownerNotif = new AppNotification(
-                                UUID.randomUUID().toString(),
-                                AppNotification.TYPE_RECURRING_DUE,
-                                fundName,
-                                "[Quá hạn] Cần xuất quỹ thanh toán " + rule.getTitle(),
-                                "Khoản chi định kỳ " + df.format(rule.getAmount()) + " đ cho quỹ " + fundName + " đã quá hạn. Vui lòng kiểm tra và duyệt chi.",
-                                "Vừa xong",
-                                false,
-                                targetRoom,
-                                fundName
-                        );
-                        NotificationManager.getInstance(context).sendNotificationToUser(ownerNotif, ownerId);
-                    }
+                    RoomRepository.getInstance().loadRoomMembers(targetRoom, new RoomRepository.DataCallback<List<com.sharedfund.app.model.RoomMember>>() {
+                        @Override
+                        public void onSuccess(List<com.sharedfund.app.model.RoomMember> members) {
+                            if (members == null) return;
+                            for (com.sharedfund.app.model.RoomMember m : members) {
+                                if (m == null || m.getUserId() == null || m.getUserId().trim().isEmpty()) continue;
+                                String uId = m.getUserId();
+                                boolean isOwnerOrTreasurer = "OWNER".equalsIgnoreCase(m.getRole())
+                                        || (ownerId != null && ownerId.equals(uId))
+                                        || "TREASURER".equalsIgnoreCase(m.getRole())
+                                        || (r != null && r.getTreasurerIds() != null && r.getTreasurerIds().contains(uId));
 
-                    if (r != null && r.getTreasurerIds() != null) {
-                        for (String tId : r.getTreasurerIds()) {
-                            if (tId != null && !tId.trim().isEmpty() && !tId.equals(ownerId)) {
-                                AppNotification tNotif = new AppNotification(
-                                        UUID.randomUUID().toString(),
-                                        AppNotification.TYPE_RECURRING_DUE,
-                                        fundName,
-                                        "[Quá hạn] Cần xuất quỹ thanh toán " + rule.getTitle(),
-                                        "Khoản chi định kỳ " + df.format(rule.getAmount()) + " đ cho quỹ " + fundName + " đã quá hạn. Vui lòng kiểm tra và duyệt chi.",
-                                        "Vừa xong",
-                                        false,
-                                        targetRoom,
-                                        fundName
-                                );
-                                NotificationManager.getInstance(context).sendNotificationToUser(tNotif, tId);
-                            }
-                        }
-                    }
-
-                    if (r != null && r.getMembers() != null) {
-                        for (String mId : r.getMembers()) {
-                            if (mId != null && !mId.trim().isEmpty()) {
-                                if (!mId.equals(ownerId) && (r.getTreasurerIds() == null || !r.getTreasurerIds().contains(mId))) {
+                                if (isOwnerOrTreasurer) {
+                                    AppNotification ownerNotif = new AppNotification(
+                                            UUID.randomUUID().toString(),
+                                            AppNotification.TYPE_RECURRING_DUE,
+                                            fundName,
+                                            "[Quá hạn] Cần xuất quỹ thanh toán " + rule.getTitle(),
+                                            "Khoản chi định kỳ " + df.format(rule.getAmount()) + " đ cho quỹ " + fundName + " đã quá hạn. Vui lòng kiểm tra và duyệt chi.",
+                                            "Vừa xong",
+                                            false,
+                                            targetRoom,
+                                            fundName
+                                    );
+                                    NotificationManager.getInstance(context).sendNotificationToUser(ownerNotif, uId);
+                                } else {
                                     AppNotification memberNotif = new AppNotification(
                                             UUID.randomUUID().toString(),
                                             AppNotification.TYPE_RECURRING_DUE,
@@ -615,11 +618,29 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
                                             targetRoom,
                                             fundName
                                     );
-                                    NotificationManager.getInstance(context).sendNotificationToUser(memberNotif, mId);
+                                    NotificationManager.getInstance(context).sendNotificationToUser(memberNotif, uId);
                                 }
                             }
                         }
-                    }
+
+                        @Override
+                        public void onError(String error) {
+                            if (ownerId != null && !ownerId.trim().isEmpty()) {
+                                AppNotification ownerNotif = new AppNotification(
+                                        UUID.randomUUID().toString(),
+                                        AppNotification.TYPE_RECURRING_DUE,
+                                        fundName,
+                                        "[Quá hạn] Cần xuất quỹ thanh toán " + rule.getTitle(),
+                                        "Khoản chi định kỳ " + df.format(rule.getAmount()) + " đ cho quỹ " + fundName + " đã quá hạn. Vui lòng kiểm tra và duyệt chi.",
+                                        "Vừa xong",
+                                        false,
+                                        targetRoom,
+                                        fundName
+                                );
+                                NotificationManager.getInstance(context).sendNotificationToUser(ownerNotif, ownerId);
+                            }
+                        }
+                    });
                 }
             }
         }

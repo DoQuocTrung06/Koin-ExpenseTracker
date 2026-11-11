@@ -26,9 +26,11 @@ public class UserSessionManager {
 
     private static volatile UserSessionManager instance;
     private final SharedPreferences preferences;
+    private final Context context;
 
     private UserSessionManager(Context context) {
-        this.preferences = context.getApplicationContext().getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+        this.context = context.getApplicationContext();
+        this.preferences = this.context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
     }
 
     public static synchronized UserSessionManager getInstance(Context context) {
@@ -64,6 +66,9 @@ public class UserSessionManager {
         long expTime = extractExpiresAt(accessToken, expiresInSeconds);
         editor.putLong(KEY_EXPIRES_AT, expTime);
         editor.apply();
+        if (context != null) {
+            NotificationManager.getInstance(context).onUserSessionChanged(userId);
+        }
     }
 
     public void updateProfile(String fullName, String email) {
@@ -221,5 +226,8 @@ public class UserSessionManager {
         SharedPreferences.Editor editor = preferences.edit();
         editor.clear();
         editor.apply();
+        if (context != null) {
+            NotificationManager.getInstance(context).onUserSessionChanged(null);
+        }
     }
 }

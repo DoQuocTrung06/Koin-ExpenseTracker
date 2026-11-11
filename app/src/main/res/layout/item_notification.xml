@@ -31,29 +31,26 @@
                 android:id="@+id/tvNotifFundName"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:background="@drawable/bg_utility_badge"
+                android:paddingStart="8dp"
+                android:paddingTop="2dp"
+                android:paddingEnd="8dp"
+                android:paddingBottom="2dp"
                 android:ellipsize="end"
                 android:maxLines="1"
                 android:text="Quỹ Ăn Tết"
                 android:textColor="@color/primary"
-                android:textSize="12sp"
+                android:textSize="12.5sp"
                 android:textStyle="bold" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
-                android:layout_marginEnd="6dp"
-                android:text="•"
-                android:textColor="@color/text_secondary"
-                android:textSize="12sp" />
 
             <TextView
                 android:id="@+id/tvNotifTime"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
                 android:text="14:14 Hôm nay"
                 android:textColor="@color/text_secondary"
-                android:textSize="11.5sp" />
+                android:textSize="12sp" />
         </LinearLayout>
 
         <ImageButton

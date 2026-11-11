@@ -132,7 +132,56 @@ public class AppNotification implements Serializable {
     }
 
     public String getTimeAgo() {
-        return timeAgo;
+        if (timeAgo != null && !timeAgo.trim().isEmpty()) {
+            return timeAgo;
+        }
+        if (createdAt != null && !createdAt.trim().isEmpty()) {
+            return formatRelativeTime(createdAt);
+        }
+        return "Vừa xong";
+    }
+
+    private String formatRelativeTime(String isoString) {
+        try {
+            java.text.SimpleDateFormat isoFormat = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US);
+            isoFormat.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+            String cleanIso = isoString;
+            int dotIdx = cleanIso.indexOf('.');
+            if (dotIdx != -1) {
+                int plusIdx = cleanIso.indexOf('+', dotIdx);
+                int zIdx = cleanIso.indexOf('Z', dotIdx);
+                cleanIso = cleanIso.substring(0, dotIdx) + (zIdx != -1 ? "Z" : (plusIdx != -1 ? cleanIso.substring(plusIdx) : ""));
+            }
+            if (cleanIso.endsWith("Z")) {
+                cleanIso = cleanIso.substring(0, cleanIso.length() - 1);
+            }
+            int plusIdx = cleanIso.indexOf('+');
+            if (plusIdx != -1) {
+                cleanIso = cleanIso.substring(0, plusIdx);
+            }
+            java.util.Date notifDate = isoFormat.parse(cleanIso);
+            if (notifDate != null) {
+                long diffMs = System.currentTimeMillis() - notifDate.getTime();
+                if (diffMs < 60000L) {
+                    return "Vừa xong";
+                }
+                long minutes = diffMs / 60000L;
+                if (minutes < 60) {
+                    return minutes + " phút trước";
+                }
+                long hours = minutes / 60;
+                if (hours < 24) {
+                    return hours + " giờ trước";
+                }
+                long days = hours / 24;
+                if (days < 7) {
+                    return days + " ngày trước";
+                }
+                java.text.SimpleDateFormat outFormat = new java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault());
+                return outFormat.format(notifDate);
+            }
+        } catch (Exception ignored) {}
+        return "Vừa xong";
     }
 
     public void setTimeAgo(String timeAgo) {
