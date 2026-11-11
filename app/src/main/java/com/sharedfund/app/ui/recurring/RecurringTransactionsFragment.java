@@ -234,9 +234,6 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
     private void handleCreateRule(RecurringRule rule) {
         localRules.add(0, rule);
         updateUI();
-        if (isAdded()) {
-            AppToaster.success(requireActivity(), "Đã lưu khoản định kỳ thành công");
-        }
 
         transactionRepository.createRecurringRule(rule, new TransactionRepository.DataCallback<RecurringRule>() {
             @Override

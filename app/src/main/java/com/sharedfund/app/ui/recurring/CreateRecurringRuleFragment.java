@@ -26,6 +26,7 @@ import com.google.android.material.textfield.TextInputLayout;
 import com.sharedfund.app.R;
 import com.sharedfund.app.data.RoomRepository;
 import com.sharedfund.app.data.TransactionRepository;
+import com.sharedfund.app.data.UserSessionManager;
 import com.sharedfund.app.model.RecurringRule;
 import com.sharedfund.app.ui.widget.AppToaster;
 
@@ -62,6 +63,7 @@ public class CreateRecurringRuleFragment extends Fragment {
     private TextInputEditText etRecurringAmount;
     private TextInputLayout tilRecurringAmount;
     private TextInputEditText etRecurringDay;
+    private MaterialButton btnSubmit;
 
     private final List<MaterialButton> weekDayButtons = new ArrayList<>();
     private final TransactionRepository transactionRepository = new TransactionRepository();
@@ -108,7 +110,7 @@ public class CreateRecurringRuleFragment extends Fragment {
         etRecurringAmount = view.findViewById(R.id.etRecurringAmount);
         tilRecurringAmount = view.findViewById(R.id.tilRecurringAmount);
         etRecurringDay = view.findViewById(R.id.etRecurringDay);
-        MaterialButton btnSubmit = view.findViewById(R.id.btnSubmitRecurringRule);
+        btnSubmit = view.findViewById(R.id.btnSubmitRecurringRule);
 
         btnFreqMonthly = view.findViewById(R.id.btnFreqMonthly);
         btnFreqWeekly = view.findViewById(R.id.btnFreqWeekly);
@@ -442,6 +444,9 @@ public class CreateRecurringRuleFragment extends Fragment {
             rule.setId(UUID.randomUUID().toString());
             rule.setActive(true);
         }
+        UserSessionManager session = UserSessionManager.getInstance(requireContext());
+        rule.setUserId(session.getUserId());
+        rule.setUserName(session.getFullName());
         rule.setTitle(title);
         rule.setAmount(amount);
         rule.setCategoryName(inferredCategory);
@@ -459,40 +464,53 @@ public class CreateRecurringRuleFragment extends Fragment {
             rule.setRoomName("Ví cá nhân");
         }
 
-        Context ctx = getContext();
+        if (btnSubmit != null) {
+            btnSubmit.setEnabled(false);
+        }
+
         if (isEdit) {
             transactionRepository.updateRecurringRule(rule, new TransactionRepository.DataCallback<RecurringRule>() {
                 @Override
                 public void onSuccess(RecurringRule data) {
-                    RoomRepository.getInstance().notifyRecurringRulesChanged();
+                    if (isAdded()) {
+                        requireActivity().runOnUiThread(() -> {
+                            RoomRepository.getInstance().notifyRecurringRulesChanged();
+                            navigateBack();
+                        });
+                    }
                 }
 
                 @Override
                 public void onError(String error) {
-                    RoomRepository.getInstance().notifyRecurringRulesChanged();
+                    if (isAdded()) {
+                        requireActivity().runOnUiThread(() -> {
+                            if (btnSubmit != null) btnSubmit.setEnabled(true);
+                        });
+                    }
                 }
             });
-            if (ctx != null && getActivity() != null) {
-                AppToaster.success(getActivity(), "Đã lưu thay đổi khoản định kỳ");
-            }
         } else {
             transactionRepository.createRecurringRule(rule, new TransactionRepository.DataCallback<RecurringRule>() {
                 @Override
                 public void onSuccess(RecurringRule created) {
-                    RoomRepository.getInstance().notifyRecurringRulesChanged();
+                    if (isAdded()) {
+                        requireActivity().runOnUiThread(() -> {
+                            RoomRepository.getInstance().notifyRecurringRulesChanged();
+                            navigateBack();
+                        });
+                    }
                 }
 
                 @Override
                 public void onError(String error) {
-                    RoomRepository.getInstance().notifyRecurringRulesChanged();
+                    if (isAdded()) {
+                        requireActivity().runOnUiThread(() -> {
+                            if (btnSubmit != null) btnSubmit.setEnabled(true);
+                        });
+                    }
                 }
             });
-            if (ctx != null && getActivity() != null) {
-                AppToaster.success(getActivity(), "Đã lưu khoản định kỳ thành công");
-            }
         }
-
-        navigateBack();
     }
 
     private int dpToPx(float dp) {
