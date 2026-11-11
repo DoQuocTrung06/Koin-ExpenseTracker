@@ -98,9 +98,14 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
         boolean isManager = isCurrentUserFundManager();
 
         View.OnClickListener openAddDialog = v -> {
-            CreateRecurringRuleBottomSheet sheet = CreateRecurringRuleBottomSheet.newInstance(roomId, roomName);
-            sheet.setListener(this::handleCreateRule);
-            sheet.show(getChildFragmentManager(), "create_recurring_rule_sheet");
+            if (getActivity() instanceof MainActivity) {
+                ((MainActivity) getActivity()).openCreateRecurringRule(roomId, roomName, null);
+            } else {
+                getParentFragmentManager().beginTransaction()
+                        .replace(R.id.fragment_container, CreateRecurringRuleFragment.newInstance(roomId, roomName, null))
+                        .addToBackStack(null)
+                        .commit();
+            }
         };
 
         if (btnAddTop != null) {
@@ -294,35 +299,24 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
     }
 
     @Override
+    public void onResume() {
+        super.onResume();
+        loadRules();
+    }
+
+    @Override
     public void onEditRule(RecurringRule rule) {
         if (!isCurrentUserFundManager()) {
             return;
         }
-        CreateRecurringRuleBottomSheet sheet = CreateRecurringRuleBottomSheet.newInstance(roomId, roomName, rule);
-        sheet.setListener(updatedRule -> {
-            int index = -1;
-            for (int i = 0; i < localRules.size(); i++) {
-                if (localRules.get(i).getId() != null && localRules.get(i).getId().equals(updatedRule.getId())) {
-                    index = i;
-                    break;
-                }
-            }
-            if (index >= 0) {
-                localRules.set(index, updatedRule);
-            }
-            updateUI();
-            if (isAdded()) {
-                AppToaster.success(requireActivity(), "Đã cập nhật khoản định kỳ");
-            }
-            transactionRepository.updateRecurringRule(updatedRule, new TransactionRepository.DataCallback<RecurringRule>() {
-                @Override
-                public void onSuccess(RecurringRule result) {}
-
-                @Override
-                public void onError(String error) {}
-            });
-        });
-        sheet.show(getChildFragmentManager(), "edit_recurring_rule_sheet");
+        if (getActivity() instanceof MainActivity) {
+            ((MainActivity) getActivity()).openCreateRecurringRule(roomId, roomName, rule);
+        } else {
+            getParentFragmentManager().beginTransaction()
+                    .replace(R.id.fragment_container, CreateRecurringRuleFragment.newInstance(roomId, roomName, rule))
+                    .addToBackStack(null)
+                    .commit();
+        }
     }
 
     @Override

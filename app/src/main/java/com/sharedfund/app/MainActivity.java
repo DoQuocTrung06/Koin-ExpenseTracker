@@ -125,6 +125,10 @@ public class MainActivity extends AppCompatActivity {
         loadFragment(RecurringTransactionsFragment.newInstance(roomId, roomName), true);
     }
 
+    public void openCreateRecurringRule(String roomId, String roomName, com.sharedfund.app.model.RecurringRule ruleToEdit) {
+        loadFragment(com.sharedfund.app.ui.recurring.CreateRecurringRuleFragment.newInstance(roomId, roomName, ruleToEdit), true);
+    }
+
     public void openProfile() {
         loadFragment(new ProfileFragment(), true);
     }
