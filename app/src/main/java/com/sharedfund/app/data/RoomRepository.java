@@ -69,6 +69,10 @@ public class RoomRepository {
     public LiveData<Boolean> getRecurringRulesChangedLiveData() {
         return recurringRulesChangedLiveData;
     }
+
+    public void notifyRecurringRulesChanged() {
+        recurringRulesChangedLiveData.postValue(Boolean.TRUE);
+    }
     private final Map<String, String> userAvatarCache = new java.util.concurrent.ConcurrentHashMap<>();
 
     public String getUserAvatar(String userId) {

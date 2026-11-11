@@ -27,7 +27,7 @@ import com.sharedfund.app.R;
 import com.sharedfund.app.data.RoomRepository;
 import com.sharedfund.app.data.TransactionRepository;
 import com.sharedfund.app.model.RecurringRule;
-import com.sharedfund.app.util.AppToaster;
+import com.sharedfund.app.ui.widget.AppToaster;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
@@ -432,15 +432,15 @@ public class CreateRecurringRuleFragment extends Fragment {
 
         Context ctx = getContext();
         if (isEdit) {
-            transactionRepository.updateRecurringRule(rule, new TransactionRepository.DataCallback<Void>() {
+            transactionRepository.updateRecurringRule(rule, new TransactionRepository.DataCallback<RecurringRule>() {
                 @Override
-                public void onSuccess(Void data) {
-                    RoomRepository.getInstance().getRecurringRulesChangedLiveData().postValue(Boolean.TRUE);
+                public void onSuccess(RecurringRule data) {
+                    RoomRepository.getInstance().notifyRecurringRulesChanged();
                 }
 
                 @Override
                 public void onError(String error) {
-                    RoomRepository.getInstance().getRecurringRulesChangedLiveData().postValue(Boolean.TRUE);
+                    RoomRepository.getInstance().notifyRecurringRulesChanged();
                 }
             });
             if (ctx != null && getActivity() != null) {
@@ -450,12 +450,12 @@ public class CreateRecurringRuleFragment extends Fragment {
             transactionRepository.createRecurringRule(rule, new TransactionRepository.DataCallback<RecurringRule>() {
                 @Override
                 public void onSuccess(RecurringRule created) {
-                    RoomRepository.getInstance().getRecurringRulesChangedLiveData().postValue(Boolean.TRUE);
+                    RoomRepository.getInstance().notifyRecurringRulesChanged();
                 }
 
                 @Override
                 public void onError(String error) {
-                    RoomRepository.getInstance().getRecurringRulesChangedLiveData().postValue(Boolean.TRUE);
+                    RoomRepository.getInstance().notifyRecurringRulesChanged();
                 }
             });
             if (ctx != null && getActivity() != null) {
