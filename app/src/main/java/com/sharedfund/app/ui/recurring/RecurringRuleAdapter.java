@@ -1,8 +1,8 @@
 package com.sharedfund.app.ui.recurring;
 
 import android.content.res.ColorStateList;
-import android.graphics.Color;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
@@ -31,6 +31,7 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
 
     private final List<RecurringRule> rules = new ArrayList<>();
     private final OnRecurringActionListener listener;
+    private RecurringRuleViewHolder currentlySwipedHolder = null;
 
     public RecurringRuleAdapter(OnRecurringActionListener listener) {
         this.listener = listener;
@@ -44,8 +45,11 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
         notifyDataSetChanged();
     }
 
-    public List<RecurringRule> getRules() {
-        return rules;
+    public void closeAnySwipedCard() {
+        if (currentlySwipedHolder != null) {
+            currentlySwipedHolder.closeSwipe(true);
+            currentlySwipedHolder = null;
+        }
     }
 
     @NonNull
@@ -66,22 +70,142 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
     }
 
     class RecurringRuleViewHolder extends RecyclerView.ViewHolder {
-        private final MaterialCardView cardRoot;
+        private final MaterialCardView cardForeground;
+        private final View btnDelete;
         private final TextView tvTitle;
         private final TextView tvFrequency;
         private final TextView tvAmount;
         private final MaterialSwitch switchActive;
 
+        private float downX = 0f;
+        private float downY = 0f;
+        private boolean isSwiping = false;
+        private boolean isOpen = false;
+        private final float maxSwipeDistance;
+
         RecurringRuleViewHolder(@NonNull View itemView) {
             super(itemView);
-            cardRoot = itemView.findViewById(R.id.cardRecurringRuleRoot);
+            cardForeground = itemView.findViewById(R.id.cardRecurringRuleRoot);
+            btnDelete = itemView.findViewById(R.id.btnSwipeDeleteRule);
             tvTitle = itemView.findViewById(R.id.tvRuleTitle);
             tvFrequency = itemView.findViewById(R.id.tvRuleFrequency);
             tvAmount = itemView.findViewById(R.id.tvRuleAmount);
             switchActive = itemView.findViewById(R.id.switchRuleActive);
+
+            maxSwipeDistance = 76f * itemView.getResources().getDisplayMetrics().density;
+            setupTouchGestures();
+        }
+
+        private void setupTouchGestures() {
+            cardForeground.setOnTouchListener((v, event) -> {
+                switch (event.getActionMasked()) {
+                    case MotionEvent.ACTION_DOWN:
+                        downX = event.getRawX();
+                        downY = event.getRawY();
+                        isSwiping = false;
+                        if (currentlySwipedHolder != null && currentlySwipedHolder != this) {
+                            currentlySwipedHolder.closeSwipe(true);
+                            currentlySwipedHolder = null;
+                        }
+                        return true;
+
+                    case MotionEvent.ACTION_MOVE:
+                        float deltaX = event.getRawX() - downX;
+                        float deltaY = event.getRawY() - downY;
+
+                        if (!isSwiping) {
+                            if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 15) {
+                                isSwiping = true;
+                                v.getParent().requestDisallowInterceptTouchEvent(true);
+                            }
+                        }
+
+                        if (isSwiping) {
+                            float currentTranslation = isOpen ? -maxSwipeDistance + deltaX : deltaX;
+                            if (currentTranslation > 0) currentTranslation = 0;
+                            if (currentTranslation < -maxSwipeDistance) currentTranslation = -maxSwipeDistance;
+
+                            cardForeground.setTranslationX(currentTranslation);
+
+                            float progress = Math.abs(currentTranslation) / maxSwipeDistance;
+                            switchActive.setAlpha(1.0f - progress);
+                            switchActive.setScaleX(1.0f - (0.4f * progress));
+                            switchActive.setScaleY(1.0f - (0.4f * progress));
+                            switchActive.setVisibility(progress >= 0.95f ? View.GONE : View.VISIBLE);
+                        }
+                        return true;
+
+                    case MotionEvent.ACTION_UP:
+                    case MotionEvent.ACTION_CANCEL:
+                        v.getParent().requestDisallowInterceptTouchEvent(false);
+                        if (isSwiping) {
+                            float totalDiff = event.getRawX() - downX;
+                            if (isOpen) {
+                                if (totalDiff > maxSwipeDistance / 3) {
+                                    closeSwipe(true);
+                                } else {
+                                    openSwipe(true);
+                                }
+                            } else {
+                                if (totalDiff < -maxSwipeDistance / 3) {
+                                    openSwipe(true);
+                                } else {
+                                    closeSwipe(true);
+                                }
+                            }
+                        } else {
+                            if (isOpen) {
+                                closeSwipe(true);
+                            }
+                        }
+                        return true;
+                }
+                return false;
+            });
+
+            btnDelete.setOnClickListener(v -> {
+                int pos = getBindingAdapterPosition();
+                if (pos != RecyclerView.NO_POSITION && pos < rules.size()) {
+                    RecurringRule rule = rules.get(pos);
+                    closeSwipe(false);
+                    if (listener != null) listener.onDeleteRule(rule);
+                }
+            });
+        }
+
+        void openSwipe(boolean animated) {
+            isOpen = true;
+            currentlySwipedHolder = this;
+            if (animated) {
+                cardForeground.animate().translationX(-maxSwipeDistance).setDuration(220).start();
+                switchActive.animate().alpha(0f).scaleX(0.6f).scaleY(0.6f).setDuration(200).withEndAction(() -> switchActive.setVisibility(View.GONE)).start();
+            } else {
+                cardForeground.setTranslationX(-maxSwipeDistance);
+                switchActive.setAlpha(0f);
+                switchActive.setVisibility(View.GONE);
+            }
+        }
+
+        void closeSwipe(boolean animated) {
+            isOpen = false;
+            if (currentlySwipedHolder == this) {
+                currentlySwipedHolder = null;
+            }
+            switchActive.setVisibility(View.VISIBLE);
+            if (animated) {
+                cardForeground.animate().translationX(0f).setDuration(220).start();
+                switchActive.animate().alpha(1.0f).scaleX(1.0f).scaleY(1.0f).setDuration(200).start();
+            } else {
+                cardForeground.setTranslationX(0f);
+                switchActive.setAlpha(1.0f);
+                switchActive.setScaleX(1.0f);
+                switchActive.setScaleY(1.0f);
+            }
         }
 
         void bind(RecurringRule rule) {
+            closeSwipe(false);
+
             tvTitle.setText(rule.getTitle() != null ? rule.getTitle() : "Khoản định kỳ");
 
             String scopeLabel = RecurringRule.SCOPE_ROOM.equalsIgnoreCase(rule.getScope()) ? "Quỹ nhóm" : "Ví cá nhân";
@@ -112,14 +236,14 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
             int colorDisabled = ContextCompat.getColor(itemView.getContext(), R.color.text_tertiary);
 
             if (isActive) {
-                cardRoot.setCardBackgroundColor(ColorStateList.valueOf(contextColorSurface));
-                cardRoot.setAlpha(1.0f);
+                cardForeground.setCardBackgroundColor(ColorStateList.valueOf(contextColorSurface));
+                cardForeground.setAlpha(1.0f);
                 tvTitle.setTextColor(colorPrimary);
                 tvFrequency.setTextColor(colorSecondary);
                 tvAmount.setTextColor(colorPrimary);
             } else {
-                cardRoot.setCardBackgroundColor(ColorStateList.valueOf(contextColorSurfaceVariant));
-                cardRoot.setAlpha(0.65f);
+                cardForeground.setCardBackgroundColor(ColorStateList.valueOf(contextColorSurfaceVariant));
+                cardForeground.setAlpha(0.65f);
                 tvTitle.setTextColor(colorDisabled);
                 tvFrequency.setTextColor(colorDisabled);
                 tvAmount.setTextColor(colorDisabled);

@@ -84,11 +84,7 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
             btnBack.setOnClickListener(v -> requireActivity().getOnBackPressedDispatcher().onBackPressed());
         }
 
-        if (roomName != null && !roomName.trim().isEmpty()) {
-            tvHeaderTitle.setText("Định kỳ • " + roomName);
-        } else {
-            tvHeaderTitle.setText("Chi tiêu định kỳ");
-        }
+        tvHeaderTitle.setText("Chi tiêu định kỳ");
 
         View.OnClickListener openAddDialog = v -> {
             CreateRecurringRuleBottomSheet sheet = CreateRecurringRuleBottomSheet.newInstance(roomId);
