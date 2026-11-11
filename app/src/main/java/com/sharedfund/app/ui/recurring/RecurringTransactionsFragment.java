@@ -15,6 +15,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.button.MaterialButton;
+import com.sharedfund.app.MainActivity;
 import com.sharedfund.app.R;
 import com.sharedfund.app.data.NotificationManager;
 import com.sharedfund.app.data.RoomRepository;
