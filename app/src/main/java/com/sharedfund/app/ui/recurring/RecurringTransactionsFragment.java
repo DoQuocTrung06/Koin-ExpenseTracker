@@ -372,7 +372,10 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
                                     RoomRepository.getInstance().refreshRoomTransactions(targetRoomId, null);
                                     String curUid = UserSessionManager.getInstance(requireContext()).getUserId();
                                     if (curUid != null && !curUid.trim().isEmpty()) {
-                                        RoomRepository.getInstance().loadUserData(curUid, null);
+                                        RoomRepository.getInstance().loadUserData(curUid, new RoomRepository.DataCallback<List<Room>>() {
+                                            @Override public void onSuccess(List<Room> data) {}
+                                            @Override public void onError(String error) {}
+                                        });
                                     }
                                 }
                             });

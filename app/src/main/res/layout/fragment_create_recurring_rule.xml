@@ -152,7 +152,7 @@
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/cardSegmentFrequency"
                     android:layout_width="match_parent"
-                    android:layout_height="42dp"
+                    android:layout_height="44dp"
                     app:cardBackgroundColor="@color/segment_track"
                     app:cardCornerRadius="11dp"
                     app:cardElevation="0dp"
@@ -173,9 +173,13 @@
                             android:layout_weight="1"
                             android:insetTop="0dp"
                             android:insetBottom="0dp"
+                            android:minWidth="0dp"
+                            android:paddingStart="2dp"
+                            android:paddingEnd="2dp"
                             android:text="Hàng tháng"
-                            android:textSize="12.5sp"
+                            android:textSize="12sp"
                             android:textStyle="bold"
+                            android:maxLines="1"
                             app:cornerRadius="8dp" />
 
                         <com.google.android.material.button.MaterialButton
@@ -186,9 +190,13 @@
                             android:layout_weight="1"
                             android:insetTop="0dp"
                             android:insetBottom="0dp"
+                            android:minWidth="0dp"
+                            android:paddingStart="2dp"
+                            android:paddingEnd="2dp"
                             android:text="Hàng tuần"
-                            android:textSize="12.5sp"
+                            android:textSize="12sp"
                             android:textStyle="bold"
+                            android:maxLines="1"
                             app:cornerRadius="8dp" />
 
                         <com.google.android.material.button.MaterialButton
@@ -199,9 +207,13 @@
                             android:layout_weight="1"
                             android:insetTop="0dp"
                             android:insetBottom="0dp"
+                            android:minWidth="0dp"
+                            android:paddingStart="2dp"
+                            android:paddingEnd="2dp"
                             android:text="Hàng ngày"
-                            android:textSize="12.5sp"
+                            android:textSize="12sp"
                             android:textStyle="bold"
+                            android:maxLines="1"
                             app:cornerRadius="8dp" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>

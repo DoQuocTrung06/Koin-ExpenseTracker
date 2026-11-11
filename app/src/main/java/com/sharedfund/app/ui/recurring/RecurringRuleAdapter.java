@@ -128,17 +128,102 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
         }
 
         private void setupTouchGestures() {
-            cardForeground.setOnClickListener(v -> {
-                int pos = getAdapterPosition();
-                if (pos != RecyclerView.NO_POSITION && listener != null) {
-                    listener.onEditRule(rules.get(pos));
+            cardForeground.setOnTouchListener((v, event) -> {
+                if (!isManager) {
+                    if (event.getActionMasked() == MotionEvent.ACTION_UP) {
+                        float deltaX = Math.abs(event.getRawX() - downX);
+                        float deltaY = Math.abs(event.getRawY() - downY);
+                        if (deltaX < 15 && deltaY < 15) {
+                            int pos = getBindingAdapterPosition();
+                            if (pos != RecyclerView.NO_POSITION && pos < rules.size() && listener != null) {
+                                listener.onEditRule(rules.get(pos));
+                            }
+                        }
+                    }
+                    return false;
                 }
+
+                switch (event.getActionMasked()) {
+                    case MotionEvent.ACTION_DOWN:
+                        downX = event.getRawX();
+                        downY = event.getRawY();
+                        isSwiping = false;
+                        if (currentlySwipedHolder != null && currentlySwipedHolder != this) {
+                            currentlySwipedHolder.closeSwipe(true);
+                            currentlySwipedHolder = null;
+                        }
+                        return true;
+
+                    case MotionEvent.ACTION_MOVE:
+                        float deltaX = event.getRawX() - downX;
+                        float deltaY = event.getRawY() - downY;
+
+                        if (!isSwiping) {
+                            if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 15) {
+                                isSwiping = true;
+                                if (layoutDeleteBackground != null) {
+                                    layoutDeleteBackground.setVisibility(View.VISIBLE);
+                                }
+                                v.getParent().requestDisallowInterceptTouchEvent(true);
+                            }
+                        }
+
+                        if (isSwiping) {
+                            float currentTranslation = isOpen ? -maxSwipeDistance + deltaX : deltaX;
+                            if (currentTranslation > 0) currentTranslation = 0;
+                            if (currentTranslation < -maxSwipeDistance) currentTranslation = -maxSwipeDistance;
+
+                            cardForeground.setTranslationX(currentTranslation);
+
+                            float progress = Math.abs(currentTranslation) / maxSwipeDistance;
+                            switchActive.setAlpha(1.0f - progress);
+                            switchActive.setScaleX(1.0f - (0.4f * progress));
+                            switchActive.setScaleY(1.0f - (0.4f * progress));
+                            switchActive.setVisibility(progress >= 0.95f ? View.GONE : View.VISIBLE);
+                        }
+                        return true;
+
+                    case MotionEvent.ACTION_UP:
+                    case MotionEvent.ACTION_CANCEL:
+                        v.getParent().requestDisallowInterceptTouchEvent(false);
+                        if (isSwiping) {
+                            float totalDiff = event.getRawX() - downX;
+                            if (isOpen) {
+                                if (totalDiff > maxSwipeDistance / 3) {
+                                    closeSwipe(true);
+                                } else {
+                                    openSwipe();
+                                }
+                            } else {
+                                if (totalDiff < -maxSwipeDistance / 3) {
+                                    openSwipe();
+                                } else {
+                                    closeSwipe(true);
+                                }
+                            }
+                        } else {
+                            if (isOpen) {
+                                closeSwipe(true);
+                            } else {
+                                float dX = Math.abs(event.getRawX() - downX);
+                                float dY = Math.abs(event.getRawY() - downY);
+                                if (dX < 15 && dY < 15) {
+                                    int pos = getBindingAdapterPosition();
+                                    if (pos != RecyclerView.NO_POSITION && pos < rules.size() && listener != null) {
+                                        listener.onEditRule(rules.get(pos));
+                                    }
+                                }
+                            }
+                        }
+                        return true;
+                }
+                return false;
             });
 
             if (btnDelete != null) {
                 btnDelete.setOnClickListener(v -> {
-                    int pos = getAdapterPosition();
-                    if (pos != RecyclerView.NO_POSITION && listener != null) {
+                    int pos = getBindingAdapterPosition();
+                    if (pos != RecyclerView.NO_POSITION && pos < rules.size() && listener != null) {
                         listener.onDeleteRule(rules.get(pos));
                     }
                 });

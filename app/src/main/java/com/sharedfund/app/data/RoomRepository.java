@@ -282,13 +282,17 @@ public class RoomRepository {
     }
 
     public void loadUserData(String userId, DataCallback<List<Room>> callback) {
+        final DataCallback<List<Room>> safeCallback = callback != null ? callback : new DataCallback<List<Room>>() {
+            @Override public void onSuccess(List<Room> data) {}
+            @Override public void onError(String error) {}
+        };
         loadUserProfile(userId, null);
         String path = "/room_members?select=role,rooms(*)&user_id=eq." + userId;
         client.newCall(request(path).get().build()).enqueue(new okhttp3.Callback() {
-            @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+            @Override public void onFailure(Call call, IOException e) { safeCallback.onError(e.getMessage()); }
             @Override public void onResponse(Call call, Response response) throws IOException {
                 String body = response.body() != null ? response.body().string() : "";
-                if (!response.isSuccessful()) { callback.onError(error(response, body)); return; }
+                if (!response.isSuccessful()) { safeCallback.onError(error(response, body)); return; }
                 List<Room> rooms = new ArrayList<>();
                 try {
                     JsonArray rows = JsonParser.parseString(body).getAsJsonArray();
@@ -308,8 +312,8 @@ public class RoomRepository {
                             rooms.add(room);
                         }
                     }
-                } catch (Exception e) { callback.onError("Invalid rooms response: " + e.getMessage()); return; }
-                loadTransactions(rooms, callback);
+                } catch (Exception e) { safeCallback.onError("Invalid rooms response: " + e.getMessage()); return; }
+                loadTransactions(rooms, safeCallback);
             }
         });
     }
@@ -327,10 +331,10 @@ public class RoomRepository {
         }
         String path = "/transactions?select=*&room_id=in.(" + ids + ")&order=created_at.desc";
         client.newCall(request(path).get().build()).enqueue(new okhttp3.Callback() {
-            @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+            @Override public void onFailure(Call call, IOException e) { safeCallback.onError(e.getMessage()); }
             @Override public void onResponse(Call call, Response response) throws IOException {
                 String body = response.body() != null ? response.body().string() : "";
-                if (!response.isSuccessful()) { callback.onError(error(response, body)); return; }
+                if (!response.isSuccessful()) { safeCallback.onError(error(response, body)); return; }
                 Type type = new TypeToken<List<Transaction>>() {}.getType();
                 List<Transaction> transactions = gson.fromJson(body, type);
                 loadMembers(rooms, transactions != null ? transactions : new ArrayList<>(), callback);
@@ -347,10 +351,10 @@ public class RoomRepository {
         }
         String path = "/room_members?select=room_id,role,profiles(full_name)&room_id=in.(" + ids + ")";
         client.newCall(request(path).get().build()).enqueue(new okhttp3.Callback() {
-            @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+            @Override public void onFailure(Call call, IOException e) { safeCallback.onError(e.getMessage()); }
             @Override public void onResponse(Call call, Response response) throws IOException {
                 String body = response.body() != null ? response.body().string() : "";
-                if (!response.isSuccessful()) { callback.onError(error(response, body)); return; }
+                if (!response.isSuccessful()) { safeCallback.onError(error(response, body)); return; }
                 try {
                     JsonArray members = JsonParser.parseString(body).getAsJsonArray();
                     for (Room room : rooms) {
@@ -386,10 +390,10 @@ public class RoomRepository {
         }
         String path = "/profiles?select=wallet_balance&id=eq." + userId;
         client.newCall(request(path).get().build()).enqueue(new okhttp3.Callback() {
-            @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+            @Override public void onFailure(Call call, IOException e) { safeCallback.onError(e.getMessage()); }
             @Override public void onResponse(Call call, Response response) throws IOException {
                 String body = response.body() != null ? response.body().string() : "";
-                if (!response.isSuccessful()) { callback.onError(error(response, body)); return; }
+                if (!response.isSuccessful()) { safeCallback.onError(error(response, body)); return; }
                 try {
                     JsonArray rows = JsonParser.parseString(body).getAsJsonArray();
                     if (rows.size() == 0) { callback.onError("Không tìm thấy hồ sơ ví của tài khoản."); return; }
@@ -423,7 +427,7 @@ public class RoomRepository {
         client.newCall(request("/rooms?select=*").post(body)
                 .addHeader("Content-Type", "application/json")
                 .addHeader("Prefer", "return=representation").build()).enqueue(new okhttp3.Callback() {
-            @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+            @Override public void onFailure(Call call, IOException e) { safeCallback.onError(e.getMessage()); }
             @Override public void onResponse(Call call, Response response) throws IOException {
                 String responseBody = response.body() != null ? response.body().string() : "";
                 if (!response.isSuccessful()) { callback.onError(error(response, responseBody)); return; }
@@ -441,10 +445,10 @@ public class RoomRepository {
         String safeCode = code.trim().toUpperCase(java.util.Locale.ROOT);
         String path = "/rooms?select=*&join_code=eq." + safeCode;
         client.newCall(request(path).get().build()).enqueue(new okhttp3.Callback() {
-            @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+            @Override public void onFailure(Call call, IOException e) { safeCallback.onError(e.getMessage()); }
             @Override public void onResponse(Call call, Response response) throws IOException {
                 String body = response.body() != null ? response.body().string() : "";
-                if (!response.isSuccessful()) { callback.onError(error(response, body)); return; }
+                if (!response.isSuccessful()) { safeCallback.onError(error(response, body)); return; }
                 try {
                     JsonArray rows = JsonParser.parseString(body).getAsJsonArray();
                     if (rows.size() == 0) { callback.onError("Không tìm thấy quỹ với mã tham gia này."); return; }
@@ -455,7 +459,7 @@ public class RoomRepository {
                     }
                     String checkPath = "/room_members?select=id,role&room_id=eq." + targetRoom.getId() + "&user_id=eq." + userId;
                     client.newCall(request(checkPath).get().build()).enqueue(new okhttp3.Callback() {
-                        @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+                        @Override public void onFailure(Call call, IOException e) { safeCallback.onError(e.getMessage()); }
                         @Override public void onResponse(Call call, Response response) throws IOException {
                             String memBody = response.body() != null ? response.body().string() : "";
                             if (!response.isSuccessful()) { callback.onError(error(response, memBody)); return; }
@@ -518,10 +522,10 @@ public class RoomRepository {
         }
         String path = "/room_members?select=id,room_id,user_id,role,total_contributed,joined_at,profiles(full_name,email,avatar_url)&room_id=eq." + roomId;
         client.newCall(request(path).get().build()).enqueue(new okhttp3.Callback() {
-            @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+            @Override public void onFailure(Call call, IOException e) { safeCallback.onError(e.getMessage()); }
             @Override public void onResponse(Call call, Response response) throws IOException {
                 String body = response.body() != null ? response.body().string() : "";
-                if (!response.isSuccessful()) { callback.onError(error(response, body)); return; }
+                if (!response.isSuccessful()) { safeCallback.onError(error(response, body)); return; }
                 try {
                     List<RoomMember> result = new ArrayList<>();
                     JsonArray rows = JsonParser.parseString(body).getAsJsonArray();
@@ -572,10 +576,10 @@ public class RoomRepository {
                 .addHeader("Prefer", "resolution=ignore-duplicates,return=minimal")
                 .post(RequestBody.create(gson.toJson(row), JSON)).build();
         client.newCall(request).enqueue(new okhttp3.Callback() {
-            @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+            @Override public void onFailure(Call call, IOException e) { safeCallback.onError(e.getMessage()); }
             @Override public void onResponse(Call call, Response response) throws IOException {
                 String body = response.body() != null ? response.body().string() : "";
-                if (!response.isSuccessful()) { callback.onError(error(response, body)); return; }
+                if (!response.isSuccessful()) { safeCallback.onError(error(response, body)); return; }
                 callback.onSuccess(room);
             }
         });
@@ -1128,7 +1132,7 @@ public class RoomRepository {
         }
         String path = "/room_members?room_id=eq." + roomId + "&user_id=eq." + userId;
         client.newCall(request(path).delete().build()).enqueue(new okhttp3.Callback() {
-            @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+            @Override public void onFailure(Call call, IOException e) { safeCallback.onError(e.getMessage()); }
             @Override public void onResponse(Call call, Response response) {
                 if (!response.isSuccessful()) {
                     callback.onError("HTTP " + response.code());
@@ -1173,7 +1177,7 @@ public class RoomRepository {
         client.newCall(request(path).patch(RequestBody.create(gson.toJson(payload), JSON))
                 .addHeader("Content-Type", "application/json")
                 .addHeader("Prefer", "return=representation").build()).enqueue(new okhttp3.Callback() {
-            @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+            @Override public void onFailure(Call call, IOException e) { safeCallback.onError(e.getMessage()); }
             @Override public void onResponse(Call call, Response response) throws IOException {
                 String body = response.body() != null ? response.body().string() : "";
                 if (!response.isSuccessful()) {
@@ -1231,7 +1235,7 @@ public class RoomRepository {
         params.addProperty("p_user_id", adminUserId);
         String path = "/rpc/delete_fund_room";
         client.newCall(request(path).post(RequestBody.create(gson.toJson(params), JSON)).build()).enqueue(new okhttp3.Callback() {
-            @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+            @Override public void onFailure(Call call, IOException e) { safeCallback.onError(e.getMessage()); }
             @Override public void onResponse(Call call, Response response) throws IOException {
                 String body = response.body() != null ? response.body().string() : "";
                 if (!response.isSuccessful()) {
@@ -1395,7 +1399,7 @@ public class RoomRepository {
     public void removeMember(String roomId, String targetUserId, DataCallback<Boolean> callback) {
         String path = "/room_members?room_id=eq." + roomId + "&user_id=eq." + targetUserId;
         client.newCall(request(path).delete().build()).enqueue(new okhttp3.Callback() {
-            @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
+            @Override public void onFailure(Call call, IOException e) { safeCallback.onError(e.getMessage()); }
             @Override public void onResponse(Call call, Response response) {
                 if (!response.isSuccessful()) {
                     callback.onError("HTTP " + response.code());
