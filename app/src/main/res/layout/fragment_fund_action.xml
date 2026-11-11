@@ -1032,6 +1032,8 @@
                 android:layout_height="38dp"
                 android:layout_marginEnd="2dp"
                 android:layout_weight="1"
+                android:backgroundTint="@color/accent_blue_light"
+                android:textColor="@color/primary"
                 android:ellipsize="none"
                 android:insetLeft="0dp"
                 android:insetTop="0dp"
@@ -1042,9 +1044,10 @@
                 android:paddingEnd="0dp"
                 android:singleLine="true"
                 android:text="50.000"
-                android:textSize="11sp"
+                android:textSize="11.5sp"
                 android:textStyle="bold"
-                app:cornerRadius="8dp" />
+                app:cornerRadius="8dp"
+                app:strokeWidth="0dp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnQuick100k"
@@ -1054,6 +1057,8 @@
                 android:layout_marginStart="2dp"
                 android:layout_marginEnd="2dp"
                 android:layout_weight="1"
+                android:backgroundTint="@color/accent_blue_light"
+                android:textColor="@color/primary"
                 android:ellipsize="none"
                 android:insetLeft="0dp"
                 android:insetTop="0dp"
@@ -1064,9 +1069,10 @@
                 android:paddingEnd="0dp"
                 android:singleLine="true"
                 android:text="100.000"
-                android:textSize="11sp"
+                android:textSize="11.5sp"
                 android:textStyle="bold"
-                app:cornerRadius="8dp" />
+                app:cornerRadius="8dp"
+                app:strokeWidth="0dp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnQuick500k"
@@ -1076,6 +1082,8 @@
                 android:layout_marginStart="2dp"
                 android:layout_marginEnd="2dp"
                 android:layout_weight="1"
+                android:backgroundTint="@color/accent_blue_light"
+                android:textColor="@color/primary"
                 android:ellipsize="none"
                 android:insetLeft="0dp"
                 android:insetTop="0dp"
@@ -1086,9 +1094,10 @@
                 android:paddingEnd="0dp"
                 android:singleLine="true"
                 android:text="500.000"
-                android:textSize="11sp"
+                android:textSize="11.5sp"
                 android:textStyle="bold"
-                app:cornerRadius="8dp" />
+                app:cornerRadius="8dp"
+                app:strokeWidth="0dp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnQuickAll"
@@ -1097,6 +1106,8 @@
                 android:layout_height="38dp"
                 android:layout_marginStart="2dp"
                 android:layout_weight="1"
+                android:backgroundTint="@color/accent_blue_light"
+                android:textColor="@color/primary"
                 android:ellipsize="none"
                 android:insetLeft="0dp"
                 android:insetTop="0dp"
@@ -1107,9 +1118,10 @@
                 android:paddingEnd="0dp"
                 android:singleLine="true"
                 android:text="Tất cả ví"
-                android:textSize="11sp"
+                android:textSize="11.5sp"
                 android:textStyle="bold"
-                app:cornerRadius="8dp" />
+                app:cornerRadius="8dp"
+                app:strokeWidth="0dp" />
         </LinearLayout>
 
         <com.google.android.material.button.MaterialButton
