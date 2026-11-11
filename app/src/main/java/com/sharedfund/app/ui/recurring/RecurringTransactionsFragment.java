@@ -19,6 +19,7 @@ import com.sharedfund.app.R;
 import com.sharedfund.app.data.TransactionRepository;
 import com.sharedfund.app.data.UserSessionManager;
 import com.sharedfund.app.model.RecurringRule;
+import com.sharedfund.app.ui.widget.AppToaster;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
@@ -199,14 +200,14 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
             @Override
             public void onSuccess(RecurringRule created) {
                 if (isAdded()) {
-                    requireActivity().runOnUiThread(() -> Toast.makeText(requireContext(), "Đã lưu khoản định kỳ thành công", Toast.LENGTH_SHORT).show());
+                    requireActivity().runOnUiThread(() -> AppToaster.success(requireActivity(), "Thành công", "Đã lưu khoản chi định kỳ"));
                 }
             }
 
             @Override
             public void onError(String error) {
                 if (isAdded()) {
-                    requireActivity().runOnUiThread(() -> Toast.makeText(requireContext(), "Đã lưu nội bộ khoản định kỳ", Toast.LENGTH_SHORT).show());
+                    requireActivity().runOnUiThread(() -> AppToaster.info(requireActivity(), "Thông báo", "Đã lưu nội bộ khoản định kỳ"));
                 }
             }
         });
@@ -215,6 +216,9 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
     @Override
     public void onToggleRule(RecurringRule rule, boolean isActive) {
         updateUI();
+        if (isAdded()) {
+            AppToaster.info(requireActivity(), isActive ? "Đã bật theo dõi khoản chi" : "Đã tạm dừng khoản chi");
+        }
         transactionRepository.toggleRecurringRule(rule.getId(), isActive, new TransactionRepository.DataCallback<Boolean>() {
             @Override
             public void onSuccess(Boolean result) {}
@@ -233,7 +237,7 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
             @Override
             public void onSuccess(Boolean result) {
                 if (isAdded()) {
-                    requireActivity().runOnUiThread(() -> Toast.makeText(requireContext(), "Đã xóa khoản định kỳ", Toast.LENGTH_SHORT).show());
+                    requireActivity().runOnUiThread(() -> AppToaster.success(requireActivity(), "Thành công", "Đã xóa khoản chi định kỳ"));
                 }
             }
 

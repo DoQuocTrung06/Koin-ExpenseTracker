@@ -159,6 +159,7 @@ public class CreateRecurringRuleBottomSheet extends BottomSheetDialogFragment {
                 rule.setCategoryName(inferredCategory);
                 rule.setFrequency(selectedFrequency);
                 rule.setExecutionDay(execDay);
+                rule.setNextRunDate(rule.computeNextRunDateIso());
                 rule.setType("Chi");
                 rule.setActive(true);
 

@@ -222,7 +222,64 @@ public class RecurringRule implements Serializable {
             }
             return dayLabel + " hàng tuần";
         }
+        if (executionDay >= 31) {
+            return "Ngày 31 (hoặc cuối tháng)";
+        }
+        if (executionDay >= 29) {
+            return "Ngày " + executionDay + " (hoặc cuối tháng)";
+        }
         return "Ngày " + (executionDay > 0 ? executionDay : 1) + " hàng tháng";
+    }
+
+    public static int getSafeExecutionDay(int year, int month1Based, int desiredDay) {
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        cal.set(java.util.Calendar.YEAR, year);
+        cal.set(java.util.Calendar.MONTH, month1Based - 1);
+        cal.set(java.util.Calendar.DAY_OF_MONTH, 1);
+        int maxDay = cal.getActualMaximum(java.util.Calendar.DAY_OF_MONTH);
+        return Math.min(Math.max(desiredDay, 1), maxDay);
+    }
+
+    public java.util.Date computeNextRunDate(java.util.Date fromDate) {
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        if (fromDate != null) {
+            cal.setTime(fromDate);
+        }
+        if (FREQUENCY_DAILY.equalsIgnoreCase(frequency)) {
+            cal.add(java.util.Calendar.DAY_OF_YEAR, 1);
+        } else if (FREQUENCY_WEEKLY.equalsIgnoreCase(frequency)) {
+            int currentDayOfWeek = cal.get(java.util.Calendar.DAY_OF_WEEK);
+            int targetDayOfWeek = executionDay;
+            int diff = (targetDayOfWeek - currentDayOfWeek + 7) % 7;
+            if (diff == 0) diff = 7;
+            cal.add(java.util.Calendar.DAY_OF_YEAR, diff);
+        } else {
+            int currentDay = cal.get(java.util.Calendar.DAY_OF_MONTH);
+            int maxDayCurrentMonth = cal.getActualMaximum(java.util.Calendar.DAY_OF_MONTH);
+            int safeDayCurrent = Math.min(Math.max(executionDay, 1), maxDayCurrentMonth);
+
+            if (currentDay < safeDayCurrent) {
+                cal.set(java.util.Calendar.DAY_OF_MONTH, safeDayCurrent);
+            } else {
+                cal.add(java.util.Calendar.MONTH, 1);
+                cal.set(java.util.Calendar.DAY_OF_MONTH, 1);
+                int maxDayNextMonth = cal.getActualMaximum(java.util.Calendar.DAY_OF_MONTH);
+                int safeDayNext = Math.min(Math.max(executionDay, 1), maxDayNextMonth);
+                cal.set(java.util.Calendar.DAY_OF_MONTH, safeDayNext);
+            }
+        }
+        cal.set(java.util.Calendar.HOUR_OF_DAY, 8);
+        cal.set(java.util.Calendar.MINUTE, 0);
+        cal.set(java.util.Calendar.SECOND, 0);
+        cal.set(java.util.Calendar.MILLISECOND, 0);
+        return cal.getTime();
+    }
+
+    public String computeNextRunDateIso() {
+        java.util.Date next = computeNextRunDate(new java.util.Date());
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US);
+        sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+        return sdf.format(next);
     }
 
     public int getCategoryIconRes() {
