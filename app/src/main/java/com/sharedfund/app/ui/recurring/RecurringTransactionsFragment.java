@@ -511,7 +511,7 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
         );
         String targetRoom = (rule.getRoomId() != null && !rule.getRoomId().trim().isEmpty()) ? rule.getRoomId() : roomId;
         Room r = targetRoom != null ? RoomRepository.getInstance().getRoomSync(targetRoom) : null;
-        String ownerId = (r != null) ? r.getOwnerId() : null;
+        String ownerId = (r != null) ? r.getCreatedBy() : null;
         if (ownerId != null && !ownerId.trim().isEmpty()) {
             NotificationManager.getInstance(context).sendNotificationToUser(notif, ownerId);
         } else {

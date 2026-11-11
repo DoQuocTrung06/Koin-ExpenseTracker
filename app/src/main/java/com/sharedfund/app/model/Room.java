@@ -239,6 +239,10 @@ public class Room implements Serializable {
         this.createdAt = createdAt;
     }
 
+    public String getOwnerId() {
+        return createdBy;
+    }
+
     public String getCreatedBy() {
         return createdBy;
     }
