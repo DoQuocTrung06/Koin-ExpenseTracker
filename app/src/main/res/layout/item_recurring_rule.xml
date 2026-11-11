@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/cardRecurringRuleRoot"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginStart="16dp"
@@ -18,9 +19,9 @@
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="14dp"
+        android:paddingStart="16dp"
         android:paddingTop="14dp"
-        android:paddingEnd="14dp"
+        android:paddingEnd="16dp"
         android:paddingBottom="14dp">
 
         <LinearLayout
@@ -37,45 +38,35 @@
                 android:maxLines="1"
                 android:text="Internet &amp; Truyền hình FPT"
                 android:textColor="@color/text_primary"
-                android:textSize="13.5sp"
+                android:textSize="14sp"
                 android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/tvRuleFrequency"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
+                android:layout_marginTop="3dp"
                 android:ellipsize="end"
                 android:maxLines="1"
                 android:text="Ngày 10 hàng tháng · Quỹ Ăn Tết"
                 android:textColor="@color/text_secondary"
-                android:textSize="11.5sp" />
+                android:textSize="12sp" />
 
             <TextView
                 android:id="@+id/tvRuleAmount"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:text="-250.000 đ"
-                android:textColor="@color/accent_expense"
-                android:textSize="13sp"
+                android:text="250.000 đ"
+                android:textColor="@color/text_primary"
+                android:textSize="14sp"
                 android:textStyle="bold" />
         </LinearLayout>
-
-        <ImageButton
-            android:id="@+id/btnDeleteRule"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:layout_marginEnd="6dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Xóa"
-            android:padding="8dp"
-            android:src="@drawable/ic_delete"
-            app:tint="@color/text_tertiary" />
 
         <com.google.android.material.materialswitch.MaterialSwitch
             android:id="@+id/switchRuleActive"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content" />
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp" />
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

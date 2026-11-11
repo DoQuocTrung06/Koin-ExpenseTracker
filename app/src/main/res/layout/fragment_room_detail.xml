@@ -874,7 +874,9 @@
 
                         android:id="@+id/btnExportRoomReport"
 
-                        style="@style/Widget.Material3.Button.TonalButton"
+                        android:backgroundTint="@color/surface_variant"
+
+                        app:elevation="0dp"
 
                         android:layout_width="wrap_content"
 
