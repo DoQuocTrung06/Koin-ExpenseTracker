@@ -338,67 +338,70 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
             return;
         }
 
-        double newBalance = roomBalance - ruleAmount;
-        if (room != null) {
-            room.setBalance(newBalance);
-        }
-
-        Transaction tx = new Transaction();
-        String txId = UUID.randomUUID().toString();
-        tx.setId(txId);
-        tx.setRoomId(targetRoomId);
-        tx.setUserId(session.getUserId());
-        tx.setUserName(session.getFullName());
-        tx.setAmount(ruleAmount);
-        tx.setType(Transaction.TYPE_EXPENSE);
-        tx.setCategory(rule.getCategoryName() != null ? rule.getCategoryName() : "Định kỳ");
-        tx.setNote(rule.getTitle());
-        tx.setStatus("APPROVED");
-        tx.setBalanceAfter(newBalance);
-
         java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault());
         String formattedTime = sdf.format(new java.util.Date());
-        tx.setCreatedAt(formattedTime);
 
         java.text.SimpleDateFormat isoFormat = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US);
         isoFormat.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
         rule.setLastRunDate(isoFormat.format(new java.util.Date()));
 
-        updateUI();
+        String category = rule.getCategoryName() != null && !rule.getCategoryName().trim().isEmpty() ? rule.getCategoryName() : "Định kỳ";
+        String note = rule.getTitle();
 
-        showPaymentSuccessDialog(rule, tx, newBalance, formattedTime);
+        transactionRepository.submitWithdrawal(
+                session.getUserId(),
+                session.getFullName(),
+                targetRoomId,
+                ruleAmount,
+                category,
+                note,
+                true,
+                new TransactionRepository.DataCallback<Transaction>() {
+                    @Override
+                    public void onSuccess(Transaction createdTx) {
+                        double updatedBalance = createdTx.getBalanceAfter() > 0 ? createdTx.getBalanceAfter() : (roomBalance - ruleAmount);
+                        if (room != null) {
+                            room.setBalance(updatedBalance);
+                        }
 
-        transactionRepository.createTransaction(tx, new TransactionRepository.DataCallback<Transaction>() {
-            @Override
-            public void onSuccess(Transaction createdTx) {
-                if (targetRoomId != null && isAdded()) {
-                    requireActivity().runOnUiThread(() -> {
-                        RoomRepository.getInstance().refreshRoomTransactions(targetRoomId, null);
-                    });
+                        if (isAdded()) {
+                            requireActivity().runOnUiThread(() -> {
+                                updateUI();
+                                showPaymentSuccessDialog(rule, createdTx, updatedBalance, formattedTime);
+                                if (targetRoomId != null) {
+                                    RoomRepository.getInstance().refreshRoomTransactions(targetRoomId, null);
+                                    RoomRepository.getInstance().refreshRooms(null);
+                                }
+                            });
+                        }
+
+                        transactionRepository.updateRecurringRule(rule, new TransactionRepository.DataCallback<RecurringRule>() {
+                            @Override
+                            public void onSuccess(RecurringRule updated) {}
+
+                            @Override
+                            public void onError(String error) {}
+                        });
+                    }
+
+                    @Override
+                    public void onError(String error) {
+                        if (isAdded()) {
+                            requireActivity().runOnUiThread(() -> {
+                                AppToaster.error(requireActivity(), "Không thể hoàn tất xuất quỹ: " + error);
+                            });
+                        }
+                    }
                 }
-            }
-
-            @Override
-            public void onError(String error) {}
-        });
-
-        transactionRepository.updateRecurringRule(rule, new TransactionRepository.DataCallback<RecurringRule>() {
-            @Override
-            public void onSuccess(RecurringRule updated) {}
-
-            @Override
-            public void onError(String error) {}
-        });
+        );
     }
 
     private void showPaymentSuccessDialog(RecurringRule rule, Transaction tx, double newBalance, String formattedTime) {
         if (!isAdded()) return;
-        Dialog dialog = new Dialog(requireContext());
-        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        Dialog dialog = new Dialog(requireContext(), android.R.style.Theme_NoTitleBar_Fullscreen);
         dialog.setContentView(R.layout.dialog_recurring_payment_success);
         if (dialog.getWindow() != null) {
-            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-            dialog.getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            dialog.getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
         }
 
         DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.GERMANY);
@@ -418,7 +421,8 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
         String displayAmount = "- " + df.format(Math.abs(rule.getAmount())) + " đ";
         if (tvAmount != null) tvAmount.setText(displayAmount);
 
-        String shortTxId = "#RC-" + (tx.getId().length() >= 8 ? tx.getId().substring(0, 8).toUpperCase() : tx.getId().toUpperCase());
+        String rawTxId = tx.getId() != null ? tx.getId() : UUID.randomUUID().toString();
+        String shortTxId = "#RC-" + (rawTxId.length() >= 8 ? rawTxId.substring(0, 8).toUpperCase() : rawTxId.toUpperCase());
         if (tvTxId != null) tvTxId.setText(shortTxId);
 
         if (tvRuleName != null) tvRuleName.setText(rule.getTitle());
@@ -426,7 +430,7 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
         String displayRoomName = (roomName != null && !roomName.trim().isEmpty()) ? roomName : (rule.getRoomName() != null ? rule.getRoomName() : "Quỹ nhóm");
         if (tvRoomName != null) tvRoomName.setText(displayRoomName);
 
-        if (tvUserName != null) tvUserName.setText(tx.getUserName());
+        if (tvUserName != null) tvUserName.setText(tx.getUserName() != null ? tx.getUserName() : sessionUserName);
         if (tvTime != null) tvTime.setText(formattedTime);
         if (tvBalanceAfter != null) tvBalanceAfter.setText(df.format(newBalance) + " đ");
 

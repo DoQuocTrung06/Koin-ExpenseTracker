@@ -469,6 +469,7 @@ public class CreateRecurringRuleFragment extends Fragment {
         }
 
         if (isEdit) {
+            NotificationManager.getInstance(requireContext()).updateNotificationsForRule(roomId, rule.getTitle(), rule.getAmount());
             transactionRepository.updateRecurringRule(rule, new TransactionRepository.DataCallback<RecurringRule>() {
                 @Override
                 public void onSuccess(RecurringRule data) {

@@ -7,6 +7,7 @@ import java.io.Serializable;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 
 public class RecurringRule implements Serializable {
     public static final String SCOPE_PERSONAL = "PERSONAL";
@@ -301,6 +302,128 @@ public class RecurringRule implements Serializable {
         if (lower.contains("lương")) return R.drawable.ic_wallet;
         if (lower.contains("thưởng") || lower.contains("liên hoan")) return R.drawable.ic_sparkles;
         return R.drawable.ic_recurring_calendar;
+    }
+
+    public boolean isPaidInCurrentCycle() {
+        if (lastRunDate == null || lastRunDate.trim().isEmpty()) return false;
+        try {
+            java.util.Date runDate = null;
+            if (lastRunDate.contains("T")) {
+                java.text.SimpleDateFormat iso = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US);
+                iso.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+                runDate = iso.parse(lastRunDate);
+            } else if (lastRunDate.contains("/")) {
+                java.text.SimpleDateFormat slash = new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault());
+                runDate = slash.parse(lastRunDate);
+            } else if (lastRunDate.contains("-")) {
+                java.text.SimpleDateFormat dash = new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+                runDate = dash.parse(lastRunDate);
+            }
+            if (runDate == null) return false;
+
+            java.util.Calendar runCal = java.util.Calendar.getInstance();
+            runCal.setTime(runDate);
+            java.util.Calendar nowCal = java.util.Calendar.getInstance();
+
+            if (FREQUENCY_DAILY.equalsIgnoreCase(frequency)) {
+                return runCal.get(java.util.Calendar.YEAR) == nowCal.get(java.util.Calendar.YEAR)
+                        && runCal.get(java.util.Calendar.DAY_OF_YEAR) == nowCal.get(java.util.Calendar.DAY_OF_YEAR);
+            }
+
+            if (FREQUENCY_WEEKLY.equalsIgnoreCase(frequency)) {
+                return runCal.get(java.util.Calendar.YEAR) == nowCal.get(java.util.Calendar.YEAR)
+                        && runCal.get(java.util.Calendar.WEEK_OF_YEAR) == nowCal.get(java.util.Calendar.WEEK_OF_YEAR);
+            }
+
+            return runCal.get(java.util.Calendar.YEAR) == nowCal.get(java.util.Calendar.YEAR)
+                    && runCal.get(java.util.Calendar.MONTH) == nowCal.get(java.util.Calendar.MONTH);
+        } catch (Exception e) {
+            return isPaidInCurrentMonth();
+        }
+    }
+
+    public String getPaidStatusBadgeText() {
+        if (FREQUENCY_DAILY.equalsIgnoreCase(frequency)) {
+            return "Đã đóng hôm nay";
+        }
+        if (FREQUENCY_WEEKLY.equalsIgnoreCase(frequency)) {
+            return "Đã đóng tuần này";
+        }
+        return "Đã đóng tháng này";
+    }
+
+    public String getNextCycleCountdownText() {
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        if (FREQUENCY_DAILY.equalsIgnoreCase(frequency)) {
+            return "Kỳ tới: Ngày mai";
+        }
+        if (FREQUENCY_WEEKLY.equalsIgnoreCase(frequency)) {
+            int currentDayOfWeek = cal.get(java.util.Calendar.DAY_OF_WEEK);
+            int targetDayOfWeek = executionDay > 0 ? executionDay : 2;
+            int diff = (targetDayOfWeek - currentDayOfWeek + 7) % 7;
+            if (diff == 0) diff = 7;
+            String dayLabel;
+            switch (targetDayOfWeek) {
+                case 1:
+                case 8:
+                    dayLabel = "Chủ nhật";
+                    break;
+                case 2:
+                    dayLabel = "Thứ 2";
+                    break;
+                case 3:
+                    dayLabel = "Thứ 3";
+                    break;
+                case 4:
+                    dayLabel = "Thứ 4";
+                    break;
+                case 5:
+                    dayLabel = "Thứ 5";
+                    break;
+                case 6:
+                    dayLabel = "Thứ 6";
+                    break;
+                case 7:
+                    dayLabel = "Thứ 7";
+                    break;
+                default:
+                    dayLabel = "Thứ " + targetDayOfWeek;
+                    break;
+            }
+            return "Kỳ tới: " + dayLabel + " (còn " + diff + " ngày)";
+        }
+
+        int currentDay = cal.get(java.util.Calendar.DAY_OF_MONTH);
+        int currentYear = cal.get(java.util.Calendar.YEAR);
+        int currentMonth = cal.get(java.util.Calendar.MONTH) + 1;
+        int targetDay = getSafeExecutionDay(currentYear, currentMonth, executionDay > 0 ? executionDay : 1);
+        if (currentDay < targetDay) {
+            int diff = targetDay - currentDay;
+            return "Kỳ tới: Ngày " + targetDay + " (còn " + diff + " ngày)";
+        } else {
+            cal.add(java.util.Calendar.MONTH, 1);
+            int nextYear = cal.get(java.util.Calendar.YEAR);
+            int nextMonth = cal.get(java.util.Calendar.MONTH) + 1;
+            int targetDayNextMonth = getSafeExecutionDay(nextYear, nextMonth, executionDay > 0 ? executionDay : 1);
+            cal.set(java.util.Calendar.DAY_OF_MONTH, targetDayNextMonth);
+            long diffMillis = cal.getTimeInMillis() - System.currentTimeMillis();
+            long diffDays = Math.max(1, TimeUnit.MILLISECONDS.toDays(diffMillis));
+            return "Kỳ tới: Ngày " + targetDayNextMonth + " tháng sau (còn " + diffDays + " ngày)";
+        }
+    }
+
+    public int getDaysDiffCurrentCycle() {
+        java.util.Calendar now = java.util.Calendar.getInstance();
+        if (FREQUENCY_DAILY.equalsIgnoreCase(frequency)) {
+            return 0;
+        }
+        if (FREQUENCY_WEEKLY.equalsIgnoreCase(frequency)) {
+            int currentDayOfWeek = now.get(java.util.Calendar.DAY_OF_WEEK);
+            int targetDayOfWeek = executionDay > 0 ? executionDay : 2;
+            int diff = currentDayOfWeek - targetDayOfWeek;
+            return diff;
+        }
+        return getDaysDiffCurrentMonth();
     }
 
     public boolean isPaidInCurrentMonth() {

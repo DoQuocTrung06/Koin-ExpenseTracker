@@ -365,6 +365,32 @@ public class NotificationManager {
         });
     }
 
+    public synchronized void updateNotificationsForRule(String roomId, String ruleTitle, double newAmount) {
+        if (ruleTitle == null) return;
+        java.text.DecimalFormatSymbols symbols = new java.text.DecimalFormatSymbols(Locale.GERMANY);
+        symbols.setGroupingSeparator('.');
+        java.text.DecimalFormat df = new java.text.DecimalFormat("#,###", symbols);
+        String formattedAmount = df.format(Math.abs(newAmount)) + " đ";
+
+        boolean changed = false;
+        for (AppNotification notif : cachedList) {
+            if (notif.getTitle() != null && notif.getTitle().contains(ruleTitle)) {
+                String oldMessage = notif.getMessage();
+                if (oldMessage != null && oldMessage.contains("đ")) {
+                    String updatedMessage = oldMessage.replaceAll("[0-9.]+\\s*đ", formattedAmount);
+                    notif.setMessage(updatedMessage);
+                    changed = true;
+                    String patchJson = "{\"message\":\"" + updatedMessage + "\"}";
+                    patchRemoteNotification(notif.getId(), patchJson);
+                }
+            }
+        }
+        if (changed) {
+            saveNotifications();
+            notifyListeners();
+        }
+    }
+
     private void patchRemoteNotification(String id, String patchJson) {
         String url = SupabaseConfig.REST_URL + "/notifications?id=eq." + id;
         RequestBody body = RequestBody.create(patchJson, JSON);

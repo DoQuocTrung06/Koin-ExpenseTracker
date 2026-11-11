@@ -197,8 +197,9 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
             tvTitle.setText(rule.getTitle() != null ? rule.getTitle() : "Khoản định kỳ");
 
             String subText;
+            String countdown = rule.getNextCycleCountdownText();
             if (isRoomScope) {
-                subText = rule.getFrequencyDescription();
+                subText = rule.getFrequencyDescription() + (countdown != null && !countdown.trim().isEmpty() ? " • " + countdown : "");
             } else if (rule.getRoomName() != null && !rule.getRoomName().trim().isEmpty()) {
                 subText = rule.getFrequencyDescription() + " · " + rule.getRoomName();
             } else if (RecurringRule.SCOPE_ROOM.equalsIgnoreCase(rule.getScope())) {
@@ -251,10 +252,10 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
                 return;
             }
 
-            if (rule.isPaidInCurrentMonth()) {
+            if (rule.isPaidInCurrentCycle()) {
                 tvStatusBadge.setVisibility(View.GONE);
                 tvRemainingBadge.setVisibility(View.VISIBLE);
-                tvRemainingBadge.setText("Đã thanh toán tháng này");
+                tvRemainingBadge.setText(rule.getPaidStatusBadgeText());
                 tvRemainingBadge.setBackgroundResource(R.drawable.bg_badge_paid);
                 tvRemainingBadge.setTextColor(ContextCompat.getColor(context, R.color.accent_income));
                 btnActionPay.setVisibility(View.GONE);
@@ -262,7 +263,7 @@ public class RecurringRuleAdapter extends RecyclerView.Adapter<RecurringRuleAdap
                 return;
             }
 
-            int diff = rule.getDaysDiffCurrentMonth();
+            int diff = rule.getDaysDiffCurrentCycle();
 
             if (diff > 0) {
                 tvStatusBadge.setVisibility(View.VISIBLE);
