@@ -290,35 +290,7 @@ public class CreateRecurringRuleFragment extends Fragment {
 
     private void setupAmountFormatter() {
         if (etRecurringAmount == null) return;
-        etRecurringAmount.addTextChangedListener(new TextWatcher() {
-            private boolean isFormatting = false;
-
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {}
-
-            @Override
-            public void afterTextChanged(Editable s) {
-                if (isFormatting || s == null) return;
-                String cleanString = s.toString().replace(".", "").replace(",", "").trim();
-                if (cleanString.isEmpty()) return;
-                try {
-                    isFormatting = true;
-                    long val = Long.parseLong(cleanString);
-                    DecimalFormatSymbols sym = new DecimalFormatSymbols(Locale.GERMANY);
-                    sym.setGroupingSeparator('.');
-                    DecimalFormat df = new DecimalFormat("#,###", sym);
-                    String formatted = df.format(val);
-                    etRecurringAmount.setText(formatted);
-                    etRecurringAmount.setSelection(formatted.length());
-                } catch (NumberFormatException ignored) {
-                } finally {
-                    isFormatting = false;
-                }
-            }
-        });
+        etRecurringAmount.addTextChangedListener(new com.sharedfund.app.ui.widget.MoneyTextWatcher(etRecurringAmount));
     }
 
     private void setupKeyboardAdaptiveBehavior(View rootView) {
@@ -520,23 +492,26 @@ public class CreateRecurringRuleFragment extends Fragment {
     }
 
     private String inferCategory(String title) {
-        if (title == null) return "Tiện ích & Nhà";
+        if (title == null) return "Khác";
         String lower = title.toLowerCase(Locale.ROOT);
-        if (lower.contains("phòng") || lower.contains("trọ") || lower.contains("nhà") || lower.contains("thuê")) {
-            return "Tiền phòng";
-        }
-        if (lower.contains("điện") || lower.contains("nước") || lower.contains("mạng") || lower.contains("internet") || lower.contains("wifi") || lower.contains("fpt") || lower.contains("viettel")) {
+        if (lower.contains("điện") || lower.contains("nước") || lower.contains("dien nuoc") || lower.contains("mạng") || lower.contains("internet") || lower.contains("wifi") || lower.contains("fpt") || lower.contains("viettel")) {
             return "Điện nước";
         }
-        if (lower.contains("ăn") || lower.contains("uống") || lower.contains("chợ") || lower.contains("cơm") || lower.contains("thực phẩm")) {
+        if (lower.contains("phòng") || lower.contains("trọ") || lower.contains("nhà") || lower.contains("thuê") || lower.contains("phong tro")) {
+            return "Tiền phòng";
+        }
+        if (lower.contains("ăn") || lower.contains("uống") || lower.contains("chợ") || lower.contains("cơm") || lower.contains("thực phẩm") || lower.contains("food") || lower.contains("an uong")) {
             return "Ăn uống";
         }
-        if (lower.contains("xe") || lower.contains("xăng") || lower.contains("gửi xe") || lower.contains("vé")) {
+        if (lower.contains("xe") || lower.contains("xăng") || lower.contains("gửi xe") || lower.contains("vé") || lower.contains("di chuyen") || lower.contains("grab")) {
             return "Di chuyển";
         }
-        if (lower.contains("sắm") || lower.contains("đồ")) {
+        if (lower.contains("sắm") || lower.contains("đồ") || lower.contains("mua") || lower.contains("siêu thị") || lower.contains("mua sam")) {
             return "Mua sắm";
         }
-        return "Tiện ích & Nhà";
+        if (lower.contains("liên hoan") || lower.contains("tiệc") || lower.contains("sinh nhật") || lower.contains("party")) {
+            return "Liên hoan";
+        }
+        return "Khác";
     }
 }

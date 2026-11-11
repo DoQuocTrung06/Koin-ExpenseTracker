@@ -342,6 +342,16 @@ public class RoomTransferFragment extends Fragment {
         layoutCategoryChipsBank = view.findViewById(R.id.layoutCategoryChipsBank);
         layoutCategoryChipsQr = view.findViewById(R.id.layoutCategoryChipsQr);
 
+        if (etTransferWalletAmount != null) {
+            etTransferWalletAmount.addTextChangedListener(new com.sharedfund.app.ui.widget.MoneyTextWatcher(etTransferWalletAmount));
+        }
+        if (etTransferBankAmount != null) {
+            etTransferBankAmount.addTextChangedListener(new com.sharedfund.app.ui.widget.MoneyTextWatcher(etTransferBankAmount));
+        }
+        if (etQrAmount != null) {
+            etQrAmount.addTextChangedListener(new com.sharedfund.app.ui.widget.MoneyTextWatcher(etQrAmount));
+        }
+
         TextWatcher noteClearChipWatcher = new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {

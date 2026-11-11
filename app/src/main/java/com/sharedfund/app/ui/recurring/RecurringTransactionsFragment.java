@@ -345,7 +345,7 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
         isoFormat.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
         rule.setLastRunDate(isoFormat.format(new java.util.Date()));
 
-        String category = rule.getCategoryName() != null && !rule.getCategoryName().trim().isEmpty() ? rule.getCategoryName() : "Định kỳ";
+        String category = resolveStandardCategory(rule);
         String note = rule.getTitle();
 
         transactionRepository.submitWithdrawal(
@@ -399,7 +399,38 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
         );
     }
 
-    private void showPaymentSuccessDialog(RecurringRule rule, Transaction tx, double newBalance, String formattedTime) {
+        private String resolveStandardCategory(RecurringRule rule) {
+        if (rule == null) return "Khác";
+        String cat = rule.getCategoryName();
+        if (cat != null && !cat.trim().isEmpty() && !cat.equalsIgnoreCase("Định kỳ") && !cat.equalsIgnoreCase("Dinh ky")) {
+            return cat;
+        }
+        String title = rule.getTitle();
+        if (title != null) {
+            String lower = title.toLowerCase(Locale.ROOT);
+            if (lower.contains("điện") || lower.contains("nước") || lower.contains("dien nuoc") || lower.contains("mạng") || lower.contains("internet") || lower.contains("wifi") || lower.contains("fpt") || lower.contains("viettel")) {
+                return "Điện nước";
+            }
+            if (lower.contains("phòng") || lower.contains("trọ") || lower.contains("nhà") || lower.contains("thuê") || lower.contains("phong tro")) {
+                return "Tiền phòng";
+            }
+            if (lower.contains("ăn") || lower.contains("uống") || lower.contains("cơm") || lower.contains("chợ") || lower.contains("thực phẩm") || lower.contains("food") || lower.contains("an uong")) {
+                return "Ăn uống";
+            }
+            if (lower.contains("mua") || lower.contains("sắm") || lower.contains("đồ dùng") || lower.contains("siêu thị") || lower.contains("mua sam")) {
+                return "Mua sắm";
+            }
+            if (lower.contains("xe") || lower.contains("xăng") || lower.contains("gửi xe") || lower.contains("đi lại") || lower.contains("di chuyen") || lower.contains("grab")) {
+                return "Di chuyển";
+            }
+            if (lower.contains("liên hoan") || lower.contains("tiệc") || lower.contains("sinh nhật") || lower.contains("party")) {
+                return "Liên hoan";
+            }
+        }
+        return "Khác";
+    }
+
+private void showPaymentSuccessDialog(RecurringRule rule, Transaction tx, double newBalance, String formattedTime) {
         if (!isAdded()) return;
         Dialog dialog = new Dialog(requireContext(), android.R.style.Theme_NoTitleBar_Fullscreen);
         dialog.setContentView(R.layout.dialog_recurring_payment_success);

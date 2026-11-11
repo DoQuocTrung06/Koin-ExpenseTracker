@@ -144,7 +144,9 @@ public class TransactionDetailBottomSheet extends BottomSheetDialogFragment {
                 tvDetailRecipient.setText("Ví cá nhân Koin");
             } else {
                 tvDetailType.setText("Chi tiêu quỹ nhóm");
-                tvDetailRecipient.setText("Thụ hưởng khoản chi");
+                com.sharedfund.app.model.Room r = com.sharedfund.app.data.RoomRepository.getInstance().getRoomSync(transaction.getRoomId());
+                String rName = (r != null && r.getName() != null && !r.getName().trim().isEmpty()) ? r.getName() : "quỹ nhóm";
+                tvDetailRecipient.setText("Chi từ " + rName);
             }
         }
 
@@ -154,7 +156,11 @@ public class TransactionDetailBottomSheet extends BottomSheetDialogFragment {
         }
         tvDetailCreator.setText(creator);
 
-        tvDetailCategory.setText(transaction.getCategory() != null ? transaction.getCategory() : "Khác");
+        String cat = transaction.getCategory();
+        if (cat == null || cat.trim().isEmpty() || "Dinh ky".equalsIgnoreCase(cat) || "Định kỳ".equalsIgnoreCase(cat)) {
+            cat = resolveCategoryFromNote(transaction.getNote());
+        }
+        tvDetailCategory.setText(cat);
         tvDetailNote.setText(transaction.getNote() != null && !transaction.getNote().trim().isEmpty() ? transaction.getNote() : "Không có ghi chú");
         tvDetailDate.setText(TransactionAdapter.formatDateTime(transaction.getCreatedAt()));
 
@@ -261,7 +267,31 @@ public class TransactionDetailBottomSheet extends BottomSheetDialogFragment {
         btnCloseDetail.setOnClickListener(v -> dismiss());
     }
 
-    private void showReceiptImageDialog(String imageUrl) {
+        private String resolveCategoryFromNote(String note) {
+        if (note == null) return "Khác";
+        String lower = note.toLowerCase(java.util.Locale.ROOT);
+        if (lower.contains("điện") || lower.contains("nước") || lower.contains("dien nuoc") || lower.contains("mạng") || lower.contains("internet") || lower.contains("wifi") || lower.contains("fpt") || lower.contains("viettel")) {
+            return "Điện nước";
+        }
+        if (lower.contains("phòng") || lower.contains("trọ") || lower.contains("nhà") || lower.contains("thuê") || lower.contains("phong tro")) {
+            return "Tiền phòng";
+        }
+        if (lower.contains("ăn") || lower.contains("uống") || lower.contains("cơm") || lower.contains("chợ") || lower.contains("thực phẩm") || lower.contains("food") || lower.contains("an uong")) {
+            return "Ăn uống";
+        }
+        if (lower.contains("mua") || lower.contains("sắm") || lower.contains("đồ dùng") || lower.contains("siêu thị") || lower.contains("mua sam")) {
+            return "Mua sắm";
+        }
+        if (lower.contains("xe") || lower.contains("xăng") || lower.contains("gửi xe") || lower.contains("đi lại") || lower.contains("di chuyen") || lower.contains("grab")) {
+            return "Di chuyển";
+        }
+        if (lower.contains("liên hoan") || lower.contains("tiệc") || lower.contains("sinh nhật") || lower.contains("party")) {
+            return "Liên hoan";
+        }
+        return "Khác";
+    }
+
+private void showReceiptImageDialog(String imageUrl) {
         if (!isAdded() || getContext() == null || imageUrl == null) return;
         android.app.Dialog dialog = new android.app.Dialog(requireContext(), android.R.style.Theme_Black_NoTitleBar_Fullscreen);
         dialog.setContentView(R.layout.dialog_full_receipt_viewer);

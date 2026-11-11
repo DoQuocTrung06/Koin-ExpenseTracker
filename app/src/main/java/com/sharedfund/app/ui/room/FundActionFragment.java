@@ -246,6 +246,13 @@ public class FundActionFragment extends Fragment {
         etWithdrawNote = view.findViewById(R.id.etWithdrawNote);
         layoutCategoryChipsWithdraw = view.findViewById(R.id.layoutCategoryChipsWithdraw);
 
+        if (etContributeAmount != null) {
+            etContributeAmount.addTextChangedListener(new com.sharedfund.app.ui.widget.MoneyTextWatcher(etContributeAmount));
+        }
+        if (etWithdrawAmount != null) {
+            etWithdrawAmount.addTextChangedListener(new com.sharedfund.app.ui.widget.MoneyTextWatcher(etWithdrawAmount));
+        }
+
         etWithdrawNote.setOnFocusChangeListener((v, hasFocus) -> {
             if (hasFocus && selectedWithdrawCategory != null) {
                 selectedWithdrawCategory = null;
