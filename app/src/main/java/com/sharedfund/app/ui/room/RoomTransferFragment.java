@@ -58,6 +58,8 @@ import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class RoomTransferFragment extends Fragment {
 
@@ -174,6 +176,10 @@ public class RoomTransferFragment extends Fragment {
     private ActivityResultLauncher<ScanOptions> cameraScanLauncher;
     private View layoutQrEmptyPrompt;
     private View layoutQrPaymentForm;
+    private final AtomicBoolean isSubmitting = new AtomicBoolean(false);
+    private String pendingTransferRequestId;
+    private final RoomTransferConfirmationBinder confirmationBinder = new RoomTransferConfirmationBinder();
+    private final RoomTransferConfirmationBinder.ConfirmViews confirmViews = new RoomTransferConfirmationBinder.ConfirmViews();
 
     public static RoomTransferFragment newInstance(String roomId, double roomBalance) {
         RoomTransferFragment sheet = new RoomTransferFragment();
@@ -434,6 +440,33 @@ public class RoomTransferFragment extends Fragment {
         tvSuccessDest = view.findViewById(R.id.tvSuccessDest);
         tvSuccessNote = view.findViewById(R.id.tvSuccessNote);
         btnSuccessDone = view.findViewById(R.id.btnSuccessDone);
+
+        confirmViews.layoutRoomTransferForm = layoutRoomTransferForm;
+        confirmViews.layoutBottomTransferDock = layoutBottomTransferDock;
+        confirmViews.layoutProcessingNotice = layoutProcessingNotice;
+        confirmViews.layoutConfirmStep = layoutConfirmStep;
+        confirmViews.layoutSuccessNotice = layoutSuccessNotice;
+        confirmViews.tvRoomTransferScreenTitle = tvRoomTransferScreenTitle;
+        confirmViews.tvConfirmStepAmount = tvConfirmStepAmount;
+        confirmViews.tvConfirmStepAmountWords = tvConfirmStepAmountWords;
+        confirmViews.tvConfirmStepType = tvConfirmStepType;
+        confirmViews.tvConfirmStepSource = tvConfirmStepSource;
+        confirmViews.tvConfirmStepDest = tvConfirmStepDest;
+        confirmViews.tvConfirmStepDestAccount = tvConfirmStepDestAccount;
+        confirmViews.tvConfirmStepDestBank = tvConfirmStepDestBank;
+        confirmViews.tvConfirmStepNote = tvConfirmStepNote;
+        confirmViews.dividerConfirmTransferReceipt = dividerConfirmTransferReceipt;
+        confirmViews.layoutConfirmTransferReceiptRow = layoutConfirmTransferReceiptRow;
+        confirmViews.btnConfirmStepExecute = btnConfirmStepExecute;
+        confirmViews.tvSuccessTitle = tvSuccessTitle;
+        confirmViews.tvSuccessAmount = tvSuccessAmount;
+        confirmViews.tvSuccessTxId = tvSuccessTxId;
+        confirmViews.btnSuccessCopyTxId = btnSuccessCopyTxId;
+        confirmViews.tvSuccessTime = tvSuccessTime;
+        confirmViews.tvSuccessSource = tvSuccessSource;
+        confirmViews.tvSuccessDest = tvSuccessDest;
+        confirmViews.tvSuccessNote = tvSuccessNote;
+        confirmViews.btnSuccessDone = btnSuccessDone;
     }
 
     private void updateBalanceUi() {
@@ -603,54 +636,17 @@ public class RoomTransferFragment extends Fragment {
     }
 
     private void parseQrFromUri(Uri imageUri) {
-        try (InputStream inputStream = requireContext().getContentResolver().openInputStream(imageUri)) {
-            BitmapFactory.Options opts = new BitmapFactory.Options();
-            opts.inJustDecodeBounds = true;
-            BitmapFactory.decodeStream(inputStream, null, opts);
-            int maxDim = Math.max(opts.outWidth, opts.outHeight);
-            int inSampleSize = 1;
-            while (maxDim / inSampleSize > 1200) {
-                inSampleSize *= 2;
-            }
-            opts.inSampleSize = inSampleSize;
-            opts.inJustDecodeBounds = false;
-
-            Bitmap bitmap;
-            try (InputStream stream2 = requireContext().getContentResolver().openInputStream(imageUri)) {
-                bitmap = BitmapFactory.decodeStream(stream2, null, opts);
-            }
-            if (bitmap == null) {
-                Toast.makeText(requireContext(), "Không thể mở ảnh mã QR", Toast.LENGTH_SHORT).show();
-                return;
+        RoomTransferQrHandler.parseQrFromUri(requireContext(), imageUri, new RoomTransferQrHandler.QrParseCallback() {
+            @Override
+            public void onSuccess(ScannedQrPayment payment) {
+                setScannedQrData(payment);
             }
 
-            int w = bitmap.getWidth();
-            int h = bitmap.getHeight();
-            int[] pixels = new int[w * h];
-            bitmap.getPixels(pixels, 0, w, 0, 0, w, h);
-            RGBLuminanceSource source = new RGBLuminanceSource(w, h, pixels);
-            Result result = null;
-            try {
-                result = new MultiFormatReader().decode(new BinaryBitmap(new HybridBinarizer(source)));
-            } catch (Exception ignored) {
-                try {
-                    result = new MultiFormatReader().decode(new BinaryBitmap(new GlobalHistogramBinarizer(source)));
-                } catch (Exception ignored2) {}
+            @Override
+            public void onError(String message, String detail) {
+                com.sharedfund.app.ui.widget.AppToaster.error(requireActivity(), message, detail);
             }
-
-            if (result != null && result.getText() != null) {
-                ScannedQrPayment parsed = ScannedQrPayment.parse(result.getText());
-                if (parsed != null && parsed.accountNumber != null) {
-                    setScannedQrData(parsed);
-                } else {
-                    com.sharedfund.app.ui.widget.AppToaster.error(requireActivity(), "Không tìm thấy thông tin chuyển khoản VietQR trong ảnh", "Vui lòng chọn ảnh chứa rõ mã VietQR");
-                }
-            } else {
-                com.sharedfund.app.ui.widget.AppToaster.error(requireActivity(), "Không quét được mã QR từ ảnh này", "Vui lòng chọn ảnh chứa rõ mã VietQR hợp lệ");
-            }
-        } catch (Exception e) {
-            com.sharedfund.app.ui.widget.AppToaster.error(requireActivity(), "Không quét được mã QR từ ảnh này", "Vui lòng chọn ảnh chứa rõ mã VietQR hợp lệ");
-        }
+        });
     }
 
     public void setScannedQrData(ScannedQrPayment parsed) {
@@ -683,43 +679,7 @@ public class RoomTransferFragment extends Fragment {
     }
 
     private String formatBankLabel(String bankBin) {
-        if (bankBin == null) return "VietQR";
-        switch (bankBin.trim()) {
-            case "970422": return "MBBank (970422)";
-            case "970436": return "Vietcombank (970436)";
-            case "970415": return "VietinBank (970415)";
-            case "970418": return "BIDV (970418)";
-            case "970407": return "Techcombank (970407)";
-            case "970432": return "VPBank (970432)";
-            case "970423": return "TPBank (970423)";
-            case "970416": return "ACB (970416)";
-            case "970405": return "Agribank (970405)";
-            case "970403": return "Sacombank (970403)";
-            case "970448": return "OCB (970448)";
-            case "970441": return "VIB (970441)";
-            case "970443": return "SHB (970443)";
-            case "970426": return "MSB (970426)";
-            case "970440": return "SeABank (970440)";
-            case "970437": return "HDBank (970437)";
-            case "970428": return "Nam A Bank (970428)";
-            case "970449": return "LPBank (970449)";
-            case "970431": return "Eximbank (970431)";
-            case "970454": return "BVBank (970454)";
-            case "970433": return "VietBank (970433)";
-            case "970419": return "NCB (970419)";
-            case "970429": return "SCB (970429)";
-            case "970438": return "BaoViet Bank (970438)";
-            case "970425": return "ABBank (970425)";
-            case "970452": return "Kienlongbank (970452)";
-            case "970427": return "VietABank (970427)";
-            case "970424": return "Shinhan Bank (970424)";
-            case "970400": return "Saigonbank (970400)";
-            case "970446": return "COOPBANK (970446)";
-            case "970414": return "OceanBank (970414)";
-            case "970408": return "GPBank (970408)";
-            case "970430": return "PG Bank (970430)";
-            default: return "Ngân hàng (BIN " + bankBin.trim() + ")";
-        }
+        return RoomTransferQrHandler.formatBankLabel(bankBin);
     }
 
     private boolean isCurrentUserOwner() {
@@ -739,95 +699,18 @@ public class RoomTransferFragment extends Fragment {
     }
 
     private void showVerificationDialog(String type, double amount, String source, String destName, String destAccount, String destBank, String note, Runnable onConfirm) {
-        layoutRoomTransferForm.setVisibility(View.GONE);
-        if (layoutBottomTransferDock != null) {
-            layoutBottomTransferDock.setVisibility(View.GONE);
-        }
-        layoutConfirmStep.setVisibility(View.VISIBLE);
-        if (tvRoomTransferScreenTitle != null) {
-            tvRoomTransferScreenTitle.setText("Xác nhận giao dịch");
-        }
-
-        tvConfirmStepAmount.setText(df.format(amount) + " ₫");
-        if (tvConfirmStepAmountWords != null) {
-            tvConfirmStepAmountWords.setText(VietnameseCurrencyWords.toWordsWithParentheses((long) amount));
-        }
-        tvConfirmStepType.setText(type);
-        tvConfirmStepSource.setText(source);
-
-        if (destAccount != null && !destAccount.isEmpty()) {
-            tvConfirmStepDest.setText(destName != null ? destName.toUpperCase(Locale.getDefault()) : "");
-            if (tvConfirmStepDestAccount != null) {
-                tvConfirmStepDestAccount.setText(destAccount);
-                tvConfirmStepDestAccount.setVisibility(View.VISIBLE);
-            }
-            if (tvConfirmStepDestBank != null) {
-                tvConfirmStepDestBank.setText(destBank != null ? destBank : "");
-                tvConfirmStepDestBank.setVisibility(View.VISIBLE);
-            }
-        } else {
-            tvConfirmStepDest.setText(destName != null ? destName : "");
-            if (tvConfirmStepDestAccount != null) {
-                tvConfirmStepDestAccount.setVisibility(View.GONE);
-            }
-            if (tvConfirmStepDestBank != null) {
-                tvConfirmStepDestBank.setVisibility(View.GONE);
-            }
-        }
-
-        tvConfirmStepNote.setText(note);
-
         boolean hasReceipt = (selectedBankReceiptUri != null && tabLayoutRoomTransfer.getSelectedTabPosition() == 1)
                 || (selectedQrReceiptUri != null && tabLayoutRoomTransfer.getSelectedTabPosition() == 2);
-        if (dividerConfirmTransferReceipt != null) dividerConfirmTransferReceipt.setVisibility(hasReceipt ? View.VISIBLE : View.GONE);
-        if (layoutConfirmTransferReceiptRow != null) layoutConfirmTransferReceiptRow.setVisibility(hasReceipt ? View.VISIBLE : View.GONE);
-
-        btnConfirmStepExecute.setOnClickListener(v -> {
-            layoutConfirmStep.setVisibility(View.GONE);
+        pendingTransferRequestId = UUID.randomUUID().toString();
+        isSubmitting.set(false);
+        confirmationBinder.showVerificationDialog(confirmViews, type, amount, source, destName, destAccount, destBank, note, hasReceipt, () -> {
+            if (!isSubmitting.compareAndSet(false, true)) return;
             if (onConfirm != null) onConfirm.run();
         });
     }
 
     private void showSuccess(String title, String amountFormatted, String source, String dest, String note, String rawTxId) {
-        layoutProcessingNotice.setVisibility(View.GONE);
-        if (layoutBottomTransferDock != null) {
-            layoutBottomTransferDock.setVisibility(View.GONE);
-        }
-        layoutSuccessNotice.setVisibility(View.VISIBLE);
-        if (tvRoomTransferScreenTitle != null) {
-            tvRoomTransferScreenTitle.setText("Kết quả giao dịch");
-        }
-
-        tvSuccessTitle.setText(title);
-        if (tvSuccessAmount != null) {
-            tvSuccessAmount.setVisibility(View.VISIBLE);
-            tvSuccessAmount.setText(amountFormatted);
-            tvSuccessAmount.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary));
-        }
-        tvSuccessSource.setText(source);
-        tvSuccessDest.setText(dest);
-        if (tvSuccessNote != null) tvSuccessNote.setText(note);
-
-        java.text.SimpleDateFormat timeFormat = new java.text.SimpleDateFormat("HH:mm:ss - dd/MM/yyyy", Locale.getDefault());
-        if (tvSuccessTime != null) tvSuccessTime.setText(timeFormat.format(new java.util.Date()));
-
-        String txId = "#SF-" + String.format(Locale.US, "%08X", (int) (System.currentTimeMillis() & 0xFFFFFFFFL));
-        if (rawTxId != null && rawTxId.length() >= 8) {
-            txId = "#SF-" + rawTxId.substring(0, 8).toUpperCase(Locale.US);
-        }
-        if (tvSuccessTxId != null) tvSuccessTxId.setText(txId);
-
-        final String finalTxId = txId;
-        if (btnSuccessCopyTxId != null) {
-            btnSuccessCopyTxId.setOnClickListener(v -> {
-                android.content.ClipboardManager clipboard = (android.content.ClipboardManager) requireContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE);
-                android.content.ClipData clip = android.content.ClipData.newPlainText("TxID", finalTxId);
-                if (clipboard != null) clipboard.setPrimaryClip(clip);
-                CopyToast.show(requireContext(), requireView());
-            });
-        }
-
-        btnSuccessDone.setOnClickListener(v -> {
+        confirmationBinder.showSuccess(requireContext(), requireView(), confirmViews, title, amountFormatted, source, dest, note, rawTxId, () -> {
             if (listener != null) listener.onTransferComplete();
             requireActivity().getSupportFragmentManager().popBackStack();
         });
@@ -882,15 +765,17 @@ public class RoomTransferFragment extends Fragment {
         TransactionRepository remote = new TransactionRepository();
         remote.setAccessToken(session.getAccessToken());
         String category = selectedCategory != null ? selectedCategory : (note.isEmpty() || note.equals("Rút tiền về Ví Koin") ? "Khác" : note);
-        remote.submitWithdrawal(userId, userName != null ? userName : "Member", roomId, amount, category, note, canDirectApprove,
+        remote.submitWithdrawalWithId(pendingTransferRequestId, userId, userName != null ? userName : "Member", roomId, amount, category, note, null, canDirectApprove,
                 new TransactionRepository.DataCallback<Transaction>() {
                     @Override
                     public void onSuccess(Transaction created) {
+                        isSubmitting.set(false);
                         if (!canDirectApprove) {
                             RoomRepository.getInstance().dispatchExpenseApprovalNotifications(appCtx, roomId, userId, userName, amount, note);
                         }
                         if (!isAdded()) return;
                         requireActivity().runOnUiThread(() -> {
+                            btnConfirmStepExecute.setEnabled(true);
                             if (!isAdded()) return;
                             if (created != null) {
                                 RoomRepository.getInstance().onRemoteTransactionReceived(created);
@@ -908,9 +793,11 @@ public class RoomTransferFragment extends Fragment {
 
                     @Override
                     public void onError(String errorMessage) {
+                        isSubmitting.set(false);
                         if (!isAdded()) return;
                         requireActivity().runOnUiThread(() -> {
                             if (!isAdded()) return;
+                            btnConfirmStepExecute.setEnabled(true);
                             layoutProcessingNotice.setVisibility(View.GONE);
                             layoutRoomTransferForm.setVisibility(View.VISIBLE);
                             if (layoutBottomTransferDock != null) {
@@ -1033,15 +920,17 @@ public class RoomTransferFragment extends Fragment {
                                       double amount, String category, String fullNote, String billImageUrl,
                                       boolean canDirectApprove, String bankName, String accNum, String note) {
         final android.content.Context appCtx = requireContext().getApplicationContext();
-        remote.submitWithdrawal(userId, userName != null ? userName : "Member", roomId, amount, category, fullNote, billImageUrl, canDirectApprove,
+        remote.submitWithdrawalWithId(pendingTransferRequestId, userId, userName != null ? userName : "Member", roomId, amount, category, fullNote, billImageUrl, canDirectApprove,
                 new TransactionRepository.DataCallback<Transaction>() {
                     @Override
                     public void onSuccess(Transaction created) {
+                        isSubmitting.set(false);
                         if (!canDirectApprove) {
                             RoomRepository.getInstance().dispatchExpenseApprovalNotifications(appCtx, roomId, userId, userName, amount, note);
                         }
                         if (!isAdded()) return;
                         requireActivity().runOnUiThread(() -> {
+                            btnConfirmStepExecute.setEnabled(true);
                             if (!isAdded()) return;
                             if (created != null) {
                                 RoomRepository.getInstance().onRemoteTransactionReceived(created);
@@ -1056,9 +945,11 @@ public class RoomTransferFragment extends Fragment {
 
                     @Override
                     public void onError(String errorMessage) {
+                        isSubmitting.set(false);
                         if (!isAdded()) return;
                         requireActivity().runOnUiThread(() -> {
                             if (!isAdded()) return;
+                            btnConfirmStepExecute.setEnabled(true);
                             layoutProcessingNotice.setVisibility(View.GONE);
                             layoutRoomTransferForm.setVisibility(View.VISIBLE);
                             if (layoutBottomTransferDock != null) {

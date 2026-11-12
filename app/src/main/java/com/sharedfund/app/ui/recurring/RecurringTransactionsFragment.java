@@ -33,6 +33,7 @@ import com.sharedfund.app.model.Room;
 import com.sharedfund.app.model.Transaction;
 import com.sharedfund.app.ui.transaction.TransactionAdapter;
 import com.sharedfund.app.ui.widget.AppToaster;
+import com.sharedfund.app.util.ErrorMessageHelper;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
@@ -44,6 +45,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class RecurringTransactionsFragment extends Fragment implements RecurringRuleAdapter.OnRecurringActionListener {
 
@@ -65,6 +67,7 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
     private final TransactionRepository transactionRepository = new TransactionRepository();
     private final Map<String, Long> cloudNudgeTimestamps = new HashMap<>();
     private final Set<String> pendingRuleKeys = new HashSet<>();
+    private final AtomicBoolean isSubmittingPayment = new AtomicBoolean(false);
     private static final java.util.Set<String> overdueNotifiedSet = java.util.Collections.synchronizedSet(new java.util.HashSet<>());
     private final android.os.Handler uiHandler = new android.os.Handler(android.os.Looper.getMainLooper());
 
@@ -515,6 +518,7 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
     @Override
     public void onDestroyView() {
         super.onDestroyView();
+        isSubmittingPayment.set(false);
         uiHandler.removeCallbacksAndMessages(null);
         if (adapter != null) {
             adapter.stopTimers();
@@ -564,6 +568,10 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
             return;
         }
 
+        if (!isSubmittingPayment.compareAndSet(false, true)) {
+            return;
+        }
+
         final boolean isOwner = isCurrentUserOwnerForRoom(targetRoomId);
         final boolean isTreasurer = RoomRepository.getInstance().isUserRoomTreasurer(targetRoomId, requesterId);
         final boolean canDirectApprove = isOwner || (isTreasurer && ruleAmount <= 5000000.0);
@@ -577,20 +585,20 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
         if (layoutProcessing != null) layoutProcessing.setVisibility(View.VISIBLE);
         if (layoutSuccess != null) layoutSuccess.setVisibility(View.GONE);
 
-        transactionRepository.submitWithdrawal(
+        transactionRepository.submitRecurringWithdrawal(
                 requesterId,
                 requesterName,
                 targetRoomId,
                 ruleAmount,
                 category,
                 note,
-                null,
                 canDirectApprove,
-                true,
                 rule.getId(),
+                rule.getFrequency(),
                 new TransactionRepository.DataCallback<Transaction>() {
                     @Override
                     public void onSuccess(Transaction createdTx) {
+                        isSubmittingPayment.set(false);
                         final double updatedBalance;
                         if (canDirectApprove) {
                             java.text.SimpleDateFormat localDateFmt = new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
@@ -701,11 +709,12 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
 
                     @Override
                     public void onError(String error) {
+                        isSubmittingPayment.set(false);
                         if (isAdded()) {
                             requireActivity().runOnUiThread(() -> {
                                 if (layoutProcessing != null) layoutProcessing.setVisibility(View.GONE);
                                 if (layoutMainContent != null) layoutMainContent.setVisibility(View.VISIBLE);
-                                AppToaster.error(requireActivity(), "Không thể hoàn tất xuất quỹ: " + error);
+                                AppToaster.error(requireActivity(), "Không thể hoàn tất xuất quỹ: " + ErrorMessageHelper.getFriendlyMessage(error));
                             });
                         }
                     }

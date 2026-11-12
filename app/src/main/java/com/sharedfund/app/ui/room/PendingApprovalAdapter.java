@@ -36,6 +36,7 @@ public class PendingApprovalAdapter extends RecyclerView.Adapter<PendingApproval
     private final OnApprovalActionListener listener;
     private boolean isViewerOwner = false;
     private final Set<String> privilegedRequesterIds = new HashSet<>();
+    private final Set<String> processingTxIds = new HashSet<>();
 
     public PendingApprovalAdapter(String currentUserId, OnApprovalActionListener listener) {
         this.currentUserId = currentUserId;
@@ -49,6 +50,22 @@ public class PendingApprovalAdapter extends RecyclerView.Adapter<PendingApproval
             this.privilegedRequesterIds.addAll(privilegedRequesterIds);
         }
         notifyDataSetChanged();
+    }
+
+    public void setTransactionProcessing(String txId, boolean processing) {
+        if (txId == null || txId.trim().isEmpty()) return;
+        String key = txId.trim();
+        if (processing) {
+            processingTxIds.add(key);
+        } else {
+            processingTxIds.remove(key);
+        }
+        for (int i = 0; i < items.size(); i++) {
+            Transaction item = items.get(i);
+            if (item != null && item.getId() != null && key.equals(item.getId().trim())) {
+                notifyItemChanged(i);
+            }
+        }
     }
 
     public void setItems(List<Transaction> list) {
@@ -85,7 +102,9 @@ public class PendingApprovalAdapter extends RecyclerView.Adapter<PendingApproval
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         Transaction tx = items.get(position);
-        holder.bind(tx, currentUserId, isViewerOwner, privilegedRequesterIds, listener);
+        String txId = tx.getId() != null ? tx.getId().trim() : "";
+        boolean isProcessing = !txId.isEmpty() && processingTxIds.contains(txId);
+        holder.bind(tx, currentUserId, isViewerOwner, privilegedRequesterIds, isProcessing, listener);
     }
 
     public static class ViewHolder extends RecyclerView.ViewHolder {
@@ -116,7 +135,7 @@ public class PendingApprovalAdapter extends RecyclerView.Adapter<PendingApproval
             btnApproveExpense = itemView.findViewById(R.id.btnApproveExpense);
         }
 
-        public void bind(final Transaction tx, String currentUserId, boolean isViewerOwner, Set<String> privilegedRequesterIds, final OnApprovalActionListener listener) {
+        public void bind(final Transaction tx, String currentUserId, boolean isViewerOwner, Set<String> privilegedRequesterIds, boolean isProcessing, final OnApprovalActionListener listener) {
             String creator = tx.getCreatedBy();
             if (creator == null || creator.trim().isEmpty() || "Member".equalsIgnoreCase(creator)) {
                 creator = "Thành viên";
@@ -219,7 +238,13 @@ public class PendingApprovalAdapter extends RecyclerView.Adapter<PendingApproval
             }
             boolean amountExceedsTreasurerLimit = tx.getAmount() > 5000000.0;
             boolean requiresOwnerApproval = !isViewerOwner && amountExceedsTreasurerLimit;
-            if (requiresOwnerApproval) {
+            if (isProcessing) {
+                btnApproveExpense.setEnabled(false);
+                btnApproveExpense.setAlpha(0.45f);
+                btnApproveExpense.setText(btnApproveExpense.getContext().getString(R.string.approve));
+                btnRejectExpense.setEnabled(false);
+                btnRejectExpense.setAlpha(0.45f);
+            } else if (requiresOwnerApproval) {
                 btnApproveExpense.setEnabled(false);
                 btnApproveExpense.setAlpha(0.45f);
                 btnApproveExpense.setText(btnApproveExpense.getContext().getString(R.string.waiting_owner_approval));
@@ -234,12 +259,14 @@ public class PendingApprovalAdapter extends RecyclerView.Adapter<PendingApproval
             }
 
             btnApproveExpense.setOnClickListener(v -> {
+                if (isProcessing) return;
                 if (listener != null) {
                     listener.onApprove(tx, getBindingAdapterPosition());
                 }
             });
 
             btnRejectExpense.setOnClickListener(v -> {
+                if (isProcessing) return;
                 if (listener != null) {
                     listener.onReject(tx, getBindingAdapterPosition());
                 }

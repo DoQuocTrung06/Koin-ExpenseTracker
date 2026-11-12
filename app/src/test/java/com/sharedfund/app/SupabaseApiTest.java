@@ -4,6 +4,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule;
@@ -12,6 +13,7 @@ import com.google.gson.Gson;
 import com.sharedfund.app.data.RoomRepository;
 import com.sharedfund.app.data.SupabaseConfig;
 import com.sharedfund.app.data.TransactionRepository;
+import com.sharedfund.app.util.ErrorMessageHelper;
 import com.sharedfund.app.model.Room;
 import com.sharedfund.app.model.Transaction;
 
@@ -20,6 +22,8 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -381,5 +385,51 @@ public class SupabaseApiTest {
         assertFalse(largeExpense <= 5000000.0);
 
         repository.onRemoteRoomDeleted("room-threshold");
+    }
+
+    @Test
+    public void testRecurringIdempotencyKeyAndCycleHelpers() {
+        ZonedDateTime sampleTime = ZonedDateTime.of(2026, 11, 12, 14, 30, 0, 0, ZoneId.of("Asia/Ho_Chi_Minh"));
+
+        assertEquals("2026-11-12", TransactionRepository.computeRecurringCycleKey("DAILY", sampleTime));
+        assertEquals("2026-W46", TransactionRepository.computeRecurringCycleKey("WEEKLY", sampleTime));
+        assertEquals("2026-11", TransactionRepository.computeRecurringCycleKey("MONTHLY", sampleTime));
+
+        assertEquals("2026-11-11T17:00:00Z", TransactionRepository.computeRecurringCycleStartIsoUtc("DAILY", sampleTime));
+        assertEquals("2026-11-08T17:00:00Z", TransactionRepository.computeRecurringCycleStartIsoUtc("WEEKLY", sampleTime));
+        assertEquals("2026-10-31T17:00:00Z", TransactionRepository.computeRecurringCycleStartIsoUtc("MONTHLY", sampleTime));
+
+        String id1 = TransactionRepository.buildRecurringIdempotencyUuid("rule-1", "2026-11", 0);
+        String id2 = TransactionRepository.buildRecurringIdempotencyUuid("rule-1", "2026-11", 0);
+        String idRetry = TransactionRepository.buildRecurringIdempotencyUuid("rule-1", "2026-11", 1);
+        String idOtherCycle = TransactionRepository.buildRecurringIdempotencyUuid("rule-1", "2026-12", 0);
+        String idOtherRule = TransactionRepository.buildRecurringIdempotencyUuid("rule-2", "2026-11", 0);
+
+        assertEquals(id1, id2);
+        assertNotEquals(id1, idRetry);
+        assertNotEquals(id1, idOtherCycle);
+        assertNotEquals(id1, idOtherRule);
+
+        assertTrue(TransactionRepository.isActiveRecurringTxStatus("PENDING"));
+        assertTrue(TransactionRepository.isActiveRecurringTxStatus("APPROVED"));
+        assertTrue(TransactionRepository.isActiveRecurringTxStatus("COMPLETED"));
+        assertTrue(TransactionRepository.isActiveRecurringTxStatus("success"));
+        assertTrue(TransactionRepository.isActiveRecurringTxStatus("CONFIRMED"));
+        assertTrue(TransactionRepository.isActiveRecurringTxStatus("PAID"));
+        assertFalse(TransactionRepository.isActiveRecurringTxStatus("REJECTED"));
+        assertFalse(TransactionRepository.isActiveRecurringTxStatus(null));
+        assertFalse(TransactionRepository.isActiveRecurringTxStatus(""));
+    }
+
+    @Test
+    public void testConcurrencyErrorMessageTranslations() {
+        String casError = "Giao dịch này vừa được quản trị viên khác xử lý!";
+        assertEquals(casError, ErrorMessageHelper.getFriendlyMessage(casError));
+
+        String recurringError = "Khoản chi định kỳ này đang chờ duyệt hoặc đã thanh toán trong kỳ!";
+        assertEquals(recurringError, ErrorMessageHelper.getFriendlyMessage(recurringError));
+
+        String dup409 = ErrorMessageHelper.getFriendlyMessage("HTTP 409: duplicate key value violates unique constraint (23505)");
+        assertEquals("Giao dịch này đã được ghi nhận hoặc xử lý trước đó.", dup409);
     }
 }

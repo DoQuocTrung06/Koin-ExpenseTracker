@@ -52,6 +52,7 @@ import java.text.DecimalFormatSymbols;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -126,6 +127,8 @@ public class WalletTransferFragment extends androidx.fragment.app.Fragment {
 
     private double currentWalletBalance = 0.0;
     private final TransactionRepository transactionRepository = new TransactionRepository();
+    private final AtomicBoolean isWithdrawing = new AtomicBoolean(false);
+    private final AtomicBoolean depositHandled = new AtomicBoolean(false);
 
     public static WalletTransferFragment newInstance() {
         return new WalletTransferFragment();
@@ -363,6 +366,7 @@ public class WalletTransferFragment extends androidx.fragment.app.Fragment {
         }
 
         stopSePayPolling();
+        depositHandled.set(false);
         pendingDepositAmount = amount;
         try {
             android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager) requireContext().getSystemService(Context.INPUT_METHOD_SERVICE);
@@ -472,6 +476,7 @@ public class WalletTransferFragment extends androidx.fragment.app.Fragment {
     }
 
     private void handleDepositSuccess(double amount) {
+        if (!depositHandled.compareAndSet(false, true)) return;
         stopSePayPolling();
         if (layoutQrInfoCard != null) layoutQrInfoCard.setVisibility(View.GONE);
         if (ivQrCode != null) ivQrCode.setVisibility(View.GONE);
@@ -603,6 +608,7 @@ public class WalletTransferFragment extends androidx.fragment.app.Fragment {
     }
 
     private void executeWithdraw(double amount, String bankName, String accountNumber, String accountHolder) {
+        if (!isWithdrawing.compareAndSet(false, true)) return;
         UserSessionManager session = UserSessionManager.getInstance(requireContext());
         String userId = session.getUserId();
         if (userId == null || userId.isEmpty()) {
@@ -616,6 +622,7 @@ public class WalletTransferFragment extends androidx.fragment.app.Fragment {
                 new TransactionRepository.DataCallback<JsonObject>() {
                     @Override
                     public void onSuccess(JsonObject value) {
+                        isWithdrawing.set(false);
                         if (!isAdded()) return;
                         requireActivity().runOnUiThread(() -> {
                             setWithdrawLoading(false);
@@ -625,6 +632,7 @@ public class WalletTransferFragment extends androidx.fragment.app.Fragment {
 
                     @Override
                     public void onError(String message) {
+                        isWithdrawing.set(false);
                         if (!isAdded()) return;
                         requireActivity().runOnUiThread(() -> {
                             setWithdrawLoading(false);

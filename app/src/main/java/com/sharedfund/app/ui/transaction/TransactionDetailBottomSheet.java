@@ -32,6 +32,7 @@ import com.sharedfund.app.util.CopyToast;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class TransactionDetailBottomSheet extends BottomSheetDialogFragment {
 
@@ -46,6 +47,9 @@ public class TransactionDetailBottomSheet extends BottomSheetDialogFragment {
     private Transaction transaction;
     private boolean isAdmin;
     private OnTransactionActionListener actionListener;
+    private final AtomicBoolean actionSubmitted = new AtomicBoolean(false);
+    private MaterialButton btnRejectExpense;
+    private MaterialButton btnApproveExpense;
 
     public static TransactionDetailBottomSheet newInstance(Transaction transaction, boolean isAdmin) {
         TransactionDetailBottomSheet sheet = new TransactionDetailBottomSheet();
@@ -106,8 +110,8 @@ public class TransactionDetailBottomSheet extends BottomSheetDialogFragment {
         TextView tvRejectionReasonTitle = view.findViewById(R.id.tvRejectionReasonTitle);
         TextView tvRejectionReasonContent = view.findViewById(R.id.tvRejectionReasonContent);
         LinearLayout layoutAdminActions = view.findViewById(R.id.layoutAdminActions);
-        MaterialButton btnRejectExpense = view.findViewById(R.id.btnRejectExpense);
-        MaterialButton btnApproveExpense = view.findViewById(R.id.btnApproveExpense);
+        btnRejectExpense = view.findViewById(R.id.btnRejectExpense);
+        btnApproveExpense = view.findViewById(R.id.btnApproveExpense);
         MaterialButton btnCloseDetail = view.findViewById(R.id.btnCloseDetail);
         View cardDetailBillReceipt = view.findViewById(R.id.cardDetailBillReceipt);
         View cardDetailBillClickable = view.findViewById(R.id.cardDetailBillClickable);
@@ -256,13 +260,20 @@ public class TransactionDetailBottomSheet extends BottomSheetDialogFragment {
             layoutAdminActions.setVisibility(View.VISIBLE);
 
             btnApproveExpense.setOnClickListener(v -> {
+                if (!actionSubmitted.compareAndSet(false, true)) return;
+                btnApproveExpense.setEnabled(false);
+                btnRejectExpense.setEnabled(false);
                 if (actionListener != null) {
                     actionListener.onApprove(transaction);
                 }
                 dismiss();
             });
 
-            btnRejectExpense.setOnClickListener(v -> showRejectInputDialog());
+            btnRejectExpense.setOnClickListener(v -> {
+                if (!actionSubmitted.get()) {
+                    showRejectInputDialog();
+                }
+            });
         } else {
             layoutAdminActions.setVisibility(View.GONE);
         }
@@ -330,6 +341,13 @@ private void showReceiptImageDialog(String imageUrl) {
                     if (etReason != null) etReason.requestFocus();
                     return;
                 }
+                if (!actionSubmitted.compareAndSet(false, true)) {
+                    dialog.dismiss();
+                    return;
+                }
+                btnConfirm.setEnabled(false);
+                if (btnApproveExpense != null) btnApproveExpense.setEnabled(false);
+                if (btnRejectExpense != null) btnRejectExpense.setEnabled(false);
                 dialog.dismiss();
                 if (actionListener != null) {
                     actionListener.onReject(transaction, reason);

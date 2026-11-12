@@ -269,7 +269,15 @@ public class RoomRepository {
         return result;
     }
 
-    private Request.Builder request(String path) {
+    OkHttpClient getClient() {
+        return client;
+    }
+
+    Gson getGson() {
+        return gson;
+    }
+
+    Request.Builder request(String path) {
         String activeToken = token;
         if ((activeToken == null || activeToken.equals(SupabaseConfig.SUPABASE_ANON_KEY)) && SharedFundApp.getInstance() != null) {
             String sessionToken = UserSessionManager.getInstance(SharedFundApp.getInstance()).getAccessToken();
@@ -685,27 +693,7 @@ public class RoomRepository {
 
 
     public synchronized void recalculateAllBalances() {
-        for (Room r : roomList) {
-            double income = 0;
-            double expense = 0;
-            for (Transaction tx : transactionList) {
-                if (r.getId().equals(tx.getRoomId()) && affectsBalance(tx)) {
-                    if (tx.isIncome()) {
-                        income += tx.getAmount();
-                    } else if (tx.isExpense() && (tx.isApproved() || tx.getStatus() == null)) {
-                        expense += tx.getAmount();
-                    }
-                }
-            }
-            double balance = income - expense;
-            r.setBalance(balance);
-        }
-
-        double userTotal = 0;
-        List<Room> myRooms = getUserRooms();
-        for (Room r : myRooms) {
-            userTotal += r.getBalance();
-        }
+        double userTotal = RoomStatisticsManager.getInstance().recalculateBalances(roomList, transactionList, getUserRooms());
         totalBalanceLiveData.postValue(userTotal);
     }
 
@@ -851,49 +839,19 @@ public class RoomRepository {
 
 
     public synchronized double getRoomTotalIncome(String roomId) {
-        double sum = 0;
-        if (roomId == null) return sum;
-        for (Transaction tx : transactionList) {
-            if (roomId.equals(tx.getRoomId()) && affectsBalance(tx) && tx.isIncome()) {
-                sum += tx.getAmount();
-            }
-        }
-        return sum;
+        return RoomStatisticsManager.getInstance().calculateRoomTotalIncome(roomId, transactionList);
     }
 
     public synchronized double getRoomTotalExpense(String roomId) {
-        double sum = 0;
-        if (roomId == null) return sum;
-        for (Transaction tx : transactionList) {
-            if (roomId.equals(tx.getRoomId()) && affectsBalance(tx) && tx.isExpense()) {
-                sum += tx.getAmount();
-            }
-        }
-        return sum;
+        return RoomStatisticsManager.getInstance().calculateRoomTotalExpense(roomId, transactionList);
     }
 
     public synchronized Map<String, Double> getCategoryBreakdown(String roomId) {
-        Map<String, Double> map = new HashMap<>();
-        if (roomId == null) return map;
-        for (Transaction tx : transactionList) {
-            if (roomId.equals(tx.getRoomId()) && affectsBalance(tx) && tx.isExpense()) {
-                String cat = TransactionAdapter.resolveDisplayCategory(tx.getCategory(), tx.getNote());
-                Double current = map.get(cat);
-                map.put(cat, (current != null ? current : 0.0) + tx.getAmount());
-            }
-        }
-        return map;
+        return RoomCategoryManager.getInstance().calculateCategoryBreakdown(roomId, transactionList);
     }
 
     public boolean affectsBalance(Transaction transaction) {
-        if (transaction == null) return false;
-        String status = transaction.getStatus();
-        return status == null || status.trim().isEmpty()
-                || "APPROVED".equalsIgnoreCase(status)
-                || "SUCCESS".equalsIgnoreCase(status)
-                || "COMPLETED".equalsIgnoreCase(status)
-                || "CONFIRMED".equalsIgnoreCase(status)
-                || "PAID".equalsIgnoreCase(status);
+        return RoomStatisticsManager.getInstance().affectsBalance(transaction);
     }
     public synchronized void onRemoteTransactionReceived(Transaction tx) {
         if (tx == null) return;
@@ -1289,8 +1247,65 @@ public class RoomRepository {
         pushRoomDescription(roomId, fullDesc, false);
     }
 
+    void patchRoomDescriptionCas(String roomId, String oldRawDesc, String newFullDesc, DataCallback<Boolean> callback) {
+        okhttp3.HttpUrl base = okhttp3.HttpUrl.parse(SupabaseConfig.REST_URL + "/rooms");
+        if (base == null) {
+            if (callback != null) callback.onError("Invalid URL");
+            return;
+        }
+        okhttp3.HttpUrl casUrl = base.newBuilder()
+                .addQueryParameter("id", "eq." + roomId)
+                .addQueryParameter("description", oldRawDesc == null ? "is.null" : "eq." + oldRawDesc)
+                .build();
+        JsonObject body = new JsonObject();
+        body.addProperty("description", newFullDesc);
+        Request req = new Request.Builder()
+                .url(casUrl)
+                .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
+                .addHeader("Authorization", "Bearer " + SupabaseConfig.SUPABASE_ANON_KEY)
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Prefer", "return=representation")
+                .patch(RequestBody.create(gson.toJson(body), JSON))
+                .build();
+        client.newCall(req).enqueue(new okhttp3.Callback() {
+            @Override public void onFailure(Call call, IOException e) {
+                if (callback != null) callback.onError(e.getMessage());
+            }
+            @Override public void onResponse(Call call, Response response) throws IOException {
+                String resBody = response.body() != null ? response.body().string() : "";
+                if (!response.isSuccessful()) {
+                    if (callback != null) callback.onError("HTTP " + response.code() + ": " + resBody);
+                    return;
+                }
+                try {
+                    JsonArray arr = JsonParser.parseString(resBody).getAsJsonArray();
+                    if (arr == null || arr.size() == 0) {
+                        if (callback != null) callback.onError("CAS_CONFLICT");
+                        return;
+                    }
+                } catch (Exception ex) {
+                    if (callback != null) callback.onError("CAS_CONFLICT");
+                    return;
+                }
+                Room localRoom = getRoomSync(roomId);
+                if (localRoom != null) {
+                    localRoom.setDescription(newFullDesc);
+                    notifyDataChanged();
+                }
+                if (callback != null) callback.onSuccess(true);
+            }
+        });
+    }
+
     public void addJoinRequest(String roomId, Room.JoinRequestMeta newReq, Runnable onDone) {
-        if (roomId == null || newReq == null) return;
+        if (roomId == null || newReq == null) {
+            if (onDone != null) onDone.run();
+            return;
+        }
+        addJoinRequestWithCas(roomId, newReq, 3, onDone);
+    }
+
+    private void addJoinRequestWithCas(String roomId, Room.JoinRequestMeta newReq, int retriesLeft, Runnable onDone) {
         String path = "/rooms?id=eq." + roomId + "&select=*";
         client.newCall(request(path).get().build()).enqueue(new okhttp3.Callback() {
             @Override public void onFailure(Call call, IOException e) { if (onDone != null) onDone.run(); }
@@ -1299,7 +1314,10 @@ public class RoomRepository {
                 try {
                     JsonArray arr = JsonParser.parseString(body).getAsJsonArray();
                     if (arr.size() > 0) {
-                        Room latest = gson.fromJson(arr.get(0), Room.class);
+                        JsonObject roomObj = arr.get(0).getAsJsonObject();
+                        String oldRawDesc = (roomObj.has("description") && !roomObj.get("description").isJsonNull())
+                                ? roomObj.get("description").getAsString() : null;
+                        Room latest = gson.fromJson(roomObj, Room.class);
                         java.util.List<Room.JoinRequestMeta> currentList = latest.getPendingJoinRequests();
                         boolean exists = false;
                         for (Room.JoinRequestMeta ex : currentList) {
@@ -1312,8 +1330,20 @@ public class RoomRepository {
                         if (!exists) {
                             currentList.add(0, newReq);
                             String fullDesc = Room.buildFullDescription(latest.getDescription(), latest.getTreasurerIds(), latest.isPrivateRoom(), currentList, latest.getRecurringNudgeTimestamps());
-                            pushRoomDescription(roomId, fullDesc, false);
-                            dispatchJoinRequestNotification(SharedFundApp.getInstance(), roomId, latest.getName(), newReq);
+                            patchRoomDescriptionCas(roomId, oldRawDesc, fullDesc, new DataCallback<Boolean>() {
+                                @Override public void onSuccess(Boolean value) {
+                                    dispatchJoinRequestNotification(SharedFundApp.getInstance(), roomId, latest.getName(), newReq);
+                                    if (onDone != null) onDone.run();
+                                }
+                                @Override public void onError(String message) {
+                                    if ("CAS_CONFLICT".equals(message) && retriesLeft > 0) {
+                                        addJoinRequestWithCas(roomId, newReq, retriesLeft - 1, onDone);
+                                    } else if (onDone != null) {
+                                        onDone.run();
+                                    }
+                                }
+                            });
+                            return;
                         }
                     }
                 } catch (Exception ignored) {}
@@ -1322,24 +1352,12 @@ public class RoomRepository {
         });
     }
 
+    public void processJoinRequestDecision(String roomId, String userId, String email, boolean approve, DataCallback<Boolean> callback) {
+        RoomMembershipManager.getInstance().processJoinRequestDecision(roomId, userId, email, approve, callback);
+    }
+
     public void removeJoinRequest(String roomId, String userId, String email) {
-        if (roomId == null) return;
-        Room room = getRoomSync(roomId);
-        if (room == null) return;
-        java.util.List<Room.JoinRequestMeta> list = new java.util.ArrayList<>(room.getPendingJoinRequests());
-        boolean removed = false;
-        for (int i = 0; i < list.size(); i++) {
-            Room.JoinRequestMeta it = list.get(i);
-            if ((userId != null && userId.equals(it.userId)) || (email != null && email.equalsIgnoreCase(it.email))) {
-                list.remove(i);
-                removed = true;
-                break;
-            }
-        }
-        if (removed) {
-            String fullDesc = Room.buildFullDescription(room.getDescription(), room.getTreasurerIds(), room.isPrivateRoom(), list, room.getRecurringNudgeTimestamps());
-            pushRoomDescription(roomId, fullDesc, false);
-        }
+        RoomMembershipManager.getInstance().removeJoinRequest(roomId, userId, email);
     }
 
     private void pushRoomDescription(String roomId, String fullDesc, boolean refreshMembers) {
@@ -1362,62 +1380,15 @@ public class RoomRepository {
     }
 
     public void updateMemberRole(String roomId, String targetUserId, String newRole, DataCallback<Boolean> callback) {
-        String path = "/room_members?room_id=eq." + roomId + "&user_id=eq." + targetUserId;
-        JsonObject body = new JsonObject();
-        body.addProperty("role", newRole);
-        client.newCall(request(path).patch(RequestBody.create(gson.toJson(body), JSON)).build()).enqueue(new okhttp3.Callback() {
-            @Override public void onFailure(Call call, IOException e) {
-                if (callback != null) callback.onError(e.getMessage());
-            }
-            @Override public void onResponse(Call call, Response response) {
-                if (!response.isSuccessful()) {
-                    if (callback != null) callback.onError("HTTP " + response.code());
-                    return;
-                }
-                refreshRoomMembers(roomId);
-                if (callback != null) callback.onSuccess(true);
-            }
-        });
+        RoomMembershipManager.getInstance().updateMemberRole(roomId, targetUserId, newRole, callback);
     }
 
     public void transferRoomOwnership(String roomId, String oldOwnerUserId, String newOwnerUserId, DataCallback<Boolean> callback) {
-        String roomPath = "/rooms?id=eq." + roomId;
-        JsonObject roomBody = new JsonObject();
-        roomBody.addProperty("created_by", newOwnerUserId);
-        client.newCall(request(roomPath).patch(RequestBody.create(gson.toJson(roomBody), JSON)).build()).enqueue(new okhttp3.Callback() {
-            @Override public void onFailure(Call call, IOException e) {
-                if (callback != null) callback.onError(e.getMessage());
-            }
-            @Override public void onResponse(Call call, Response response) {
-                updateMemberRole(roomId, newOwnerUserId, "OWNER", new DataCallback<Boolean>() {
-                    @Override public void onSuccess(Boolean v1) {
-                        if (oldOwnerUserId != null && !oldOwnerUserId.isEmpty()) {
-                            updateMemberRole(roomId, oldOwnerUserId, "MEMBER", callback);
-                        } else if (callback != null) {
-                            callback.onSuccess(true);
-                        }
-                    }
-                    @Override public void onError(String m1) {
-                        if (callback != null) callback.onError(m1);
-                    }
-                });
-            }
-        });
+        RoomMembershipManager.getInstance().transferRoomOwnership(roomId, oldOwnerUserId, newOwnerUserId, callback);
     }
 
     public void removeMember(String roomId, String targetUserId, DataCallback<Boolean> callback) {
-        String path = "/room_members?room_id=eq." + roomId + "&user_id=eq." + targetUserId;
-        client.newCall(request(path).delete().build()).enqueue(new okhttp3.Callback() {
-            @Override public void onFailure(Call call, IOException e) { callback.onError(e.getMessage()); }
-            @Override public void onResponse(Call call, Response response) {
-                if (!response.isSuccessful()) {
-                    callback.onError("HTTP " + response.code());
-                    return;
-                }
-                refreshRoomMembers(roomId);
-                callback.onSuccess(true);
-            }
-        });
+        RoomMembershipManager.getInstance().removeMember(roomId, targetUserId, callback);
     }
 
     public void recordRecurringNudge(String roomId, String ruleId, long timestampMs) {
@@ -1439,218 +1410,21 @@ public class RoomRepository {
     public void dispatchExpenseApprovalNotifications(android.content.Context context, String roomId,
                                                      String requesterId, String requesterName,
                                                      double amount, String note) {
-        android.content.Context appCtx = context != null ? context.getApplicationContext() : SharedFundApp.getInstance();
-        if (appCtx == null || roomId == null || roomId.trim().isEmpty()) return;
-        if (isUserRoomOwner(roomId, requesterId)) return;
-
-        boolean isRequesterTreasurer = isUserRoomTreasurer(roomId, requesterId);
-        Room r = getRoomSync(roomId);
-        String ownerId = r != null ? r.getCreatedBy() : null;
-        String fundName = (r != null && r.getName() != null && !r.getName().trim().isEmpty()) ? r.getName() : "Quỹ nhóm";
-
-        DecimalFormatSymbols sym = new DecimalFormatSymbols(Locale.GERMANY);
-        sym.setGroupingSeparator('.');
-        DecimalFormat df = new DecimalFormat("#,###", sym);
-        String senderDisplay = (requesterName != null && !requesterName.trim().isEmpty()) ? requesterName.trim() : "Thành viên";
-        String safeNote = (note != null && !note.trim().isEmpty()) ? note.trim() : "Yêu cầu chi tiêu";
-        String title = (isRequesterTreasurer ? "Phó quỹ " : "") + senderDisplay + " yêu cầu duyệt chi " + df.format(Math.abs(amount)) + " đ";
-        String desc = "Nội dung: " + safeNote + (isRequesterTreasurer ? ". Cần Chủ quỹ phê duyệt." : ". Vui lòng kiểm tra và phê duyệt.");
-
-        loadRoomMembers(roomId, new DataCallback<List<RoomMember>>() {
-            @Override
-            public void onSuccess(List<RoomMember> members) {
-                Set<String> targetIds = new HashSet<>();
-                if (ownerId != null && !ownerId.trim().isEmpty()) {
-                    targetIds.add(ownerId.trim());
-                }
-                if (!isRequesterTreasurer && r != null && r.getTreasurerIds() != null) {
-                    for (String tid : r.getTreasurerIds()) {
-                        if (tid != null && !tid.trim().isEmpty()) {
-                            targetIds.add(tid.trim());
-                        }
-                    }
-                }
-                if (members != null) {
-                    for (RoomMember m : members) {
-                        if (m == null || m.getUserId() == null || m.getUserId().trim().isEmpty()) continue;
-                        String uId = m.getUserId().trim();
-                        boolean memIsOwner = "OWNER".equalsIgnoreCase(m.getRole())
-                                || (ownerId != null && ownerId.equalsIgnoreCase(uId));
-                        boolean memIsTreasurer = !memIsOwner && ("TREASURER".equalsIgnoreCase(m.getRole())
-                                || (r != null && containsIgnoreCase(r.getTreasurerIds(), uId)));
-                        if (memIsOwner) {
-                            targetIds.add(uId);
-                        } else if (!isRequesterTreasurer && memIsTreasurer) {
-                            targetIds.add(uId);
-                        }
-                    }
-                }
-                for (String targetId : targetIds) {
-                    if (requesterId != null && requesterId.equalsIgnoreCase(targetId)) continue;
-                    AppNotification notif = new AppNotification(
-                            UUID.randomUUID().toString(),
-                            AppNotification.TYPE_EXPENSE_APPROVAL,
-                            fundName,
-                            title,
-                            desc,
-                            "Vừa xong",
-                            false,
-                            roomId,
-                            fundName
-                    );
-                    NotificationManager.getInstance(appCtx).sendNotificationToUser(notif, targetId);
-                }
-            }
-
-            @Override
-            public void onError(String error) {
-                Set<String> fallbackIds = new HashSet<>();
-                if (ownerId != null && !ownerId.trim().isEmpty()) {
-                    fallbackIds.add(ownerId.trim());
-                }
-                if (!isRequesterTreasurer && r != null && r.getTreasurerIds() != null) {
-                    for (String tid : r.getTreasurerIds()) {
-                        if (tid != null && !tid.trim().isEmpty()) {
-                            fallbackIds.add(tid.trim());
-                        }
-                    }
-                }
-                for (String targetId : fallbackIds) {
-                    if (requesterId != null && requesterId.equalsIgnoreCase(targetId)) continue;
-                    AppNotification notif = new AppNotification(
-                            UUID.randomUUID().toString(),
-                            AppNotification.TYPE_EXPENSE_APPROVAL,
-                            fundName,
-                            title,
-                            desc,
-                            "Vừa xong",
-                            false,
-                            roomId,
-                            fundName
-                    );
-                    NotificationManager.getInstance(appCtx).sendNotificationToUser(notif, targetId);
-                }
-            }
-        });
+        RoomNotificationDispatcher.getInstance().dispatchExpenseApprovalNotifications(context, roomId, requesterId, requesterName, amount, note);
     }
 
     public void dispatchExpenseResultNotification(android.content.Context context, String roomId,
                                                   Transaction tx, boolean approved, String reason,
                                                   String approverId, String approverRoleLabel) {
-        android.content.Context appCtx = context != null ? context.getApplicationContext() : SharedFundApp.getInstance();
-        if (appCtx == null || tx == null) return;
-        String requesterId = tx.getUserId();
-        if (requesterId == null || requesterId.trim().isEmpty()) return;
-        if (approverId != null && approverId.equalsIgnoreCase(requesterId.trim())) return;
-
-        Room r = roomId != null ? getRoomSync(roomId) : null;
-        String fundName = (r != null && r.getName() != null && !r.getName().trim().isEmpty()) ? r.getName() : "Quỹ nhóm";
-
-        DecimalFormatSymbols sym = new DecimalFormatSymbols(Locale.GERMANY);
-        sym.setGroupingSeparator('.');
-        DecimalFormat df = new DecimalFormat("#,###", sym);
-        String amountStr = df.format(Math.abs(tx.getAmount())) + " đ";
-        String safeNote = (tx.getNote() != null && !tx.getNote().trim().isEmpty()) ? tx.getNote().trim() : "Khoản chi quỹ";
-        String roleDisplay = (approverRoleLabel != null && !approverRoleLabel.trim().isEmpty()) ? approverRoleLabel.trim() : "Quản trị viên";
-
-        String title;
-        String desc;
-        if (approved) {
-            title = "Yêu cầu chi đã được duyệt";
-            desc = roleDisplay + " đã duyệt khoản chi \"" + safeNote + "\" (" + amountStr + ") của bạn tại " + fundName + ".";
-        } else {
-            title = "Yêu cầu chi bị từ chối";
-            String reasonPart = (reason != null && !reason.trim().isEmpty()) ? (" Lý do: " + reason.trim()) : "";
-            desc = roleDisplay + " đã từ chối khoản chi \"" + safeNote + "\" (" + amountStr + ") tại " + fundName + "." + reasonPart;
-        }
-
-        AppNotification notif = new AppNotification(
-                UUID.randomUUID().toString(),
-                AppNotification.TYPE_FUND_ACTIVITY,
-                fundName,
-                title,
-                desc,
-                "Vừa xong",
-                false,
-                roomId,
-                fundName
-        );
-        NotificationManager.getInstance(appCtx).sendNotificationToUser(notif, requesterId.trim());
+        RoomNotificationDispatcher.getInstance().dispatchExpenseResultNotification(context, roomId, tx, approved, reason, approverId, approverRoleLabel);
     }
 
     public void dispatchJoinRequestNotification(android.content.Context context, String roomId, String roomName, Room.JoinRequestMeta req) {
-        android.content.Context appCtx = context != null ? context.getApplicationContext() : SharedFundApp.getInstance();
-        if (appCtx == null || roomId == null || req == null) return;
-        Room r = getRoomSync(roomId);
-        String ownerId = r != null ? r.getCreatedBy() : null;
-        String fundName = (roomName != null && !roomName.trim().isEmpty()) ? roomName : (r != null && r.getName() != null ? r.getName() : "Quỹ nhóm");
-
-        String requesterDisplay = (req.applicantName != null && !req.applicantName.trim().isEmpty())
-                ? req.applicantName.trim()
-                : ((req.email != null && !req.email.trim().isEmpty()) ? req.email.trim() : "Thành viên mới");
-
-        String title = "Yêu cầu tham gia quỹ " + fundName;
-        String desc = requesterDisplay + " đã gửi yêu cầu tham gia quỹ " + fundName + ". Vui lòng kiểm tra và phê duyệt.";
-
-        Set<String> targetIds = new HashSet<>();
-        if (ownerId != null && !ownerId.trim().isEmpty()) {
-            targetIds.add(ownerId.trim());
-        }
-        if (r != null && r.getTreasurerIds() != null) {
-            for (String tid : r.getTreasurerIds()) {
-                if (tid != null && !tid.trim().isEmpty()) {
-                    targetIds.add(tid.trim());
-                }
-            }
-        }
-
-        for (String targetId : targetIds) {
-            if (targetId == null || targetId.trim().isEmpty()) continue;
-            if (req.userId != null && targetId.equalsIgnoreCase(req.userId.trim())) continue;
-            AppNotification notif = new AppNotification(
-                    UUID.randomUUID().toString(),
-                    AppNotification.TYPE_MEMBER_JOIN,
-                    fundName,
-                    title,
-                    desc,
-                    "Vừa xong",
-                    false,
-                    roomId,
-                    fundName
-            );
-            NotificationManager.getInstance(appCtx).sendNotificationToUser(notif, targetId.trim());
-        }
+        RoomNotificationDispatcher.getInstance().dispatchJoinRequestNotification(context, roomId, roomName, req);
     }
 
     public void dispatchJoinResultNotification(android.content.Context context, String roomId, String targetUserId, String targetUserName, boolean approved, String approverName) {
-        android.content.Context appCtx = context != null ? context.getApplicationContext() : SharedFundApp.getInstance();
-        if (appCtx == null || targetUserId == null || targetUserId.trim().isEmpty() || targetUserId.startsWith("mock-")) return;
-        Room r = roomId != null ? getRoomSync(roomId) : null;
-        String fundName = (r != null && r.getName() != null && !r.getName().trim().isEmpty()) ? r.getName() : "Quỹ nhóm";
-
-        String title;
-        String desc;
-        String approverDisplay = (approverName != null && !approverName.trim().isEmpty()) ? approverName.trim() : "Quản trị viên";
-        if (approved) {
-            title = "Yêu cầu tham gia quỹ đã được phê duyệt";
-            desc = "Chúc mừng! " + approverDisplay + " đã phê duyệt yêu cầu tham gia quỹ " + fundName + " của bạn.";
-        } else {
-            title = "Yêu cầu tham gia quỹ bị từ chối";
-            desc = approverDisplay + " đã từ chối yêu cầu tham gia quỹ " + fundName + " của bạn.";
-        }
-
-        AppNotification notif = new AppNotification(
-                UUID.randomUUID().toString(),
-                AppNotification.TYPE_MEMBER_JOIN,
-                fundName,
-                title,
-                desc,
-                "Vừa xong",
-                false,
-                roomId,
-                fundName
-        );
-        NotificationManager.getInstance(appCtx).sendNotificationToUser(notif, targetUserId.trim());
+        RoomNotificationDispatcher.getInstance().dispatchJoinResultNotification(context, roomId, targetUserId, targetUserName, approved, approverName);
     }
 
     public void markRecurringRulePaidIfMatched(String roomId, Transaction tx) {

@@ -7,6 +7,23 @@ public class ErrorMessageHelper {
             return "Đã xảy ra lỗi, vui lòng thử lại.";
         }
         String lower = rawError.toLowerCase();
+        if (lower.contains("quản trị viên khác")
+                || lower.contains("đã được xử lý")
+                || lower.contains("đang được xử lý")
+                || lower.contains("chờ duyệt")
+                || lower.contains("thanh toán trong kỳ")
+                || lower.contains("chủ quỹ duyệt")
+                || lower.contains("không có quyền")
+                || lower.contains("số dư quỹ không đủ")
+                || lower.contains("số dư ví không đủ")
+                || lower.contains("yêu cầu tham gia")
+                || lower.contains("vui lòng chờ giây lát")
+                || lower.contains("đã được ghi nhận")) {
+            return rawError;
+        }
+        if (lower.contains("23505") || lower.contains("duplicate key") || lower.contains("409") || lower.contains("conflict")) {
+            return "Giao dịch này đã được ghi nhận hoặc xử lý trước đó.";
+        }
         if (lower.contains("invalid login") || lower.contains("invalid credentials")
                 || lower.contains("invalid_grant") || lower.contains("invalid_credentials")
                 || lower.contains("invalid email") || lower.contains("wrong password")

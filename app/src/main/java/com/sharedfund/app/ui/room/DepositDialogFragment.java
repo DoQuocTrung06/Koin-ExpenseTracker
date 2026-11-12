@@ -48,6 +48,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -91,6 +92,7 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
     private boolean isPolling = false;
 
     private final TransactionRepository transactionRepository = new TransactionRepository();
+    private final AtomicBoolean paymentHandled = new AtomicBoolean(false);
 
     public static DepositDialogFragment newInstance(String roomId) {
         DepositDialogFragment fragment = new DepositDialogFragment();
@@ -255,6 +257,7 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
         }
 
         stopPaymentPolling();
+        paymentHandled.set(false);
         pendingAmount = amount;
         qrGeneratedAt = Instant.now().minusSeconds(120).toString();
 
@@ -387,6 +390,7 @@ public class DepositDialogFragment extends BottomSheetDialogFragment {
     }
 
     private void handlePaymentSuccess(double amount) {
+        if (!paymentHandled.compareAndSet(false, true)) return;
         stopPaymentPolling();
         if (layoutQrInfoCard != null) layoutQrInfoCard.setVisibility(View.GONE);
         if (ivQrCode != null) ivQrCode.setVisibility(View.GONE);

@@ -30,6 +30,7 @@ import com.sharedfund.app.ui.widget.AppToaster;
 import com.sharedfund.app.util.ErrorMessageHelper;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -48,6 +49,7 @@ public class ExpenseApprovalFragment extends Fragment {
     private TransactionRepository transactionRepository;
     private boolean isViewerOwner = false;
     private final Set<String> privilegedRequesterIds = new HashSet<>();
+    private final Set<String> inFlightReviewTxIds = Collections.synchronizedSet(new HashSet<>());
 
     public static ExpenseApprovalFragment newInstance(String roomId) {
         ExpenseApprovalFragment fragment = new ExpenseApprovalFragment();
@@ -255,6 +257,7 @@ public class ExpenseApprovalFragment extends Fragment {
     }
 
     private void executeApprove(Transaction tx, int position) {
+        if (tx == null || tx.getId() == null || tx.getId().trim().isEmpty()) return;
         UserSessionManager session = UserSessionManager.getInstance(requireContext());
         String adminId = session.getUserId();
         if (adminId == null || adminId.isEmpty()) {
@@ -266,12 +269,12 @@ public class ExpenseApprovalFragment extends Fragment {
             return;
         }
 
-        adapter.removeItem(position);
-        int remaining = adapter.getItemCount();
-        updateBadgeCount(remaining);
-        if (remaining == 0) {
-            layoutEmptyApproval.setVisibility(View.VISIBLE);
-            rvPendingApprovals.setVisibility(View.GONE);
+        final String txId = tx.getId().trim();
+        if (!inFlightReviewTxIds.add(txId)) {
+            return;
+        }
+        if (adapter != null) {
+            adapter.setTransactionProcessing(txId, true);
         }
 
         final android.content.Context appCtx = requireContext().getApplicationContext();
@@ -279,13 +282,20 @@ public class ExpenseApprovalFragment extends Fragment {
         final String roleLabel = isOwnerViewer ? "Chủ quỹ" : "Phó quỹ";
         RoomRepository.getInstance().configureAccessToken(session.getAccessToken());
         transactionRepository.setAccessToken(session.getAccessToken());
-        transactionRepository.approveExpense(adminId, tx.getId(), new TransactionRepository.DataCallback<JsonObject>() {
+        transactionRepository.approveExpense(adminId, txId, new TransactionRepository.DataCallback<JsonObject>() {
             @Override
             public void onSuccess(JsonObject data) {
+                inFlightReviewTxIds.remove(txId);
+                tx.setStatus(Transaction.STATUS_APPROVED);
+                RoomRepository.getInstance().onRemoteTransactionReceived(tx);
                 RoomRepository.getInstance().markRecurringRulePaidIfMatched(roomId, tx);
                 RoomRepository.getInstance().dispatchExpenseResultNotification(appCtx, roomId, tx, true, null, approverId, roleLabel);
                 if (isAdded()) {
                     requireActivity().runOnUiThread(() -> {
+                        if (adapter != null) {
+                            adapter.setTransactionProcessing(txId, false);
+                        }
+                        refreshPendingFromCache();
                         RoomRepository.getInstance().loadUserProfile();
                         RoomRepository.getInstance().refreshRoomTransactions(roomId, null);
                     });
@@ -294,8 +304,12 @@ public class ExpenseApprovalFragment extends Fragment {
 
             @Override
             public void onError(String errorMessage) {
+                inFlightReviewTxIds.remove(txId);
                 if (isAdded()) {
                     requireActivity().runOnUiThread(() -> {
+                        if (adapter != null) {
+                            adapter.setTransactionProcessing(txId, false);
+                        }
                         AppToaster.error(requireActivity(), "Phê duyệt thất bại: " + ErrorMessageHelper.getFriendlyMessage(errorMessage));
                         loadPendingTransactions();
                     });
@@ -305,7 +319,8 @@ public class ExpenseApprovalFragment extends Fragment {
     }
 
     private void showRejectDialog(Transaction tx, int position) {
-        if (getContext() == null) return;
+        if (getContext() == null || tx == null || tx.getId() == null) return;
+        if (inFlightReviewTxIds.contains(tx.getId().trim())) return;
         AlertDialog dialog = new AlertDialog.Builder(requireContext()).create();
         View view = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_koin_reject_expense, null);
         dialog.setView(view);
@@ -340,6 +355,7 @@ public class ExpenseApprovalFragment extends Fragment {
                     if (etReason != null) etReason.requestFocus();
                     return;
                 }
+                btnConfirm.setEnabled(false);
                 dialog.dismiss();
                 executeReject(tx, position, reason);
             });
@@ -349,6 +365,7 @@ public class ExpenseApprovalFragment extends Fragment {
     }
 
     private void executeReject(Transaction tx, int position, String reason) {
+        if (tx == null || tx.getId() == null || tx.getId().trim().isEmpty()) return;
         UserSessionManager session = UserSessionManager.getInstance(requireContext());
         String adminId = session.getUserId();
         if (adminId == null || adminId.isEmpty()) {
@@ -360,12 +377,12 @@ public class ExpenseApprovalFragment extends Fragment {
             return;
         }
 
-        adapter.removeItem(position);
-        int remaining = adapter.getItemCount();
-        updateBadgeCount(remaining);
-        if (remaining == 0) {
-            layoutEmptyApproval.setVisibility(View.VISIBLE);
-            rvPendingApprovals.setVisibility(View.GONE);
+        final String txId = tx.getId().trim();
+        if (!inFlightReviewTxIds.add(txId)) {
+            return;
+        }
+        if (adapter != null) {
+            adapter.setTransactionProcessing(txId, true);
         }
 
         final android.content.Context appCtx = requireContext().getApplicationContext();
@@ -373,12 +390,20 @@ public class ExpenseApprovalFragment extends Fragment {
         final String roleLabel = isOwnerViewer ? "Chủ quỹ" : "Phó quỹ";
         RoomRepository.getInstance().configureAccessToken(session.getAccessToken());
         transactionRepository.setAccessToken(session.getAccessToken());
-        transactionRepository.rejectExpense(adminId, tx.getId(), reason, new TransactionRepository.DataCallback<JsonObject>() {
+        transactionRepository.rejectExpense(adminId, txId, reason, new TransactionRepository.DataCallback<JsonObject>() {
             @Override
             public void onSuccess(JsonObject data) {
+                inFlightReviewTxIds.remove(txId);
+                tx.setStatus(Transaction.STATUS_REJECTED);
+                tx.setRejectionReason(reason);
+                RoomRepository.getInstance().onRemoteTransactionReceived(tx);
                 RoomRepository.getInstance().dispatchExpenseResultNotification(appCtx, roomId, tx, false, reason, approverId, roleLabel);
                 if (isAdded()) {
                     requireActivity().runOnUiThread(() -> {
+                        if (adapter != null) {
+                            adapter.setTransactionProcessing(txId, false);
+                        }
+                        refreshPendingFromCache();
                         RoomRepository.getInstance().refreshRoomTransactions(roomId, null);
                     });
                 }
@@ -386,8 +411,12 @@ public class ExpenseApprovalFragment extends Fragment {
 
             @Override
             public void onError(String errorMessage) {
+                inFlightReviewTxIds.remove(txId);
                 if (isAdded()) {
                     requireActivity().runOnUiThread(() -> {
+                        if (adapter != null) {
+                            adapter.setTransactionProcessing(txId, false);
+                        }
                         AppToaster.error(requireActivity(), "Từ chối thất bại: " + ErrorMessageHelper.getFriendlyMessage(errorMessage));
                         loadPendingTransactions();
                     });

@@ -55,6 +55,8 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class FundActionFragment extends Fragment {
 
@@ -137,6 +139,8 @@ public class FundActionFragment extends Fragment {
     private TextView tvSuccessNote;
     private MaterialButton btnSuccessDone;
     private boolean isImeOpen = false;
+    private final AtomicBoolean isSubmitting = new AtomicBoolean(false);
+    private String pendingWithdrawRequestId;
 
     private final DecimalFormat df;
 
@@ -609,7 +613,12 @@ public class FundActionFragment extends Fragment {
         if (dividerConfirmReceipt != null) dividerConfirmReceipt.setVisibility(hasReceipt ? View.VISIBLE : View.GONE);
         if (layoutConfirmReceiptRow != null) layoutConfirmReceiptRow.setVisibility(hasReceipt ? View.VISIBLE : View.GONE);
 
+        pendingWithdrawRequestId = isContribute ? null : UUID.randomUUID().toString();
+        isSubmitting.set(false);
+        btnConfirmStepExecute.setEnabled(true);
         btnConfirmStepExecute.setOnClickListener(v -> {
+            if (!isSubmitting.compareAndSet(false, true)) return;
+            btnConfirmStepExecute.setEnabled(false);
             layoutConfirmStep.setVisibility(View.GONE);
             if (isContribute) {
                 executeContribute(amount, note);
@@ -631,8 +640,10 @@ public class FundActionFragment extends Fragment {
         remote.transferWalletToRoom(userId, roomId, amount, note, new TransactionRepository.DataCallback<JsonObject>() {
             @Override
             public void onSuccess(JsonObject result) {
+                isSubmitting.set(false);
                 if (!isAdded()) return;
                 requireActivity().runOnUiThread(() -> {
+                    btnConfirmStepExecute.setEnabled(true);
                     if (!isAdded()) return;
                     if (result != null && result.has("new_wallet_balance") && !result.get("new_wallet_balance").isJsonNull()) {
                         RoomRepository.getInstance().setUserWalletBalance(result.get("new_wallet_balance").getAsDouble());
@@ -656,9 +667,11 @@ public class FundActionFragment extends Fragment {
 
             @Override
             public void onError(String errorMessage) {
+                isSubmitting.set(false);
                 if (!isAdded()) return;
                 requireActivity().runOnUiThread(() -> {
                     if (!isAdded()) return;
+                    btnConfirmStepExecute.setEnabled(true);
                     layoutProcessingNotice.setVisibility(View.GONE);
                     layoutFundActionForm.setVisibility(View.VISIBLE);
                     layoutBottomActionDock.setVisibility(View.VISIBLE);
@@ -753,15 +766,17 @@ public class FundActionFragment extends Fragment {
     private void proceedWithdrawTransaction(TransactionRepository remote, String userId, String userName,
                                             double amount, String note, String billImageUrl, boolean canDirectApprove) {
         final Context appCtx = requireContext().getApplicationContext();
-        remote.submitWithdrawal(userId, userName != null ? userName : "Member", roomId, amount, selectedWithdrawCategory, note, billImageUrl, canDirectApprove,
+        remote.submitWithdrawalWithId(pendingWithdrawRequestId, userId, userName != null ? userName : "Member", roomId, amount, selectedWithdrawCategory, note, billImageUrl, canDirectApprove,
                 new TransactionRepository.DataCallback<Transaction>() {
                     @Override
                     public void onSuccess(Transaction created) {
+                        isSubmitting.set(false);
                         if (!canDirectApprove) {
                             RoomRepository.getInstance().dispatchExpenseApprovalNotifications(appCtx, roomId, userId, userName, amount, note);
                         }
                         if (!isAdded()) return;
                         requireActivity().runOnUiThread(() -> {
+                            btnConfirmStepExecute.setEnabled(true);
                             if (!isAdded()) return;
                             if (created != null) {
                                 RoomRepository.getInstance().onRemoteTransactionReceived(created);
@@ -783,9 +798,11 @@ public class FundActionFragment extends Fragment {
 
                     @Override
                     public void onError(String errorMessage) {
+                        isSubmitting.set(false);
                         if (!isAdded()) return;
                         requireActivity().runOnUiThread(() -> {
                             if (!isAdded()) return;
+                            btnConfirmStepExecute.setEnabled(true);
                             layoutProcessingNotice.setVisibility(View.GONE);
                             layoutFundActionForm.setVisibility(View.VISIBLE);
                             layoutBottomActionDock.setVisibility(View.VISIBLE);
