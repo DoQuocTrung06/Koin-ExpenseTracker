@@ -913,7 +913,15 @@ public class RoomRepository {
                 if (room.getBalance() != 0 || existing.getBalance() == 0) {
                     existing.setBalance(room.getBalance());
                 }
-                if (room.getCurrentUserRole() != null && !room.getCurrentUserRole().isEmpty()) {
+                if (currentUserId != null && !currentUserId.isEmpty()) {
+                    if (currentUserId.equals(existing.getCreatedBy())) {
+                        existing.setCurrentUserRole("OWNER");
+                    } else if (existing.getTreasurerIds() != null && existing.getTreasurerIds().contains(currentUserId)) {
+                        existing.setCurrentUserRole("TREASURER");
+                    } else {
+                        existing.setCurrentUserRole("MEMBER");
+                    }
+                } else if (room.getCurrentUserRole() != null && !room.getCurrentUserRole().isEmpty()) {
                     existing.setCurrentUserRole(room.getCurrentUserRole());
                 }
                 updated = true;
@@ -1234,14 +1242,73 @@ public class RoomRepository {
 
 
     public void syncRoomTreasurers(String roomId, java.util.Set<String> treasurerIds) {
-        if (roomId == null) return;
-        Room room = getRoomSync(roomId);
-        String cleanDesc = room != null ? room.getDescription() : "";
-        boolean isPriv = room != null && room.isPrivateRoom();
-        java.util.List<Room.JoinRequestMeta> reqs = room != null ? room.getPendingJoinRequests() : null;
-        Map<String, Long> nudges = room != null ? room.getRecurringNudgeTimestamps() : null;
-        String fullDesc = Room.buildFullDescription(cleanDesc, treasurerIds, isPriv, reqs, nudges);
-        pushRoomDescription(roomId, fullDesc, true);
+        syncRoomTreasurers(roomId, treasurerIds, null);
+    }
+
+    public void syncRoomTreasurers(String roomId, java.util.Set<String> treasurerIds, DataCallback<Boolean> callback) {
+        if (roomId == null) {
+            if (callback != null) callback.onError("Room ID is null");
+            return;
+        }
+        syncRoomTreasurersWithCas(roomId, treasurerIds, 3, callback);
+    }
+
+    private void syncRoomTreasurersWithCas(String roomId, java.util.Set<String> treasurerIds, int retriesLeft, DataCallback<Boolean> callback) {
+        String path = "/rooms?id=eq." + roomId + "&select=*";
+        client.newCall(request(path).get().build()).enqueue(new okhttp3.Callback() {
+            @Override public void onFailure(Call call, IOException e) {
+                if (callback != null) callback.onError(e.getMessage());
+            }
+            @Override public void onResponse(Call call, Response response) throws IOException {
+                String body = response.body() != null ? response.body().string() : "";
+                try {
+                    JsonArray arr = JsonParser.parseString(body).getAsJsonArray();
+                    if (arr.size() > 0) {
+                        JsonObject roomObj = arr.get(0).getAsJsonObject();
+                        String oldRawDesc = (roomObj.has("description") && !roomObj.get("description").isJsonNull())
+                                ? roomObj.get("description").getAsString() : null;
+                        Room latest = gson.fromJson(roomObj, Room.class);
+                        String cleanDesc = latest.getDescription();
+                        boolean isPriv = latest.isPrivateRoom();
+                        java.util.List<Room.JoinRequestMeta> reqs = latest.getPendingJoinRequests();
+                        Map<String, Long> nudges = latest.getRecurringNudgeTimestamps();
+                        String fullDesc = Room.buildFullDescription(cleanDesc, treasurerIds, isPriv, reqs, nudges);
+                        patchRoomDescriptionCas(roomId, oldRawDesc, fullDesc, new DataCallback<Boolean>() {
+                            @Override public void onSuccess(Boolean value) {
+                                Room local = getRoomSync(roomId);
+                                if (local != null) {
+                                    local.setDescription(fullDesc);
+                                    if (currentUserId != null && !currentUserId.isEmpty()) {
+                                        if (currentUserId.equals(local.getCreatedBy())) {
+                                            local.setCurrentUserRole("OWNER");
+                                        } else if (local.getTreasurerIds() != null && local.getTreasurerIds().contains(currentUserId)) {
+                                            local.setCurrentUserRole("TREASURER");
+                                        } else {
+                                            local.setCurrentUserRole("MEMBER");
+                                        }
+                                    }
+                                    notifyDataChanged();
+                                }
+                                refreshRoomMembers(roomId);
+                                if (callback != null) callback.onSuccess(true);
+                            }
+                            @Override public void onError(String message) {
+                                if ("CAS_CONFLICT".equals(message) && retriesLeft > 0) {
+                                    syncRoomTreasurersWithCas(roomId, treasurerIds, retriesLeft - 1, callback);
+                                } else if (callback != null) {
+                                    callback.onError(message);
+                                }
+                            }
+                        });
+                        return;
+                    }
+                } catch (Exception e) {
+                    if (callback != null) callback.onError(e.getMessage());
+                    return;
+                }
+                if (callback != null) callback.onError("Room not found");
+            }
+        });
     }
 
     public void setRoomPrivacy(String roomId, boolean isPrivate) {
@@ -1305,37 +1372,68 @@ public class RoomRepository {
         });
     }
 
-    public void fetchRemoteRoom(String roomId, DataCallback<Room> callback) {
-        if (roomId == null) {
-            if (callback != null) callback.onError("Room ID is null");
-            return;
-        }
-        String path = "/rooms?id=eq." + roomId + "&select=*";
-        client.newCall(request(path).get().build()).enqueue(new okhttp3.Callback() {
-            @Override
-            public void onFailure(Call call, IOException e) {
-                if (callback != null) callback.onError(e.getMessage());
-            }
-
-            @Override
-            public void onResponse(Call call, Response response) throws IOException {
-                String body = response.body() != null ? response.body().string() : "";
-                try {
-                    JsonArray arr = JsonParser.parseString(body).getAsJsonArray();
-                    if (arr.size() > 0) {
-                        Room room = gson.fromJson(arr.get(0).getAsJsonObject(), Room.class);
-                        if (callback != null) callback.onSuccess(room);
-                        return;
-                    }
-                } catch (Exception e) {
-                    if (callback != null) callback.onError(e.getMessage());
-                    return;
-                }
-                if (callback != null) callback.onError("Room not found");
-            }
-        });
-    }
-
+    public void fetchRemoteRoom(String roomId, DataCallback<Room> callback) {
+
+        if (roomId == null) {
+
+            if (callback != null) callback.onError("Room ID is null");
+
+            return;
+
+        }
+
+        String path = "/rooms?id=eq." + roomId + "&select=*";
+
+        client.newCall(request(path).get().build()).enqueue(new okhttp3.Callback() {
+
+            @Override
+
+            public void onFailure(Call call, IOException e) {
+
+                if (callback != null) callback.onError(e.getMessage());
+
+            }
+
+
+
+            @Override
+
+            public void onResponse(Call call, Response response) throws IOException {
+
+                String body = response.body() != null ? response.body().string() : "";
+
+                try {
+
+                    JsonArray arr = JsonParser.parseString(body).getAsJsonArray();
+
+                    if (arr.size() > 0) {
+
+                        Room room = gson.fromJson(arr.get(0).getAsJsonObject(), Room.class);
+
+                        if (callback != null) callback.onSuccess(room);
+
+                        return;
+
+                    }
+
+                } catch (Exception e) {
+
+                    if (callback != null) callback.onError(e.getMessage());
+
+                    return;
+
+                }
+
+                if (callback != null) callback.onError("Room not found");
+
+            }
+
+        });
+
+    }
+
+
+
     public void addJoinRequest(Room room, Room.JoinRequestMeta newReq, Runnable onDone) {
         if (room == null || newReq == null) {
             if (onDone != null) onDone.run();

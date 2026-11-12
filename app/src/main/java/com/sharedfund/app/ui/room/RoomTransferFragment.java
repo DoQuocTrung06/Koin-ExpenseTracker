@@ -676,6 +676,10 @@ public class RoomTransferFragment extends Fragment {
                 etQrNote.setText(parsed.transferContent);
             }
         }
+        if (btnTransferSubmitUnified != null) {
+            btnTransferSubmitUnified.setVisibility(View.VISIBLE);
+            btnTransferSubmitUnified.setText("Tiếp tục thanh toán từ quỹ");
+        }
     }
 
     private String formatBankLabel(String bankBin) {

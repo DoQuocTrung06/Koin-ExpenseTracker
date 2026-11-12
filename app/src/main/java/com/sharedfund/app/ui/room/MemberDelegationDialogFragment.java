@@ -258,11 +258,6 @@ public class MemberDelegationDialogFragment extends DialogFragment {
         if (r != null && r.getTreasurerIds() != null) {
             return new HashSet<>(r.getTreasurerIds());
         }
-        if (getContext() != null) {
-            Set<String> set = requireContext().getSharedPreferences("room_roles_" + roomId, Context.MODE_PRIVATE)
-                    .getStringSet("treasurer_ids", null);
-            if (set != null) return new HashSet<>(set);
-        }
         return new HashSet<>();
     }
 

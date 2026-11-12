@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 import okhttp3.Call;
@@ -169,28 +170,96 @@ public class RoomMembershipManager {
 
     public void transferRoomOwnership(String roomId, String oldOwnerUserId, String newOwnerUserId, RoomRepository.DataCallback<Boolean> callback) {
         RoomRepository roomRepo = RoomRepository.getInstance();
-        String roomPath = "/rooms?id=eq." + roomId;
-        JsonObject roomBody = new JsonObject();
-        roomBody.addProperty("created_by", newOwnerUserId);
-        roomRepo.getClient().newCall(roomRepo.request(roomPath).patch(RequestBody.create(roomRepo.getGson().toJson(roomBody), JSON)).build()).enqueue(new okhttp3.Callback() {
+        String fetchPath = "/rooms?id=eq." + roomId + "&select=*";
+        roomRepo.getClient().newCall(roomRepo.request(fetchPath).get().build()).enqueue(new okhttp3.Callback() {
             @Override public void onFailure(Call call, IOException e) {
                 if (callback != null) callback.onError(e.getMessage());
             }
-            @Override public void onResponse(Call call, Response response) {
-                updateMemberRole(roomId, newOwnerUserId, "OWNER", new RoomRepository.DataCallback<Boolean>() {
-                    @Override public void onSuccess(Boolean v1) {
-                        if (oldOwnerUserId != null && !oldOwnerUserId.isEmpty()) {
-                            updateMemberRole(roomId, oldOwnerUserId, "MEMBER", callback);
-                        } else if (callback != null) {
-                            callback.onSuccess(true);
-                        }
+            @Override public void onResponse(Call call, Response response) throws IOException {
+                String body = response.body() != null ? response.body().string() : "";
+                try {
+                    JsonArray arr = JsonParser.parseString(body).getAsJsonArray();
+                    if (arr.size() > 0) {
+                        JsonObject roomObj = arr.get(0).getAsJsonObject();
+                        Room latest = roomRepo.getGson().fromJson(roomObj, Room.class);
+                        Set<String> cleanTreasurers = new HashSet<>(latest.getTreasurerIds());
+                        cleanTreasurers.remove(newOwnerUserId);
+                        String cleanDesc = latest.getDescription();
+                        boolean isPriv = latest.isPrivateRoom();
+                        java.util.List<Room.JoinRequestMeta> reqs = latest.getPendingJoinRequests();
+                        Map<String, Long> nudges = latest.getRecurringNudgeTimestamps();
+                        String fullDesc = Room.buildFullDescription(cleanDesc, cleanTreasurers, isPriv, reqs, nudges);
+
+                        String roomPatchPath = "/rooms?id=eq." + roomId;
+                        JsonObject roomBody = new JsonObject();
+                        roomBody.addProperty("created_by", newOwnerUserId);
+                        roomBody.addProperty("description", fullDesc);
+
+                        Request patchRoomReq = new Request.Builder()
+                                .url(SupabaseConfig.REST_URL + roomPatchPath)
+                                .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
+                                .addHeader("Authorization", "Bearer " + SupabaseConfig.SUPABASE_ANON_KEY)
+                                .addHeader("Content-Type", "application/json")
+                                .patch(RequestBody.create(roomRepo.getGson().toJson(roomBody), JSON))
+                                .build();
+
+                        roomRepo.getClient().newCall(patchRoomReq).enqueue(new okhttp3.Callback() {
+                            @Override public void onFailure(Call call, IOException e) {
+                                if (callback != null) callback.onError(e.getMessage());
+                            }
+                            @Override public void onResponse(Call call, Response resp2) {
+                                updateMemberRole(roomId, newOwnerUserId, "OWNER", new RoomRepository.DataCallback<Boolean>() {
+                                    @Override public void onSuccess(Boolean v1) {
+                                        if (oldOwnerUserId != null && !oldOwnerUserId.isEmpty()) {
+                                            updateMemberRole(roomId, oldOwnerUserId, "MEMBER", new RoomRepository.DataCallback<Boolean>() {
+                                                @Override public void onSuccess(Boolean v2) {
+                                                    finalizeTransfer(roomId, oldOwnerUserId, newOwnerUserId, fullDesc, callback);
+                                                }
+                                                @Override public void onError(String m2) {
+                                                    finalizeTransfer(roomId, oldOwnerUserId, newOwnerUserId, fullDesc, callback);
+                                                }
+                                            });
+                                        } else {
+                                            finalizeTransfer(roomId, oldOwnerUserId, newOwnerUserId, fullDesc, callback);
+                                        }
+                                    }
+                                    @Override public void onError(String m1) {
+                                        if (callback != null) callback.onError(m1);
+                                    }
+                                });
+                            }
+                        });
+                        return;
                     }
-                    @Override public void onError(String m1) {
-                        if (callback != null) callback.onError(m1);
-                    }
-                });
+                } catch (Exception e) {
+                    if (callback != null) callback.onError(e.getMessage());
+                    return;
+                }
+                if (callback != null) callback.onError("Room not found");
             }
         });
+    }
+
+    private void finalizeTransfer(String roomId, String oldOwnerUserId, String newOwnerUserId, String fullDesc, RoomRepository.DataCallback<Boolean> callback) {
+        RoomRepository roomRepo = RoomRepository.getInstance();
+        Room local = roomRepo.getRoomSync(roomId);
+        if (local != null) {
+            local.setCreatedBy(newOwnerUserId);
+            local.setDescription(fullDesc);
+            String currentId = roomRepo.getCurrentUserId();
+            if (currentId != null && !currentId.isEmpty()) {
+                if (currentId.equals(newOwnerUserId)) {
+                    local.setCurrentUserRole("OWNER");
+                } else if (local.getTreasurerIds() != null && local.getTreasurerIds().contains(currentId)) {
+                    local.setCurrentUserRole("TREASURER");
+                } else {
+                    local.setCurrentUserRole("MEMBER");
+                }
+            }
+            roomRepo.notifyDataChanged();
+        }
+        roomRepo.refreshRoomMembers(roomId);
+        if (callback != null) callback.onSuccess(true);
     }
 
     public void removeMember(String roomId, String targetUserId, RoomRepository.DataCallback<Boolean> callback) {

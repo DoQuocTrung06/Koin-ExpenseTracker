@@ -142,12 +142,23 @@ public class MemberActionBottomSheet extends BottomSheetDialogFragment {
                             "Bãi nhiệm",
                             ContextCompat.getColor(requireContext(), R.color.primary),
                             () -> {
-                                removeRoomTreasurer(roomId, member.getUserId());
-                                member.setRole("MEMBER");
-                                if (getActivity() != null) {
-                                    AppToaster.success(requireActivity(), "Đã chuyển " + member.getDisplayName() + " về vai trò Thành viên thường.");
-                                }
-                                if (listener != null) listener.onUpdated();
+                                removeRoomTreasurer(roomId, member.getUserId(), new RoomRepository.DataCallback<Boolean>() {
+                                    @Override
+                                    public void onSuccess(Boolean val) {
+                                        member.setRole("MEMBER");
+                                        if (getActivity() != null) {
+                                            AppToaster.success(requireActivity(), "Đã chuyển " + member.getDisplayName() + " về vai trò Thành viên thường.");
+                                        }
+                                        if (listener != null) listener.onUpdated();
+                                    }
+
+                                    @Override
+                                    public void onError(String error) {
+                                        if (getActivity() != null) {
+                                            AppToaster.error(requireActivity(), "Không thể bãi nhiệm Phó quỹ: " + error);
+                                        }
+                                    }
+                                });
                             }
                     );
                 } else {
@@ -163,12 +174,23 @@ public class MemberActionBottomSheet extends BottomSheetDialogFragment {
                             "Bổ nhiệm",
                             ContextCompat.getColor(requireContext(), R.color.primary),
                             () -> {
-                                addRoomTreasurer(roomId, member.getUserId());
-                                member.setRole("TREASURER");
-                                if (getActivity() != null) {
-                                    AppToaster.success(requireActivity(), "Đã bổ nhiệm " + member.getDisplayName() + " làm Phó quỹ thành công!");
-                                }
-                                if (listener != null) listener.onUpdated();
+                                addRoomTreasurer(roomId, member.getUserId(), new RoomRepository.DataCallback<Boolean>() {
+                                    @Override
+                                    public void onSuccess(Boolean val) {
+                                        member.setRole("TREASURER");
+                                        if (getActivity() != null) {
+                                            AppToaster.success(requireActivity(), "Đã bổ nhiệm " + member.getDisplayName() + " làm Phó quỹ thành công!");
+                                        }
+                                        if (listener != null) listener.onUpdated();
+                                    }
+
+                                    @Override
+                                    public void onError(String error) {
+                                        if (getActivity() != null) {
+                                            AppToaster.error(requireActivity(), "Không thể bổ nhiệm Phó quỹ: " + error);
+                                        }
+                                    }
+                                });
                             }
                     );
                 }
@@ -185,24 +207,28 @@ public class MemberActionBottomSheet extends BottomSheetDialogFragment {
                         ContextCompat.getColor(requireContext(), R.color.primary),
                         () -> {
                             String myCurrentId = UserSessionManager.getInstance(requireContext()).getUserId();
-                            if (getContext() != null) {
-                                requireContext().getSharedPreferences("room_roles_" + roomId, Context.MODE_PRIVATE)
-                                        .edit()
-                                        .putString("owner_id", member.getUserId())
-                                        .apply();
-                            }
-                            removeRoomTreasurer(roomId, member.getUserId());
-                            RoomRepository.getInstance().transferRoomOwnership(roomId, myCurrentId, member.getUserId(), null);
-                            Room rSync = RoomRepository.getInstance().getRoomSync(roomId);
-                            if (rSync != null) {
-                                rSync.setCurrentUserRole("MEMBER");
-                                rSync.setCreatedBy(member.getUserId());
-                            }
-                            member.setRole("OWNER");
-                            if (getActivity() != null) {
-                                AppToaster.success(requireActivity(), "Đã chuyển quyền Chủ quỹ cho " + member.getDisplayName());
-                            }
-                            if (listener != null) listener.onTransferred();
+                            RoomRepository.getInstance().transferRoomOwnership(roomId, myCurrentId, member.getUserId(), new RoomRepository.DataCallback<Boolean>() {
+                                @Override
+                                public void onSuccess(Boolean val) {
+                                    Room rSync = RoomRepository.getInstance().getRoomSync(roomId);
+                                    if (rSync != null) {
+                                        rSync.setCurrentUserRole("MEMBER");
+                                        rSync.setCreatedBy(member.getUserId());
+                                    }
+                                    member.setRole("OWNER");
+                                    if (getActivity() != null) {
+                                        AppToaster.success(requireActivity(), "Đã chuyển quyền Chủ quỹ cho " + member.getDisplayName());
+                                    }
+                                    if (listener != null) listener.onTransferred();
+                                }
+
+                                @Override
+                                public void onError(String error) {
+                                    if (getActivity() != null) {
+                                        AppToaster.error(requireActivity(), "Không thể chuyển quyền Chủ quỹ: " + error);
+                                    }
+                                }
+                            });
                         }
                 );
             });
@@ -251,11 +277,6 @@ public class MemberActionBottomSheet extends BottomSheetDialogFragment {
         if (r != null && r.getTreasurerIds() != null) {
             return new HashSet<>(r.getTreasurerIds());
         }
-        if (getContext() != null) {
-            Set<String> set = requireContext().getSharedPreferences("room_roles_" + roomId, Context.MODE_PRIVATE)
-                    .getStringSet("treasurer_ids", null);
-            if (set != null) return new HashSet<>(set);
-        }
         return new HashSet<>();
     }
 
@@ -268,30 +289,24 @@ public class MemberActionBottomSheet extends BottomSheetDialogFragment {
         return false;
     }
 
-    private void addRoomTreasurer(String roomId, String userId) {
-        if (getContext() == null || roomId == null || userId == null) return;
+    private void addRoomTreasurer(String roomId, String userId, RoomRepository.DataCallback<Boolean> callback) {
+        if (roomId == null || userId == null) {
+            if (callback != null) callback.onError("Invalid parameters");
+            return;
+        }
         Set<String> set = getRoomTreasurerIds(roomId);
         set.add(userId);
-        requireContext().getSharedPreferences("room_roles_" + roomId, Context.MODE_PRIVATE)
-                .edit()
-                .putStringSet("treasurer_ids", set)
-                .putBoolean("treasurer_" + userId, true)
-                .apply();
-        RoomRepository.getInstance().syncRoomTreasurers(roomId, set);
-        RoomRepository.getInstance().updateMemberRole(roomId, userId, "TREASURER", null);
+        RoomRepository.getInstance().syncRoomTreasurers(roomId, set, callback);
     }
 
-    private void removeRoomTreasurer(String roomId, String userId) {
-        if (getContext() == null || roomId == null || userId == null) return;
+    private void removeRoomTreasurer(String roomId, String userId, RoomRepository.DataCallback<Boolean> callback) {
+        if (roomId == null || userId == null) {
+            if (callback != null) callback.onError("Invalid parameters");
+            return;
+        }
         Set<String> set = getRoomTreasurerIds(roomId);
         set.remove(userId);
-        requireContext().getSharedPreferences("room_roles_" + roomId, Context.MODE_PRIVATE)
-                .edit()
-                .putStringSet("treasurer_ids", set)
-                .remove("treasurer_" + userId)
-                .apply();
-        RoomRepository.getInstance().syncRoomTreasurers(roomId, set);
-        RoomRepository.getInstance().updateMemberRole(roomId, userId, "MEMBER", null);
+        RoomRepository.getInstance().syncRoomTreasurers(roomId, set, callback);
     }
 
     private int dpToPx(int dp) {

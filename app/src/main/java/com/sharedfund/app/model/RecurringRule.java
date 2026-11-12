@@ -335,30 +335,6 @@ public class RecurringRule implements Serializable {
                 }
             } catch (Exception ignored) {}
         }
-
-        if (nextRunDate != null && !nextRunDate.trim().isEmpty()) {
-            try {
-                String clean = nextRunDate.trim();
-                if (clean.length() >= 10 && clean.charAt(4) == '-' && clean.charAt(7) == '-') {
-                    int y = Integer.parseInt(clean.substring(0, 4));
-                    int m = Integer.parseInt(clean.substring(5, 7));
-                    int d = Integer.parseInt(clean.substring(8, 10));
-                    java.util.Calendar nextCal = java.util.Calendar.getInstance();
-                    nextCal.set(y, m - 1, d, 0, 0, 0);
-                    nextCal.set(java.util.Calendar.MILLISECOND, 0);
-
-                    java.util.Calendar nowCal = java.util.Calendar.getInstance();
-                    nowCal.set(java.util.Calendar.HOUR_OF_DAY, 0);
-                    nowCal.set(java.util.Calendar.MINUTE, 0);
-                    nowCal.set(java.util.Calendar.SECOND, 0);
-                    nowCal.set(java.util.Calendar.MILLISECOND, 0);
-
-                    if (FREQUENCY_DAILY.equalsIgnoreCase(frequency)) {
-                        if (nextCal.after(nowCal)) return true;
-                    }
-                }
-            } catch (Exception ignored) {}
-        }
         return false;
     }
 
