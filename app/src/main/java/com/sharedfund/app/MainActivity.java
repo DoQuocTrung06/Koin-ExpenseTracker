@@ -117,6 +117,10 @@ public class MainActivity extends AppCompatActivity {
         loadFragment(RoomDetailFragment.newInstance(roomId), true);
     }
 
+    public void openRoomJoinRequests(String roomId) {
+        loadFragment(RoomDetailFragment.newInstance(roomId, true), true);
+    }
+
     public void openNotifications() {
         loadFragment(new NotificationFragment(), true);
     }

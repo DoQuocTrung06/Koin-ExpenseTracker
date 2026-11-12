@@ -122,6 +122,10 @@ public class NotificationFragment extends Fragment implements NotificationAdapte
             if (roomId != null && !roomId.trim().isEmpty()) {
                 activity.openExpenseApproval(roomId);
             }
+        } else if (AppNotification.TYPE_MEMBER_JOIN.equals(type)) {
+            if (roomId != null && !roomId.trim().isEmpty()) {
+                activity.openRoomJoinRequests(roomId);
+            }
         } else if (AppNotification.TYPE_RECURRING_DUE.equals(type)) {
             activity.openRecurringRules(roomId, item.getTargetRoomName());
         } else if (roomId != null && !roomId.trim().isEmpty()) {

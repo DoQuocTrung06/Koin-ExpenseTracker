@@ -832,29 +832,16 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
     public static RoomDetailFragment newInstance(String roomId) {
+        return newInstance(roomId, false);
+    }
 
-
-
+    public static RoomDetailFragment newInstance(String roomId, boolean autoOpenJoinRequests) {
         RoomDetailFragment fragment = new RoomDetailFragment();
-
-
-
         Bundle args = new Bundle();
-
-
-
         args.putString(ARG_ROOM_ID, roomId);
-
-
-
+        args.putBoolean(ARG_AUTO_OPEN_JOIN_REQUESTS, autoOpenJoinRequests);
         fragment.setArguments(args);
-
-
-
         return fragment;
-
-
-
     }
 
 
@@ -880,6 +867,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
             roomId = getArguments().getString(ARG_ROOM_ID);
+            pendingAutoOpenJoinRequests = getArguments().getBoolean(ARG_AUTO_OPEN_JOIN_REQUESTS, false);
 
 
 
@@ -1041,7 +1029,13 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
         updateHistoryFilter(RoomViewModel.FilterType.ALL);
 
-
+        if (pendingAutoOpenJoinRequests) {
+            pendingAutoOpenJoinRequests = false;
+            view.post(() -> {
+                selectNavTab(2, false);
+                showJoinRequestsDialog();
+            });
+        }
 
     }
 
