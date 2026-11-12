@@ -60,7 +60,7 @@ public class RoomCategoryManager {
             return;
         }
 
-        String url = SupabaseConfig.REST_URL + "/expense_categories?select=*&order=id.asc";
+        String url = SupabaseConfig.REST_URL + "/categories?select=*&order=id.asc";
         String effectiveToken = (token != null && !token.trim().isEmpty()) ? token : SupabaseConfig.SUPABASE_ANON_KEY;
         Request request = new Request.Builder()
                 .url(url)
