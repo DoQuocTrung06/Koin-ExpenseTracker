@@ -62,6 +62,22 @@ public class HomeViewModel extends ViewModel {
         return pendingApprovalRoom;
     }
 
+    public void consumePendingApprovalRoom() {
+        if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
+            pendingApprovalRoom.setValue(null);
+        } else {
+            pendingApprovalRoom.postValue(null);
+        }
+    }
+
+    public void consumeActionMessage() {
+        if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
+            actionMessage.setValue(null);
+        } else {
+            actionMessage.postValue(null);
+        }
+    }
+
     public void configureSupabase(String userId, String userName, String accessToken) {
         currentUserId = userId != null ? userId : "";
         repository.setCurrentUser(currentUserId, userName);

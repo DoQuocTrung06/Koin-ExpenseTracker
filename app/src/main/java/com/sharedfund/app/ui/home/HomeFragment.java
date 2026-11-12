@@ -96,6 +96,7 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
     private TextView tvDrawerUserEmail;
     private com.google.android.material.materialswitch.MaterialSwitch switchDrawerTheme;
     private OnBackPressedCallback drawerBackCallback;
+    private Dialog pendingApprovalDialog;
 
     @Nullable
     @Override
@@ -389,6 +390,7 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
                     } else if (msg.toLowerCase().contains("thất bại") || msg.toLowerCase().contains("lỗi")) {
                         AppToaster.error(requireActivity(), msg);
                     }
+                    viewModel.consumeActionMessage();
                 }
             }
         });
@@ -398,6 +400,7 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
             public void onChanged(String roomName) {
                 if (roomName != null && !roomName.isEmpty()) {
                     showPendingApprovalDialog(roomName);
+                    viewModel.consumePendingApprovalRoom();
                 }
             }
         });
@@ -819,9 +822,22 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
 
         dialog.show();
     }
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        if (pendingApprovalDialog != null && pendingApprovalDialog.isShowing()) {
+            pendingApprovalDialog.dismiss();
+        }
+        pendingApprovalDialog = null;
+    }
+
     private void showPendingApprovalDialog(String roomName) {
         if (getContext() == null) return;
+        if (pendingApprovalDialog != null && pendingApprovalDialog.isShowing()) {
+            pendingApprovalDialog.dismiss();
+        }
         Dialog dialog = new Dialog(requireContext());
+        pendingApprovalDialog = dialog;
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         dialog.setContentView(R.layout.dialog_koin_notice);
         if (dialog.getWindow() != null) {
@@ -844,6 +860,11 @@ public class HomeFragment extends Fragment implements RoomAdapter.OnRoomClickLis
         if (btnClose != null) {
             btnClose.setOnClickListener(v -> dialog.dismiss());
         }
+        dialog.setOnDismissListener(d -> {
+            if (pendingApprovalDialog == dialog) {
+                pendingApprovalDialog = null;
+            }
+        });
         dialog.show();
     }
 
