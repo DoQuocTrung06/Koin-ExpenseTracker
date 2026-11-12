@@ -304,8 +304,9 @@ public final class ReportExportHelper {
         writer.write("<title>Báo Cáo Tài Chính - " + escapeHtml(reportTitle) + "</title>\n");
         writer.write("<style>\n");
         writer.write(":root { --primary: #0052CC; --text-primary: #0F172A; --text-secondary: #64748B; --border: #E2E8F0; --income: #10B981; --income-bg: #E3FCEF; --expense: #0F172A; --expense-bg: #F1F5F9; }\n");
+        writer.write("* { box-sizing: border-box; }\n");
         writer.write("body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #F8FAFC; color: var(--text-primary); margin: 0; padding: 24px; }\n");
-        writer.write(".container { max-width: 980px; margin: 0 auto; background: #FFFFFF; border-radius: 16px; border: 1px solid var(--border); padding: 28px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }\n");
+        writer.write(".container { max-width: 980px; width: 100%; margin: 0 auto; background: #FFFFFF; border-radius: 16px; border: 1px solid var(--border); padding: 28px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }\n");
         writer.write(".header-box { border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 22px; }\n");
         writer.write(".title { font-size: 20px; font-weight: 800; color: #0F172A; text-transform: uppercase; margin: 0 0 10px 0; letter-spacing: 0.3px; }\n");
         writer.write(".meta-line { font-size: 13.5px; color: var(--text-secondary); margin-bottom: 5px; }\n");
@@ -323,7 +324,13 @@ public final class ReportExportHelper {
         writer.write(".val-income { color: var(--income); }\n");
         writer.write(".val-expense { color: var(--expense); }\n");
         writer.write(".val-net { color: var(--primary); }\n");
-        writer.write("table { width: 100%; border-collapse: separate; border-spacing: 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-top: 12px; }\n");
+        writer.write(".table-container { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--border); border-radius: 12px; background: #FFFFFF; margin-top: 14px; margin-bottom: 8px; }\n");
+        writer.write("table { min-width: 760px; width: 100%; border-collapse: separate; border-spacing: 0; border: none; margin: 0; }\n");
+        writer.write("@media (max-width: 768px) {\n");
+        writer.write("  body { padding: 12px; }\n");
+        writer.write("  .container { padding: 16px; border-radius: 12px; }\n");
+        writer.write("  .summary-card { min-width: 100%; }\n");
+        writer.write("}\n");
         writer.write("th { background: #F8FAFC; color: var(--text-secondary); font-size: 12px; font-weight: 700; text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.2px; white-space: nowrap; }\n");
         writer.write("td { padding: 12px 14px; border-bottom: 1px solid #F1F5F9; font-size: 13px; color: var(--text-primary); vertical-align: middle; }\n");
         writer.write("tr:last-child td { border-bottom: none; }\n");
@@ -356,6 +363,7 @@ public final class ReportExportHelper {
         writer.write("<div class=\"summary-card net\"><div class=\"summary-label\">Chênh Lệch Tồn Quỹ</div><div class=\"summary-val val-net\">" + (netBalance >= 0 ? "+" : "") + formatter.format(netBalance) + " &#8363;</div></div>\n");
         writer.write("</div>\n");
 
+        writer.write("<div class=\"table-container\">\n");
         writer.write("<table>\n<thead>\n<tr>\n");
         writer.write("<th style=\"width:45px; text-align:center; white-space:nowrap;\">STT</th>\n");
         writer.write("<th style=\"width:140px; white-space:nowrap;\">Thời Gian</th>\n");
@@ -402,6 +410,7 @@ public final class ReportExportHelper {
         }
 
         writer.write("</tbody>\n</table>\n");
+        writer.write("</div>\n");
         writer.write("<div class=\"footer-note\">Hệ thống Quản lý Quỹ và Thu chi Koin - Dữ liệu xác thực từ Cloud Supabase</div>\n");
         writer.write("</div>\n</body>\n</html>\n");
     }
