@@ -358,7 +358,8 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
     private static final String ARG_ROOM_ID = "arg_room_id";
-
+    private static final String ARG_AUTO_OPEN_JOIN_REQUESTS = "arg_auto_open_join_requests";
+    private boolean pendingAutoOpenJoinRequests;
 
 
 
