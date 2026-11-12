@@ -9891,15 +9891,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
 
-                                            String approverRejectName = null;
-
-
-
-                                            Profile userProfReject = RoomRepository.getInstance().getCurrentUserProfile();
-
-
-
-                                            if (userProfReject != null && userProfReject.getFullName() != null) approverRejectName = userProfReject.getFullName();
+                                            String approverRejectName = RoomRepository.getInstance().getCurrentUserName();
 
 
 
@@ -10035,15 +10027,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
 
-                                                String approverAcceptName = null;
-
-
-
-                                                Profile userProfAccept = RoomRepository.getInstance().getCurrentUserProfile();
-
-
-
-                                                if (userProfAccept != null && userProfAccept.getFullName() != null) approverAcceptName = userProfAccept.getFullName();
+                                                String approverAcceptName = RoomRepository.getInstance().getCurrentUserName();
 
 
 
