@@ -1585,8 +1585,8 @@ public class RoomRepository {
         String ownerId = r != null ? r.getCreatedBy() : null;
         String fundName = (roomName != null && !roomName.trim().isEmpty()) ? roomName : (r != null && r.getName() != null ? r.getName() : "Quỹ nhóm");
 
-        String requesterDisplay = (req.name != null && !req.name.trim().isEmpty())
-                ? req.name.trim()
+        String requesterDisplay = (req.applicantName != null && !req.applicantName.trim().isEmpty())
+                ? req.applicantName.trim()
                 : ((req.email != null && !req.email.trim().isEmpty()) ? req.email.trim() : "Thành viên mới");
 
         String title = "Yêu cầu tham gia quỹ " + fundName;

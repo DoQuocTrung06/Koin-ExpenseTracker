@@ -9903,7 +9903,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
 
-                                            RoomRepository.getInstance().dispatchJoinResultNotification(requireContext(), getEffectiveRoomId(), req.userId, req.name, false, approverRejectName);
+                                            RoomRepository.getInstance().dispatchJoinResultNotification(requireContext(), getEffectiveRoomId(), req.userId, req.applicantName, false, approverRejectName);
 
 
 
@@ -10047,7 +10047,7 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
 
-                                                RoomRepository.getInstance().dispatchJoinResultNotification(requireContext(), getEffectiveRoomId(), req.userId, req.name, true, approverAcceptName);
+                                                RoomRepository.getInstance().dispatchJoinResultNotification(requireContext(), getEffectiveRoomId(), req.userId, req.applicantName, true, approverAcceptName);
 
 
 

@@ -164,6 +164,10 @@ public class Room implements Serializable {
             this.time = time;
             this.message = message;
         }
+
+        public String getName() {
+            return applicantName;
+        }
     }
 
     public java.util.List<JoinRequestMeta> getPendingJoinRequests() {
