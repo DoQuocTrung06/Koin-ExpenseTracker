@@ -107,9 +107,11 @@ public class RoomMembershipManager {
                     String fullDesc = Room.buildFullDescription(latest.getDescription(), latest.getTreasurerIds(), latest.isPrivateRoom(), list, latest.getRecurringNudgeTimestamps());
                     roomRepo.patchRoomDescriptionCas(roomId, oldRawDesc, fullDesc, new RoomRepository.DataCallback<Boolean>() {
                         @Override public void onSuccess(Boolean value) {
+                            String approverName = roomRepo.getCurrentUserName();
                             if (approve && userId != null && !userId.startsWith("mock-")) {
                                 roomRepo.addMember(latest, userId, "MEMBER", new RoomRepository.DataCallback<Room>() {
                                     @Override public void onSuccess(Room r) {
+                                        roomRepo.dispatchJoinResultNotification(com.sharedfund.app.SharedFundApp.getInstance(), roomId, userId, null, true, approverName);
                                         if (callback != null) callback.onSuccess(true);
                                     }
                                     @Override public void onError(String message) {
@@ -117,6 +119,9 @@ public class RoomMembershipManager {
                                     }
                                 });
                             } else {
+                                if (userId != null && !userId.startsWith("mock-")) {
+                                    roomRepo.dispatchJoinResultNotification(com.sharedfund.app.SharedFundApp.getInstance(), roomId, userId, null, false, approverName);
+                                }
                                 if (callback != null) callback.onSuccess(true);
                             }
                         }

@@ -496,12 +496,20 @@ public class RoomRepository {
                                             "Vừa xong",
                                             "Xin vào quỹ " + targetRoom.getName()
                                     );
-                                    addJoinRequest(targetRoom.getId(), meta, () -> {
+                                    addJoinRequest(targetRoom, meta, () -> {
                                         callback.onError("PENDING_APPROVAL:" + targetRoom.getName());
                                     });
                                     return;
                                 }
-                                addMember(targetRoom, userId, "MEMBER", callback);
+                                addMember(targetRoom, userId, "MEMBER", new DataCallback<Room>() {
+                                    @Override public void onSuccess(Room r) {
+                                        dispatchMemberJoinedNotification(SharedFundApp.getInstance(), targetRoom, userId);
+                                        callback.onSuccess(r);
+                                    }
+                                    @Override public void onError(String error) {
+                                        callback.onError(error);
+                                    }
+                                });
                             } catch (Exception e) {
                                 callback.onError("Lỗi kiểm tra thành viên: " + e.getMessage());
                             }
@@ -1297,15 +1305,54 @@ public class RoomRepository {
         });
     }
 
+    public void fetchRemoteRoom(String roomId, DataCallback<Room> callback) {
+        if (roomId == null) {
+            if (callback != null) callback.onError("Room ID is null");
+            return;
+        }
+        String path = "/rooms?id=eq." + roomId + "&select=*";
+        client.newCall(request(path).get().build()).enqueue(new okhttp3.Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                if (callback != null) callback.onError(e.getMessage());
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                String body = response.body() != null ? response.body().string() : "";
+                try {
+                    JsonArray arr = JsonParser.parseString(body).getAsJsonArray();
+                    if (arr.size() > 0) {
+                        Room room = gson.fromJson(arr.get(0).getAsJsonObject(), Room.class);
+                        if (callback != null) callback.onSuccess(room);
+                        return;
+                    }
+                } catch (Exception e) {
+                    if (callback != null) callback.onError(e.getMessage());
+                    return;
+                }
+                if (callback != null) callback.onError("Room not found");
+            }
+        });
+    }
+
+    public void addJoinRequest(Room room, Room.JoinRequestMeta newReq, Runnable onDone) {
+        if (room == null || newReq == null) {
+            if (onDone != null) onDone.run();
+            return;
+        }
+        addJoinRequestWithCas(room.getId(), room, newReq, 3, onDone);
+    }
+
     public void addJoinRequest(String roomId, Room.JoinRequestMeta newReq, Runnable onDone) {
         if (roomId == null || newReq == null) {
             if (onDone != null) onDone.run();
             return;
         }
-        addJoinRequestWithCas(roomId, newReq, 3, onDone);
+        addJoinRequestWithCas(roomId, null, newReq, 3, onDone);
     }
 
-    private void addJoinRequestWithCas(String roomId, Room.JoinRequestMeta newReq, int retriesLeft, Runnable onDone) {
+    private void addJoinRequestWithCas(String roomId, Room roomFallback, Room.JoinRequestMeta newReq, int retriesLeft, Runnable onDone) {
         String path = "/rooms?id=eq." + roomId + "&select=*";
         client.newCall(request(path).get().build()).enqueue(new okhttp3.Callback() {
             @Override public void onFailure(Call call, IOException e) { if (onDone != null) onDone.run(); }
@@ -1332,12 +1379,12 @@ public class RoomRepository {
                             String fullDesc = Room.buildFullDescription(latest.getDescription(), latest.getTreasurerIds(), latest.isPrivateRoom(), currentList, latest.getRecurringNudgeTimestamps());
                             patchRoomDescriptionCas(roomId, oldRawDesc, fullDesc, new DataCallback<Boolean>() {
                                 @Override public void onSuccess(Boolean value) {
-                                    dispatchJoinRequestNotification(SharedFundApp.getInstance(), roomId, latest.getName(), newReq);
+                                    dispatchJoinRequestNotification(SharedFundApp.getInstance(), roomId, latest.getName(), latest, newReq);
                                     if (onDone != null) onDone.run();
                                 }
                                 @Override public void onError(String message) {
                                     if ("CAS_CONFLICT".equals(message) && retriesLeft > 0) {
-                                        addJoinRequestWithCas(roomId, newReq, retriesLeft - 1, onDone);
+                                        addJoinRequestWithCas(roomId, roomFallback, newReq, retriesLeft - 1, onDone);
                                     } else if (onDone != null) {
                                         onDone.run();
                                     }
@@ -1419,8 +1466,16 @@ public class RoomRepository {
         RoomNotificationDispatcher.getInstance().dispatchExpenseResultNotification(context, roomId, tx, approved, reason, approverId, approverRoleLabel);
     }
 
+    public void dispatchJoinRequestNotification(android.content.Context context, String roomId, String roomName, Room roomFallback, Room.JoinRequestMeta req) {
+        RoomNotificationDispatcher.getInstance().dispatchJoinRequestNotification(context, roomId, roomName, roomFallback, req);
+    }
+
     public void dispatchJoinRequestNotification(android.content.Context context, String roomId, String roomName, Room.JoinRequestMeta req) {
-        RoomNotificationDispatcher.getInstance().dispatchJoinRequestNotification(context, roomId, roomName, req);
+        RoomNotificationDispatcher.getInstance().dispatchJoinRequestNotification(context, roomId, roomName, null, req);
+    }
+
+    public void dispatchMemberJoinedNotification(android.content.Context context, Room room, String newUserId) {
+        RoomNotificationDispatcher.getInstance().dispatchMemberJoinedNotification(context, room, newUserId);
     }
 
     public void dispatchJoinResultNotification(android.content.Context context, String roomId, String targetUserId, String targetUserName, boolean approved, String approverName) {

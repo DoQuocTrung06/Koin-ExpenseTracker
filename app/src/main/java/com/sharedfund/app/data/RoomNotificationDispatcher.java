@@ -178,12 +178,18 @@ public class RoomNotificationDispatcher {
     }
 
     public void dispatchJoinRequestNotification(Context context, String roomId, String roomName, Room.JoinRequestMeta req) {
+        dispatchJoinRequestNotification(context, roomId, roomName, null, req);
+    }
+
+    public void dispatchJoinRequestNotification(Context context, String roomId, String roomName, Room roomFallback, Room.JoinRequestMeta req) {
         Context appCtx = context != null ? context.getApplicationContext() : SharedFundApp.getInstance();
         if (appCtx == null || roomId == null || req == null) return;
         RoomRepository roomRepo = RoomRepository.getInstance();
-        Room r = roomRepo.getRoomSync(roomId);
+        Room r = roomFallback != null ? roomFallback : roomRepo.getRoomSync(roomId);
         String ownerId = r != null ? r.getCreatedBy() : null;
-        String fundName = (roomName != null && !roomName.trim().isEmpty()) ? roomName : (r != null && r.getName() != null ? r.getName() : "Quỹ nhóm");
+        String fundName = (roomName != null && !roomName.trim().isEmpty())
+                ? roomName
+                : (r != null && r.getName() != null ? r.getName() : "Quỹ nhóm");
 
         String requesterDisplay = (req.applicantName != null && !req.applicantName.trim().isEmpty())
                 ? req.applicantName.trim()
@@ -192,19 +198,19 @@ public class RoomNotificationDispatcher {
         String title = "Yêu cầu tham gia quỹ " + fundName;
         String desc = requesterDisplay + " đã gửi yêu cầu tham gia quỹ " + fundName + ". Vui lòng kiểm tra và phê duyệt.";
 
-        Set<String> targetIds = new HashSet<>();
+        Set<String> immediateTargets = new HashSet<>();
         if (ownerId != null && !ownerId.trim().isEmpty()) {
-            targetIds.add(ownerId.trim());
+            immediateTargets.add(ownerId.trim());
         }
         if (r != null && r.getTreasurerIds() != null) {
             for (String tid : r.getTreasurerIds()) {
                 if (tid != null && !tid.trim().isEmpty()) {
-                    targetIds.add(tid.trim());
+                    immediateTargets.add(tid.trim());
                 }
             }
         }
 
-        for (String targetId : targetIds) {
+        for (String targetId : immediateTargets) {
             if (targetId == null || targetId.trim().isEmpty()) continue;
             if (req.userId != null && targetId.equalsIgnoreCase(req.userId.trim())) continue;
             AppNotification notif = new AppNotification(
@@ -220,6 +226,112 @@ public class RoomNotificationDispatcher {
             );
             NotificationManager.getInstance(appCtx).sendNotificationToUser(notif, targetId.trim());
         }
+
+        roomRepo.loadRoomMembers(roomId, new RoomRepository.DataCallback<List<RoomMember>>() {
+            @Override
+            public void onSuccess(List<RoomMember> members) {
+                if (members == null) return;
+                for (RoomMember m : members) {
+                    if (m == null || m.getUserId() == null || m.getUserId().trim().isEmpty()) continue;
+                    String uId = m.getUserId().trim();
+                    if (req.userId != null && uId.equalsIgnoreCase(req.userId.trim())) continue;
+                    if (immediateTargets.contains(uId)) continue;
+                    if ("OWNER".equalsIgnoreCase(m.getRole()) || "TREASURER".equalsIgnoreCase(m.getRole())) {
+                        immediateTargets.add(uId);
+                        AppNotification notif = new AppNotification(
+                                UUID.randomUUID().toString(),
+                                AppNotification.TYPE_MEMBER_JOIN,
+                                fundName,
+                                title,
+                                desc,
+                                "Vừa xong",
+                                false,
+                                roomId,
+                                fundName
+                        );
+                        NotificationManager.getInstance(appCtx).sendNotificationToUser(notif, uId);
+                    }
+                }
+            }
+
+            @Override
+            public void onError(String error) {
+            }
+        });
+
+        if (ownerId == null || ownerId.trim().isEmpty()) {
+            roomRepo.fetchRemoteRoom(roomId, new RoomRepository.DataCallback<Room>() {
+                @Override
+                public void onSuccess(Room fetched) {
+                    if (fetched == null) return;
+                    String fetchedOwner = fetched.getCreatedBy();
+                    if (fetchedOwner != null && !fetchedOwner.trim().isEmpty() && !immediateTargets.contains(fetchedOwner.trim())) {
+                        if (req.userId == null || !fetchedOwner.equalsIgnoreCase(req.userId.trim())) {
+                            immediateTargets.add(fetchedOwner.trim());
+                            AppNotification notif = new AppNotification(
+                                    UUID.randomUUID().toString(),
+                                    AppNotification.TYPE_MEMBER_JOIN,
+                                    fundName,
+                                    title,
+                                    desc,
+                                    "Vừa xong",
+                                    false,
+                                    roomId,
+                                    fundName
+                            );
+                            NotificationManager.getInstance(appCtx).sendNotificationToUser(notif, fetchedOwner.trim());
+                        }
+                    }
+                    if (fetched.getTreasurerIds() != null) {
+                        for (String tid : fetched.getTreasurerIds()) {
+                            if (tid != null && !tid.trim().isEmpty() && !immediateTargets.contains(tid.trim())) {
+                                if (req.userId == null || !tid.equalsIgnoreCase(req.userId.trim())) {
+                                    immediateTargets.add(tid.trim());
+                                    AppNotification notif = new AppNotification(
+                                            UUID.randomUUID().toString(),
+                                            AppNotification.TYPE_MEMBER_JOIN,
+                                            fundName,
+                                            title,
+                                            desc,
+                                            "Vừa xong",
+                                            false,
+                                            roomId,
+                                            fundName
+                                    );
+                                    NotificationManager.getInstance(appCtx).sendNotificationToUser(notif, tid.trim());
+                                }
+                            }
+                        }
+                    }
+                }
+
+                @Override
+                public void onError(String error) {
+                }
+            });
+        }
+    }
+
+    public void dispatchMemberJoinedNotification(Context context, Room room, String newUserId) {
+        Context appCtx = context != null ? context.getApplicationContext() : SharedFundApp.getInstance();
+        if (appCtx == null || room == null || newUserId == null) return;
+        String ownerId = room.getCreatedBy();
+        if (ownerId == null || ownerId.trim().isEmpty() || ownerId.equalsIgnoreCase(newUserId.trim())) return;
+        String fundName = room.getName() != null && !room.getName().trim().isEmpty() ? room.getName() : "Quỹ nhóm";
+        String title = "Thành viên mới tham gia quỹ " + fundName;
+        String desc = "Một thành viên mới đã tham gia quỹ " + fundName + ".";
+        AppNotification notif = new AppNotification(
+                UUID.randomUUID().toString(),
+                AppNotification.TYPE_MEMBER_JOIN,
+                fundName,
+                title,
+                desc,
+                "Vừa xong",
+                false,
+                room.getId(),
+                fundName
+        );
+        NotificationManager.getInstance(appCtx).sendNotificationToUser(notif, ownerId.trim());
     }
 
     public void dispatchJoinResultNotification(Context context, String roomId, String targetUserId, String targetUserName, boolean approved, String approverName) {
