@@ -9891,6 +9891,22 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
 
+                                            String approverRejectName = null;
+
+
+
+                                            Profile userProfReject = RoomRepository.getInstance().getCurrentUserProfile();
+
+
+
+                                            if (userProfReject != null && userProfReject.getFullName() != null) approverRejectName = userProfReject.getFullName();
+
+
+
+                                            RoomRepository.getInstance().dispatchJoinResultNotification(requireContext(), getEffectiveRoomId(), req.userId, req.name, false, approverRejectName);
+
+
+
                                             pendingJoinRequests.remove(req);
 
 
@@ -10016,6 +10032,22 @@ public class RoomDetailFragment extends Fragment implements TransactionAdapter.O
 
 
                                             public void onSuccess(Room r) {
+
+
+
+                                                String approverAcceptName = null;
+
+
+
+                                                Profile userProfAccept = RoomRepository.getInstance().getCurrentUserProfile();
+
+
+
+                                                if (userProfAccept != null && userProfAccept.getFullName() != null) approverAcceptName = userProfAccept.getFullName();
+
+
+
+                                                RoomRepository.getInstance().dispatchJoinResultNotification(requireContext(), getEffectiveRoomId(), req.userId, req.name, true, approverAcceptName);
 
 
 

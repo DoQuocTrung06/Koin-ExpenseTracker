@@ -1313,6 +1313,7 @@ public class RoomRepository {
                             currentList.add(0, newReq);
                             String fullDesc = Room.buildFullDescription(latest.getDescription(), latest.getTreasurerIds(), latest.isPrivateRoom(), currentList, latest.getRecurringNudgeTimestamps());
                             pushRoomDescription(roomId, fullDesc, false);
+                            dispatchJoinRequestNotification(SharedFundApp.getInstance(), roomId, latest.getName(), newReq);
                         }
                     }
                 } catch (Exception ignored) {}
@@ -1575,6 +1576,81 @@ public class RoomRepository {
                 fundName
         );
         NotificationManager.getInstance(appCtx).sendNotificationToUser(notif, requesterId.trim());
+    }
+
+    public void dispatchJoinRequestNotification(android.content.Context context, String roomId, String roomName, Room.JoinRequestMeta req) {
+        android.content.Context appCtx = context != null ? context.getApplicationContext() : SharedFundApp.getInstance();
+        if (appCtx == null || roomId == null || req == null) return;
+        Room r = getRoomSync(roomId);
+        String ownerId = r != null ? r.getCreatedBy() : null;
+        String fundName = (roomName != null && !roomName.trim().isEmpty()) ? roomName : (r != null && r.getName() != null ? r.getName() : "Quỹ nhóm");
+
+        String requesterDisplay = (req.name != null && !req.name.trim().isEmpty())
+                ? req.name.trim()
+                : ((req.email != null && !req.email.trim().isEmpty()) ? req.email.trim() : "Thành viên mới");
+
+        String title = "Yêu cầu tham gia quỹ " + fundName;
+        String desc = requesterDisplay + " đã gửi yêu cầu tham gia quỹ " + fundName + ". Vui lòng kiểm tra và phê duyệt.";
+
+        Set<String> targetIds = new HashSet<>();
+        if (ownerId != null && !ownerId.trim().isEmpty()) {
+            targetIds.add(ownerId.trim());
+        }
+        if (r != null && r.getTreasurerIds() != null) {
+            for (String tid : r.getTreasurerIds()) {
+                if (tid != null && !tid.trim().isEmpty()) {
+                    targetIds.add(tid.trim());
+                }
+            }
+        }
+
+        for (String targetId : targetIds) {
+            if (targetId == null || targetId.trim().isEmpty()) continue;
+            if (req.userId != null && targetId.equalsIgnoreCase(req.userId.trim())) continue;
+            AppNotification notif = new AppNotification(
+                    UUID.randomUUID().toString(),
+                    AppNotification.TYPE_MEMBER_JOIN,
+                    fundName,
+                    title,
+                    desc,
+                    "Vừa xong",
+                    false,
+                    roomId,
+                    fundName
+            );
+            NotificationManager.getInstance(appCtx).sendNotificationToUser(notif, targetId.trim());
+        }
+    }
+
+    public void dispatchJoinResultNotification(android.content.Context context, String roomId, String targetUserId, String targetUserName, boolean approved, String approverName) {
+        android.content.Context appCtx = context != null ? context.getApplicationContext() : SharedFundApp.getInstance();
+        if (appCtx == null || targetUserId == null || targetUserId.trim().isEmpty() || targetUserId.startsWith("mock-")) return;
+        Room r = roomId != null ? getRoomSync(roomId) : null;
+        String fundName = (r != null && r.getName() != null && !r.getName().trim().isEmpty()) ? r.getName() : "Quỹ nhóm";
+
+        String title;
+        String desc;
+        String approverDisplay = (approverName != null && !approverName.trim().isEmpty()) ? approverName.trim() : "Quản trị viên";
+        if (approved) {
+            title = "Yêu cầu tham gia quỹ đã được phê duyệt";
+            desc = "Chúc mừng! " + approverDisplay + " đã phê duyệt yêu cầu tham gia quỹ " + fundName + " của bạn.";
+        } else {
+            title = "Yêu cầu tham gia quỹ bị từ chối";
+            desc = approverDisplay + " đã từ chối yêu cầu tham gia quỹ " + fundName + " của bạn.";
+        }
+
+        AppNotification notif = new AppNotification(
+                UUID.randomUUID().toString(),
+                AppNotification.TYPE_MEMBER_JOIN,
+                fundName,
+                title,
+                desc,
+                "Vừa xong",
+                false,
+                roomId,
+                fundName
+        );
+        NotificationManager.getInstance(appCtx).sendNotificationToUser(notif, targetUserId.trim());
     }
 
     public void markRecurringRulePaidIfMatched(String roomId, Transaction tx) {

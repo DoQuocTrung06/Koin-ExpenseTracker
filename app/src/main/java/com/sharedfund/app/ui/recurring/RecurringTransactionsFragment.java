@@ -571,7 +571,7 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
         final String formattedTime = sdf.format(new java.util.Date());
 
         String category = resolveStandardCategory(rule);
-        String note = rule.getTitle();
+        String note = "Rút quỹ về Ví Koin - Thanh toán định kỳ: " + rule.getTitle();
 
         if (layoutMainContent != null) layoutMainContent.setVisibility(View.GONE);
         if (layoutProcessing != null) layoutProcessing.setVisibility(View.VISIBLE);
@@ -614,6 +614,9 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
                         if (targetRoomId != null) {
                             RoomRepository.getInstance().refreshRoomTransactions(targetRoomId, null);
                         }
+                        if (canDirectApprove) {
+                            RoomRepository.getInstance().loadUserProfile();
+                        }
 
                         if (canDirectApprove) {
                             transactionRepository.updateRecurringRule(rule, new TransactionRepository.DataCallback<RecurringRule>() {
@@ -653,18 +656,18 @@ public class RecurringTransactionsFragment extends Fragment implements Recurring
                                         tvSuccessTitle.setText(canDirectApprove ? "Xuất quỹ thành công!" : "Yêu cầu xuất quỹ đã gửi!");
                                     }
                                     if (tvSuccessSubtitle != null) {
-                                        tvSuccessSubtitle.setText(canDirectApprove ? "Đã thanh toán khoản định kỳ" : "Yêu cầu đã được gửi tới Chủ quỹ để phê duyệt");
+                                        tvSuccessSubtitle.setText(canDirectApprove ? ("Đã rút về Ví Koin của " + requesterName + " để thanh toán định kỳ") : "Yêu cầu đã được gửi tới Chủ quỹ để phê duyệt");
                                     }
                                     if (tvSuccessAmount != null) tvSuccessAmount.setText("- " + df.format(ruleAmount) + " đ");
                                     String rawTxId = createdTx.getId() != null ? createdTx.getId() : UUID.randomUUID().toString();
                                     String shortTxId = "#SF-" + (rawTxId.length() >= 8 ? rawTxId.substring(0, 8).toUpperCase(Locale.ROOT) : rawTxId.toUpperCase(Locale.ROOT));
                                     if (tvSuccessTxId != null) tvSuccessTxId.setText(shortTxId);
-                                    if (tvSuccessRuleName != null) tvSuccessRuleName.setText(rule.getTitle());
+                                    if (tvSuccessRuleName != null) tvSuccessRuleName.setText("Thanh toán định kỳ - " + rule.getTitle());
                                     String displayRoom = (roomName != null && !roomName.trim().isEmpty())
                                             ? roomName
                                             : (room != null && room.getName() != null ? room.getName() : (rule.getRoomName() != null ? rule.getRoomName() : "Quỹ nhóm"));
                                     if (tvSuccessRoomName != null) tvSuccessRoomName.setText(displayRoom);
-                                    if (tvSuccessUserName != null) tvSuccessUserName.setText(requesterName);
+                                    if (tvSuccessUserName != null) tvSuccessUserName.setText("Ví cá nhân Koin (" + requesterName + ")");
                                     if (tvSuccessTime != null) tvSuccessTime.setText(formattedTime);
                                     if (dividerSuccessBalance != null) {
                                         dividerSuccessBalance.setVisibility(canDirectApprove ? View.VISIBLE : View.GONE);

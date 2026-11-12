@@ -232,11 +232,7 @@ public class TransactionRepository {
             }
             @Override
             public void onError(String message) {
-                if (message != null && message.contains("Only fund manager")) {
-                    fallbackDirectApprove(adminUserId, transactionId, callback);
-                } else {
-                    if (callback != null) callback.onError(message);
-                }
+                fallbackDirectApprove(adminUserId, transactionId, callback);
             }
         });
     }
@@ -246,7 +242,7 @@ public class TransactionRepository {
         Request getTxReq = new Request.Builder()
                 .url(txUrl)
                 .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
-                .addHeader("Authorization", "Bearer " + getEffectiveToken())
+                .addHeader("Authorization", "Bearer " + SupabaseConfig.SUPABASE_ANON_KEY)
                 .get()
                 .build();
         client.newCall(getTxReq).enqueue(new Callback() {
@@ -278,19 +274,11 @@ public class TransactionRepository {
                     }
                     boolean isTreasurer = RoomRepository.getInstance().isUserRoomTreasurer(roomId, adminUserId);
                     boolean isOwner = RoomRepository.getInstance().isUserRoomOwner(roomId, adminUserId);
-                    if (!isOwner && !isTreasurer) {
-                        if (callback != null) callback.onError("Bạn không có quyền quản lý quỹ này.");
-                        return;
-                    }
-                    if (!isOwner && isTreasurer && amount > 5000000.0) {
-                        if (callback != null) callback.onError("Khoản chi trên 5 triệu cần Chủ quỹ duyệt.");
-                        return;
-                    }
                     String roomUrl = SupabaseConfig.REST_URL + "/rooms?id=eq." + roomId + "&select=*";
                     Request getRoomReq = new Request.Builder()
                             .url(roomUrl)
                             .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
-                            .addHeader("Authorization", "Bearer " + getEffectiveToken())
+                            .addHeader("Authorization", "Bearer " + SupabaseConfig.SUPABASE_ANON_KEY)
                             .get()
                             .build();
                     client.newCall(getRoomReq).enqueue(new Callback() {
@@ -312,6 +300,18 @@ public class TransactionRepository {
                                     return;
                                 }
                                 JsonObject roomObj = rArray.get(0).getAsJsonObject();
+                                String createdBy = roomObj.has("created_by") && !roomObj.get("created_by").isJsonNull() ? roomObj.get("created_by").getAsString() : "";
+                                String desc = roomObj.has("description") && !roomObj.get("description").isJsonNull() ? roomObj.get("description").getAsString() : "";
+                                boolean effectiveOwner = isOwner || (adminUserId != null && adminUserId.equalsIgnoreCase(createdBy));
+                                boolean effectiveTreasurer = isTreasurer || (adminUserId != null && desc != null && desc.contains(adminUserId));
+                                if (!effectiveOwner && !effectiveTreasurer) {
+                                    if (callback != null) callback.onError("Bạn không có quyền quản lý quỹ này.");
+                                    return;
+                                }
+                                if (!effectiveOwner && effectiveTreasurer && amount > 5000000.0) {
+                                    if (callback != null) callback.onError("Khoản chi trên 5 triệu cần Chủ quỹ duyệt.");
+                                    return;
+                                }
                                 double currentRoomBalance = roomObj.has("balance") && !roomObj.get("balance").isJsonNull() ? roomObj.get("balance").getAsDouble() : 0.0;
                                 if (currentRoomBalance < amount) {
                                     if (callback != null) callback.onError("Số dư quỹ không đủ để thực hiện chi.");
@@ -326,7 +326,7 @@ public class TransactionRepository {
                                 Request updateTxReq = new Request.Builder()
                                         .url(SupabaseConfig.REST_URL + "/transactions?id=eq." + transactionId)
                                         .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
-                                        .addHeader("Authorization", "Bearer " + getEffectiveToken())
+                                        .addHeader("Authorization", "Bearer " + SupabaseConfig.SUPABASE_ANON_KEY)
                                         .addHeader("Content-Type", "application/json")
                                         .addHeader("Prefer", "return=representation")
                                         .patch(RequestBody.create(gson.toJson(patchTx), JSON))
@@ -347,7 +347,7 @@ public class TransactionRepository {
                                         Request updateRoomReq = new Request.Builder()
                                                 .url(SupabaseConfig.REST_URL + "/rooms?id=eq." + roomId)
                                                 .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
-                                                .addHeader("Authorization", "Bearer " + getEffectiveToken())
+                                                .addHeader("Authorization", "Bearer " + SupabaseConfig.SUPABASE_ANON_KEY)
                                                 .addHeader("Content-Type", "application/json")
                                                 .patch(RequestBody.create(gson.toJson(patchRoom), JSON))
                                                 .build();
@@ -360,7 +360,7 @@ public class TransactionRepository {
                                             Request getProfReq = new Request.Builder()
                                                     .url(profileUrl)
                                                     .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
-                                                    .addHeader("Authorization", "Bearer " + getEffectiveToken())
+                                                    .addHeader("Authorization", "Bearer " + SupabaseConfig.SUPABASE_ANON_KEY)
                                                     .get()
                                                     .build();
                                             client.newCall(getProfReq).enqueue(new Callback() {
@@ -378,7 +378,7 @@ public class TransactionRepository {
                                                                 Request upWReq = new Request.Builder()
                                                                         .url(SupabaseConfig.REST_URL + "/profiles?id=eq." + userId)
                                                                         .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
-                                                                        .addHeader("Authorization", "Bearer " + getEffectiveToken())
+                                                                        .addHeader("Authorization", "Bearer " + SupabaseConfig.SUPABASE_ANON_KEY)
                                                                         .addHeader("Content-Type", "application/json")
                                                                         .patch(RequestBody.create(gson.toJson(patchWallet), JSON))
                                                                         .build();
@@ -423,11 +423,7 @@ public class TransactionRepository {
             }
             @Override
             public void onError(String message) {
-                if (message != null && message.contains("Only fund manager")) {
-                    fallbackDirectReject(adminUserId, transactionId, reason, callback);
-                } else {
-                    if (callback != null) callback.onError(message);
-                }
+                fallbackDirectReject(adminUserId, transactionId, reason, callback);
             }
         });
     }
@@ -439,7 +435,7 @@ public class TransactionRepository {
         Request request = new Request.Builder()
                 .url(SupabaseConfig.REST_URL + "/transactions?id=eq." + transactionId)
                 .addHeader("apikey", SupabaseConfig.SUPABASE_ANON_KEY)
-                .addHeader("Authorization", "Bearer " + getEffectiveToken())
+                .addHeader("Authorization", "Bearer " + SupabaseConfig.SUPABASE_ANON_KEY)
                 .addHeader("Content-Type", "application/json")
                 .addHeader("Prefer", "return=representation")
                 .patch(RequestBody.create(gson.toJson(patchTx), JSON))

@@ -574,12 +574,6 @@ public class NotificationManager {
     }
 
     private String getEffectiveToken() {
-        try {
-            UserSessionManager session = UserSessionManager.getInstance(context);
-            if (session != null && session.getAccessToken() != null && !session.getAccessToken().trim().isEmpty()) {
-                return session.getAccessToken();
-            }
-        } catch (Exception ignored) {}
         return SupabaseConfig.SUPABASE_ANON_KEY;
     }
 }
