@@ -113,7 +113,7 @@ public final class ReportExportHelper {
                 String category = escapeCsvField(tx.getCategory() != null ? tx.getCategory() : "Khác");
                 String note = escapeCsvField(tx.getNote() != null ? tx.getNote() : category);
                 double amount = tx.getAmount();
-                String amountFormatted = (tx.isIncome() ? "+" : "-") + formatter.format(amount);
+                String amountFormatted = (tx.isIncome() ? "+" : "-") + formatter.format(amount) + " VND";
 
                 String creator = escapeCsvField(tx.getCreatedBy() != null ? tx.getCreatedBy() : "");
                 String billUrl = tx.getBillImageUrl() != null ? tx.getBillImageUrl().trim() : "";
@@ -230,7 +230,7 @@ public final class ReportExportHelper {
                 String category = escapeHtml(tx.getCategory() != null && !tx.getCategory().isEmpty() ? tx.getCategory() : "Khác");
                 String note = escapeHtml(tx.getNote() != null && !tx.getNote().isEmpty() ? tx.getNote() : category);
                 double amount = tx.getAmount();
-                String amountFormatted = (isIncome ? "+" : "-") + formatter.format(amount);
+                String amountFormatted = (isIncome ? "+" : "-") + formatter.format(amount) + " VND";
                 String creator = escapeHtml(tx.getCreatedBy() != null ? tx.getCreatedBy() : "");
 
                 String billCell;
@@ -246,7 +246,7 @@ public final class ReportExportHelper {
                 writer.write("<td align=\"center\">" + typeBadge + "</td>\n");
                 writer.write("<td>" + category + "</td>\n");
                 writer.write("<td>" + note + "</td>\n");
-                writer.write("<td align=\"right\" class=\"" + (isIncome ? "badge-in" : "badge-out") + " cell-text\">" + amountFormatted + "</td>\n");
+                writer.write("<td align=\"right\" style=\"mso-number-format:'\\@';\" class=\"" + (isIncome ? "badge-in" : "badge-out") + " cell-text\">" + amountFormatted + "</td>\n");
                 writer.write("<td>" + creator + "</td>\n");
                 writer.write("<td align=\"center\">" + billCell + "</td>\n");
                 writer.write("</tr>\n");
