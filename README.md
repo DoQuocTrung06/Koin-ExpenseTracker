@@ -1,89 +1,59 @@
-# KOIN - Group Fund Management Application
+# KOIN - Smart Financial Management & Group Fund Application
 
-Course: Mobile Application Development  
-Institution: Ton Duc Thang University (TDTU)  
-Students:  
-- Do Quoc Trung (524H0132) - Leader  
-- Truong Cao Sang (524H0125) - Member  
+**Course:** Mobile Application Development (Phát Triển Ứng Dụng Di Động)  
+**Institution:** Ton Duc Thang University (TDTU)  
+**Topic:** **Đề tài 14 - Nhật ký thu chi hằng ngày, tìm kiếm và tổng hợp theo tuần/tháng. Quản lý chi phí, hóa đơn, giao dịch định kỳ và xuất báo cáo.**  
 
----
-
-## 1. System Requirements
-
-Ensure your computer has the following tools installed:
-- Android Studio (Iguana, Jellyfish, Koala, Ladybug, or newer).
-- JDK 17 (bundled inside Android Studio).
-- Android SDK with API 26 (minimum) up to API 34/37.
-- Android Virtual Device (AVD) running Android 13 (API 33) or Android 14 (API 34), or a physical Android phone with USB Debugging enabled.
+**Students:**  
+- **Đỗ Quốc Trung** (524H0132) - Leader  
+- **Trương Cao Sang** (524H0125) - Member  
+- **Đỗ Quốc Việt** (524H0137) - Member  
 
 ---
 
-## 2. Step-by-Step Setup & Run Guide
+## 1. Topic 14 Key Implementations
 
-### Step 1: Clone the Project
-Open Terminal / Command Prompt and run:
+Koin is built on native Android with **Clean MVVM**, **Repository Pattern**, and a **Supabase Cloud (PostgreSQL)** BaaS backend. The project strictly satisfies all requirements of **Topic 14**:
+- **Daily Journal & Multi-tier Filters:** Real-time chronological transaction logging, fast in-memory search, and dynamic aggregation (Today, This Week, This Month, Custom Date Ranges) with interactive category charts.
+- **Expense & Bill Receipt Management:** Camera/Gallery receipt image capture with client-side compression stored in Supabase Storage (`receipts` bucket).
+- **Scheduled Recurring Transactions:** Automated recurring expense manager (rent, utilities) with deterministic idempotency keys (`UUID(rule_id, cycle_key)`) preventing duplicate billing.
+- **Financial Report Export:** Dynamic HTML5/CSS3 template generation with Android `PrintManager` spooling for PDF creation and multi-format sharing (HTML, XLS, CSV via `FileProvider`).
+- **Financial Concurrency Safety:** Server-side atomic RPC functions with Pessimistic Locking (`SELECT ... FOR UPDATE`) and client-side Compare-And-Set (CAS) to eliminate double-spending.
+
+---
+
+## 2. Tech Stack
+
+- **Platform & Language:** Native Android, Java 11 (`minSdk 26`, `targetSdk 37`, AGP `9.3.3`).
+- **Architecture:** Pragmatic MVVM + Repository Pattern (AndroidX `ViewModel` & `LiveData 2.8.6`).
+- **Backend (BaaS):** Supabase Cloud (PostgreSQL 15, PostgREST RESTful API, S3 Object Storage, GoTrue Auth).
+- **Realtime:** Persistent Full-Duplex WebSockets (`Java-WebSocket 1.5.7`) subscribing to PostgreSQL CDC write-ahead logs.
+- **Networking & Utilities:** `OkHttp 4.12.0`, `Gson 2.10.1`, `ZXing 4.3.0` (VietQR Banking).
+
+---
+
+## 3. Setup & Test Accounts
+
+### Quick Setup:
 ```bash
-git clone https://github.com/DoQuocTrung06/SharedFund-App.git
+git clone https://github.com/DoQuocTrung06/Koin-ExpenseTracker.git
 ```
-*(Or click the green "Code" button on GitHub > "Download ZIP" and extract the folder).*
+Open the project in Android Studio, ensure **Gradle JDK** is set to **JDK 17+**, and run on an emulator or physical device (`minSdk 26+`).
 
-### Step 2: Open in Android Studio
-1. Open Android Studio.
-2. Click "Open" and select the `SharedFund-App` folder.
-3. Wait for the initial Gradle Sync to complete.
+### Pre-configured Accounts:
 
-### Step 3: Verify Gradle JDK (Important)
-If Gradle Sync shows a Java error:
-1. Go to "Settings" > "Build, Execution, Deployment" > "Build Tools" > "Gradle".
-2. Set "Gradle JDK" to "Embedded JDK 17" (or version 17+).
-3. Click "Sync Project with Gradle Files".
-
-### Step 4: Run the Application
-1. In Device Manager, launch your emulator (or connect your physical Android phone).
-2. Click the green "Run" button (or press `Shift + F10`).
-3. The app will install and open directly to the Login screen.
+| Role | Email | Password | Description |
+| :--- | :--- | :--- | :--- |
+| **Owner (Chủ quỹ)** | `doquoctrung2k@gmail.com` | `T@123456789a` | Creator of "Quy Ca Nhan", holds full approval controls |
+| **Treasurer (Phó quỹ)** | `doquocviet2k@gmail.com` | `V@123456` | Appointed treasurer with delegated approval rights |
+| **Member (Thành viên)** | `caosang3112@gmail.com` | `S@123456` | General member account for payments and join requests |
 
 ---
 
-## 3. Pre-configured Test Accounts
+## 4. Topic 14 Feature Test Scenarios
 
-You can sign in immediately using any of the following pre-created accounts:
-
-| Account | Email | Password |
-| :--- | :--- | :--- |
-| Account 1 | `doquoctrung2k@gmail.com` | `T@123456789a` |
-| Account 2 | `doquocviet2k@gmail.com` | `V@123456` |
-| Account 3 | `phamquoccuong@gmail.com` | `C@123456` |
-
----
-
-## 4. Key Feature Test Scenarios
-
-### Scenario 1: Login & Fund Overview
-1. Sign in using any test account above.
-2. On the Home screen, tap on any group fund to view current balance, member list, and transaction history.
-
-### Scenario 2: VietQR Banking & Image Picker
-1. In any fund room, tap "Chuyển tiền" (Transfer).
-2. Select the "Quét QR" tab.
-3. Choose either:
-   - "QUÉT CAMERA": Point the camera at any Vietnamese banking VietQR code.
-   - "CHỌN ẢNH QR": Select a QR code image from the device gallery. A sample image (`sample_vietqr.png`) is provided in the project root directory; simply drag-and-drop it into the Android Emulator.
-4. The system automatically decodes Bank BIN, Account Number, and Recipient Name.
-5. Enter amount and note > Tap "Tiếp tục" > Review confirmation card > Confirm to see the result card with transaction ID `#SF-...`.
-
-### Scenario 3: Expense Approval & Rejection Workflow
-1. A member submits a fund withdrawal request.
-2. The fund manager sees an amber banner for pending approval requests.
-3. Tap the item to "Approve" (deducts room balance) or "Reject" (enter reason to cancel request).
-
-### Scenario 4: Room Background & Role Delegation
-1. In any fund room, tap the cover image icon to select a new room background image.
-2. Go to the "Thành viên" (Members) tab to promote members to Treasurer or transfer Room Ownership.
-
----
-
-## 5. Troubleshooting
-
-- Gradle Sync Error: Make sure your Gradle JDK in Android Studio Settings is set to JDK 17 (do not use JDK 8).
-- Camera on Emulator: If the emulator shows a virtual scene, use "CHỌN ẢNH QR" with the provided `sample_vietqr.png`, or open emulator Extended Controls > Camera > select your computer webcam.
+1. **Daily Journal & Weekly/Monthly Filters:** Open "Quy Ca Nhan" > Go to History Tab > Toggle **"Tuần này"** / **"Tháng này"** to view real-time totals and category charts. Use the search bar for instant accent-insensitive lookups.
+2. **Expense & Receipt Upload:** Create an expense > Attach receipt image via camera/gallery > Confirm upload to Supabase Storage and inspect transaction detail.
+3. **CAS Concurrency Expense Approval:** Member requests expense > Owner approves via `approve_expense_transaction` RPC > Verifies optimistic CAS row lock preventing negative fund balances.
+4. **Recurring Transactions:** Open "Giao dịch định kỳ" > Review rent/utility rules > Tap "Thanh toán (Pay)" to execute with deterministic UUID idempotency (rejects duplicate triggers).
+5. **Statement & Report Export:** Open History > Tap **"Xuất báo cáo"** > Preview statement > Download HTML/XLS/CSV or Share via Android Print framework / PDF.
