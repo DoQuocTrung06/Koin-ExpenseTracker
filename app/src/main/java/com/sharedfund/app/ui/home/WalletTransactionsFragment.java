@@ -1,7 +1,5 @@
 package com.sharedfund.app.ui.home;
 
-
-
 import android.content.ClipData;
 
 import android.content.ClipboardManager;
@@ -30,8 +28,6 @@ import android.widget.TextView;
 
 import android.widget.Toast;
 
-
-
 import androidx.annotation.NonNull;
 
 import androidx.annotation.Nullable;
@@ -43,8 +39,6 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 
 import androidx.recyclerview.widget.RecyclerView;
-
-
 
 import com.google.android.material.button.MaterialButton;
 
@@ -74,8 +68,6 @@ import com.sharedfund.app.util.CopyToast;
 
 import com.sharedfund.app.util.ErrorMessageHelper;
 
-
-
 import java.text.DecimalFormat;
 
 import java.text.DecimalFormatSymbols;
@@ -94,83 +86,37 @@ import java.util.List;
 
 import java.util.Locale;
 
-
-
 public class WalletTransactionsFragment extends Fragment {
 
-
-
     private final TransactionRepository transactionRepository = new TransactionRepository();
-
     private final List<Transaction> allPersonalTransactions = new ArrayList<>();
-
     private final List<Transaction> displayedTransactions = new ArrayList<>();
-
     private WalletStatementAdapter adapter;
-
-
-
     private TextView tvWalletAccountName;
-
     private TextView tvWalletAccountNumber;
-
     private LinearLayout layoutWalletCopyStk;
-
     private TextView tvWalletCurrentBalance;
-
-
-
     private MaterialButton btnWalletFilterAll;
-
     private MaterialButton btnWalletFilterIncome;
-
     private MaterialButton btnWalletFilterExpense;
-
     private ProgressBar pbWalletLoading;
-
     private RecyclerView rvWalletTransactions;
-
     private LinearLayout layoutEmptyWallet;
-
-
-
     private int currentFilter = 0;
-
     private int currentTimeFilter = 0;
-
     private Long customStartMillis = null;
-
     private Long customEndMillis = null;
-
     private String currentSearchKeyword = "";
-
     private EditText etWalletSearch;
-
     private ImageButton btnClearWalletSearch;
-
-
-
     private MaterialButton btnTimeAll;
-
     private MaterialButton btnTimeThisWeek;
-
     private MaterialButton btnTimeThisMonth;
-
     private MaterialButton btnTimeCustom;
-
-
-
     private MaterialCardView cardWalletCustomRangeBadge;
-
     private TextView tvWalletCustomRange;
-
     private ImageButton btnClearWalletCustomRange;
-
-
-
     private final DecimalFormat df;
-
-
 
     public WalletTransactionsFragment() {
 
@@ -181,8 +127,6 @@ public class WalletTransactionsFragment extends Fragment {
         df = new DecimalFormat("#,##0", symbols);
 
     }
-
-
 
     @Nullable
 
@@ -195,8 +139,6 @@ public class WalletTransactionsFragment extends Fragment {
         return inflater.inflate(R.layout.fragment_wallet_transactions, container, false);
 
     }
-
-
 
     @Override
 
@@ -232,8 +174,6 @@ public class WalletTransactionsFragment extends Fragment {
 
     }
 
-
-
     private void initViews(View view) {
 
         tvWalletAccountName = view.findViewById(R.id.tvWalletAccountName);
@@ -243,8 +183,6 @@ public class WalletTransactionsFragment extends Fragment {
         layoutWalletCopyStk = view.findViewById(R.id.layoutWalletCopyStk);
 
         tvWalletCurrentBalance = view.findViewById(R.id.tvWalletCurrentBalance);
-
-
 
         btnWalletFilterAll = view.findViewById(R.id.btnWalletFilterAll);
 
@@ -256,8 +194,6 @@ public class WalletTransactionsFragment extends Fragment {
 
         btnClearWalletSearch = view.findViewById(R.id.btnClearWalletSearch);
 
-
-
         btnTimeAll = view.findViewById(R.id.btnTimeAll);
 
         btnTimeThisWeek = view.findViewById(R.id.btnTimeThisWeek);
@@ -266,15 +202,11 @@ public class WalletTransactionsFragment extends Fragment {
 
         btnTimeCustom = view.findViewById(R.id.btnTimeCustom);
 
-
-
         cardWalletCustomRangeBadge = view.findViewById(R.id.cardWalletCustomRangeBadge);
 
         tvWalletCustomRange = view.findViewById(R.id.tvWalletCustomRange);
 
         btnClearWalletCustomRange = view.findViewById(R.id.btnClearWalletCustomRange);
-
-
 
         pbWalletLoading = view.findViewById(R.id.pbWalletLoading);
 
@@ -282,15 +214,11 @@ public class WalletTransactionsFragment extends Fragment {
 
         layoutEmptyWallet = view.findViewById(R.id.layoutEmptyWallet);
 
-
-
         updateTimeFilterButtons();
 
         updateFilterButtons();
 
     }
-
-
 
     private void setupListeners(View view) {
 
@@ -301,8 +229,6 @@ public class WalletTransactionsFragment extends Fragment {
             btnWalletBack.setOnClickListener(v -> requireActivity().getSupportFragmentManager().popBackStack());
 
         }
-
-
 
         if (layoutWalletCopyStk != null) {
 
@@ -326,23 +252,17 @@ public class WalletTransactionsFragment extends Fragment {
 
         }
 
-
-
         btnWalletFilterAll.setOnClickListener(v -> setFilter(0));
 
         btnWalletFilterIncome.setOnClickListener(v -> setFilter(1));
 
         btnWalletFilterExpense.setOnClickListener(v -> setFilter(2));
 
-
-
         attachTouchEffect(btnWalletFilterAll);
 
         attachTouchEffect(btnWalletFilterIncome);
 
         attachTouchEffect(btnWalletFilterExpense);
-
-
 
         if (btnTimeAll != null) {
 
@@ -376,8 +296,6 @@ public class WalletTransactionsFragment extends Fragment {
 
         }
 
-
-
         MaterialButton btnWalletExport = view.findViewById(R.id.btnWalletExport);
         if (btnWalletExport != null) {
             btnWalletExport.setOnClickListener(v -> openStatementReportScreen());
@@ -403,8 +321,6 @@ public class WalletTransactionsFragment extends Fragment {
             });
 
         }
-
-
 
         if (etWalletSearch != null) {
 
@@ -432,8 +348,6 @@ public class WalletTransactionsFragment extends Fragment {
 
         }
 
-
-
         if (btnClearWalletSearch != null) {
 
             btnClearWalletSearch.setOnClickListener(v -> {
@@ -445,8 +359,6 @@ public class WalletTransactionsFragment extends Fragment {
         }
 
     }
-
-
 
     private void openStatementReportScreen() {
         if (!isAdded() || getContext() == null) return;
@@ -524,8 +436,6 @@ public class WalletTransactionsFragment extends Fragment {
 
     }
 
-
-
     private void setupRecyclerView() {
 
         adapter = new WalletStatementAdapter(transaction -> {
@@ -541,8 +451,6 @@ public class WalletTransactionsFragment extends Fragment {
         rvWalletTransactions.setAdapter(adapter);
 
     }
-
-
 
     private String formatAccountNumber(String name, String userId) {
 
@@ -566,8 +474,6 @@ public class WalletTransactionsFragment extends Fragment {
 
     }
 
-
-
     private void loadWalletBalance() {
 
         Double balance = RoomRepository.getInstance().getUserWalletLiveData().getValue();
@@ -583,8 +489,6 @@ public class WalletTransactionsFragment extends Fragment {
             tvWalletCurrentBalance.setText(df.format(balance) + " ₫");
 
         }
-
-
 
         UserSessionManager session = UserSessionManager.getInstance(requireContext());
 
@@ -613,8 +517,6 @@ public class WalletTransactionsFragment extends Fragment {
         }
 
     }
-
-
 
     private void recalculateBalancesAndNotify(double balance) {
 
@@ -652,8 +554,6 @@ public class WalletTransactionsFragment extends Fragment {
 
     }
 
-
-
     private void loadHistory() {
 
         String userId = UserSessionManager.getInstance(requireContext()).getUserId();
@@ -672,13 +572,9 @@ public class WalletTransactionsFragment extends Fragment {
 
         }
 
-
-
         pbWalletLoading.setVisibility(View.VISIBLE);
 
         layoutEmptyWallet.setVisibility(View.GONE);
-
-
 
         transactionRepository.getUserTransactions(userId, new TransactionRepository.DataCallback<List<Transaction>>() {
 
@@ -693,8 +589,6 @@ public class WalletTransactionsFragment extends Fragment {
                     if (!isAdded()) return;
 
                     pbWalletLoading.setVisibility(View.GONE);
-
-
 
                     allPersonalTransactions.clear();
 
@@ -711,8 +605,6 @@ public class WalletTransactionsFragment extends Fragment {
                             }
 
                         }
-
-
 
                         Collections.sort(filtered, new Comparator<Transaction>() {
 
@@ -736,8 +628,6 @@ public class WalletTransactionsFragment extends Fragment {
 
                         });
 
-
-
                         Double liveBalance = RoomRepository.getInstance().getUserWalletLiveData().getValue();
 
                         double runningBalance = liveBalance != null ? liveBalance : RoomRepository.getInstance().getUserWalletBalance();
@@ -760,8 +650,6 @@ public class WalletTransactionsFragment extends Fragment {
 
                         }
 
-
-
                         allPersonalTransactions.addAll(filtered);
 
                     }
@@ -771,8 +659,6 @@ public class WalletTransactionsFragment extends Fragment {
                 });
 
             }
-
-
 
             @Override
 
@@ -797,8 +683,6 @@ public class WalletTransactionsFragment extends Fragment {
         });
 
     }
-
-
 
     public static boolean isWithdrawToWallet(Transaction tx) {
 
@@ -840,8 +724,6 @@ public class WalletTransactionsFragment extends Fragment {
 
     }
 
-
-
     public static boolean isWalletIncome(Transaction tx) {
 
         if (tx == null) return false;
@@ -859,8 +741,6 @@ public class WalletTransactionsFragment extends Fragment {
         }
 
     }
-
-
 
     public static boolean isRetainedWalletTransaction(Transaction tx) {
 
@@ -892,15 +772,11 @@ public class WalletTransactionsFragment extends Fragment {
 
     }
 
-
-
     private boolean isIncomeTx(Transaction tx) {
 
         return isWalletIncome(tx);
 
     }
-
-
 
     private void setFilter(int filter) {
 
@@ -911,8 +787,6 @@ public class WalletTransactionsFragment extends Fragment {
         applyFilter();
 
     }
-
-
 
     private void updateFilterButtons() {
 
@@ -928,8 +802,6 @@ public class WalletTransactionsFragment extends Fragment {
 
         int accentBlueLight = ContextCompat.getColor(requireContext(), R.color.accent_blue_light);
 
-
-
         applySubChipState(btnWalletFilterAll, currentFilter == 0, primaryColor, accentBlueLight, surfaceColor, borderColor, textPrimary);
 
         applySubChipState(btnWalletFilterIncome, currentFilter == 1, primaryColor, accentBlueLight, surfaceColor, borderColor, textPrimary);
@@ -937,8 +809,6 @@ public class WalletTransactionsFragment extends Fragment {
         applySubChipState(btnWalletFilterExpense, currentFilter == 2, primaryColor, accentBlueLight, surfaceColor, borderColor, textPrimary);
 
     }
-
-
 
     private void applySubChipState(MaterialButton btn, boolean selected, int activeColor, int activeBgColor, int surfaceColor, int borderColor, int unselectedTextColor) {
 
@@ -953,8 +823,6 @@ public class WalletTransactionsFragment extends Fragment {
         btn.setTextColor(selected ? activeColor : unselectedTextColor);
 
     }
-
-
 
     private void setTimeFilter(int filter) {
 
@@ -980,8 +848,6 @@ public class WalletTransactionsFragment extends Fragment {
 
     }
 
-
-
     private void updateTimeFilterButtons() {
 
         if (!isAdded() || getContext() == null) return;
@@ -994,8 +860,6 @@ public class WalletTransactionsFragment extends Fragment {
 
         int textPrimary = ContextCompat.getColor(requireContext(), R.color.text_primary);
 
-
-
         applySegmentTabState(btnTimeAll, currentTimeFilter == 0, primaryColor, surfaceColor, transparentColor, textPrimary);
 
         applySegmentTabState(btnTimeThisWeek, currentTimeFilter == 2, primaryColor, surfaceColor, transparentColor, textPrimary);
@@ -1005,8 +869,6 @@ public class WalletTransactionsFragment extends Fragment {
         applySegmentTabState(btnTimeCustom, (currentTimeFilter == 1 || currentTimeFilter == 4), primaryColor, surfaceColor, transparentColor, textPrimary);
 
     }
-
-
 
     private void applySegmentTabState(MaterialButton btn, boolean selected, int primaryColor, int surfaceColor, int transparentColor, int textPrimary) {
 
@@ -1041,8 +903,6 @@ public class WalletTransactionsFragment extends Fragment {
         }
     }
 
-
-
     private int dpToPx(int dp) {
 
         float density = getResources().getDisplayMetrics().density;
@@ -1050,8 +910,6 @@ public class WalletTransactionsFragment extends Fragment {
         return Math.round((float) dp * density);
 
     }
-
-
 
     private void attachTouchEffect(View v) {
 
@@ -1083,8 +941,6 @@ public class WalletTransactionsFragment extends Fragment {
 
     }
 
-
-
     private boolean matchTimeFilter(Transaction tx) {
 
         if (currentTimeFilter == 0 || tx == null) return true;
@@ -1094,8 +950,6 @@ public class WalletTransactionsFragment extends Fragment {
         if (txDate == null) return true;
 
         long txMillis = txDate.getTime();
-
-
 
         if (currentTimeFilter == 1) {
 
@@ -1149,15 +1003,11 @@ public class WalletTransactionsFragment extends Fragment {
 
                 calStart.set(Calendar.HOUR_OF_DAY, 0); calStart.set(Calendar.MINUTE, 0); calStart.set(Calendar.SECOND, 0); calStart.set(Calendar.MILLISECOND, 0);
 
-
-
                 Calendar calEnd = Calendar.getInstance();
 
                 calEnd.setTimeInMillis(customEndMillis);
 
                 calEnd.set(Calendar.HOUR_OF_DAY, 23); calEnd.set(Calendar.MINUTE, 59); calEnd.set(Calendar.SECOND, 59); calEnd.set(Calendar.MILLISECOND, 999);
-
-
 
                 return txMillis >= calStart.getTimeInMillis() && txMillis <= calEnd.getTimeInMillis();
 
@@ -1168,8 +1018,6 @@ public class WalletTransactionsFragment extends Fragment {
         return true;
 
     }
-
-
 
     private void applyFilter() {
 
@@ -1195,8 +1043,6 @@ public class WalletTransactionsFragment extends Fragment {
 
             }
 
-
-
             if (matchesType && matchesTime && matchesSearch) {
 
                 displayedTransactions.add(tx);
@@ -1206,8 +1052,6 @@ public class WalletTransactionsFragment extends Fragment {
         }
 
         adapter.setTransactions(displayedTransactions);
-
-
 
         if (displayedTransactions.isEmpty()) {
 
@@ -1226,4 +1070,3 @@ public class WalletTransactionsFragment extends Fragment {
     }
 
 }
-
